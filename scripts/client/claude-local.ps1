@@ -16,8 +16,11 @@ foreach ($k in 'ANTHROPIC_MODEL','ANTHROPIC_SMALL_FAST_MODEL','ANTHROPIC_DEFAULT
 $env:CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = '1'
 $env:DISABLE_AUTOUPDATER = '1'
 $env:DISABLE_TELEMETRY = '1'
+# 예산 (docs/plan-v2.1-amendment-20261118.md 4절): 출력+reasoning = 창의 1/4 (32K → 8,192), 입력 = 나머지 3/4 (24,576).
+# STRATA 권장 4096 보다 크게 잡았다. reasoning 이 예산을 자주 다 쓰면 다시 조정하고 이유를 기록한다.
+$out = [int]([int]$ctx / 4)
 $env:CLAUDE_CODE_MAX_CONTEXT_TOKENS = $ctx
-$env:CLAUDE_CODE_MAX_OUTPUT_TOKENS = '4096'
+$env:CLAUDE_CODE_MAX_OUTPUT_TOKENS = "$out"
 $env:CLAUDE_CODE_SIMPLE = '1'               # 전체 프롬프트 15.6K 토큰 → 1.25K (32K 창에서 권장)
-Write-Host "Claude Code → STRATA $base (context $ctx)" -ForegroundColor Cyan
+Write-Host "Claude Code → STRATA $base (context $ctx, 입력 $([int]$ctx - $out), 출력+reasoning $out)" -ForegroundColor Cyan
 & claude @ClaudeArgs

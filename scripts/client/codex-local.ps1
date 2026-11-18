@@ -9,11 +9,15 @@ $base = if ($env:STRATA_BASE_URL) { $env:STRATA_BASE_URL } else { 'http://100.12
 $ctx  = if ($env:STRATA_CONTEXT) { $env:STRATA_CONTEXT } else { '32768' }   # 서버의 --context 와 같게
 $home2 = Join-Path $env:USERPROFILE '.codex-strata'
 New-Item -ItemType Directory -Force $home2 | Out-Null
-$compact = [int]([int]$ctx * 0.46)
+# 예산 (docs/plan-v2.1-amendment-20261118.md 4절): 출력+reasoning = 창의 1/4 (32K → 8,192),
+# 입력 예산 3/4 (24,576) 에 닿기 전에 요약: 약 61% (32K → 20,000).
+$out = [int]([int]$ctx / 4)
+$compact = [int]([math]::Round([int]$ctx * 0.61 / 1000) * 1000)
 $cfg = @"
 model = "strata"
 model_provider = "strata"
 model_context_window = $ctx
+model_max_output_tokens = $out
 model_auto_compact_token_limit = $compact
 model_reasoning_summary = "auto"
 approval_policy = "on-request"
@@ -30,5 +34,5 @@ stream_idle_timeout_ms = 600000
 [IO.File]::WriteAllText((Join-Path $home2 'config.toml'), $cfg, (New-Object Text.UTF8Encoding($false)))
 $env:CODEX_HOME = $home2
 if (-not $env:STRATA_API_KEY) { $env:STRATA_API_KEY = 'strata-local' }
-Write-Host "Codex → STRATA $base/v1 (context $ctx, CODEX_HOME $home2)" -ForegroundColor Cyan
+Write-Host "Codex → STRATA $base/v1 (context $ctx, 출력+reasoning $out, 요약 기준 $compact, CODEX_HOME $home2)" -ForegroundColor Cyan
 & codex @CodexArgs
