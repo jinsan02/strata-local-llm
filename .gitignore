@@ -1,0 +1,32 @@
+# ── 엔진 (STRATA 는 별도 git 체크아웃. 커밋 해시만 원장에 기록) ────────────
+engine/
+
+# ── 모델·팩 (Strata-data. 파일 sha256 만 원장에 기록) ──────────────────────
+data/
+*.gguf
+*.bin
+*.safetensors
+*.pack
+
+# ── 설치 파일 ──────────────────────────────────────────────────────────────
+downloads/
+
+# ── 최종 평가 50문항 (정답·채점기는 별도 보관. docs/RULES.md 2번) ─────────
+final_eval/
+
+# ── run 작업 디렉터리: config/env/요약은 커밋, 원시 로그·스트림은 제외 ────
+experiments/runs/**/raw/
+experiments/runs/**/*.log
+experiments/runs/**/*.jsonl
+
+# ── 빌드 · Python ─────────────────────────────────────────────────────────
+build/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ── 기타 ──────────────────────────────────────────────────────────────────
+.env
+Thumbs.db
+desktop.ini
