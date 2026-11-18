@@ -365,7 +365,7 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
             r["echo_chars"] += len(reasoning)
         msgs.append(m_out)
     fake_retry_left = 1
-    force_at = 24320 - 2048
+    force_at = getattr(a, 'force_at', 24320 - 2048)   # 워커: ctx - budget - 2048 (32K 에서 같은 값)
     # H4 (11-18 A/B 의 최다 실패 = 강제 마지막 턴 텍스트 편집 블록 불일치): final_turn=edit 이면 강제 턴에 도구를 다 빼지 않고
     # edit_file 만 남겨 최대 FORCE_EDIT_TURNS 번 더 고칠 수 있게 한다. 마지막 한 번은 도구 없이(텍스트 블록도 계속 받음).
     final_turn = getattr(a, "final_turn", "none")
