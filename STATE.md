@@ -5,7 +5,7 @@
 ## 지금
 
 - 마지막 갱신: 2026-11-18
-- 단계: **착수 게이트 4 (M0 로딩 확인)**. M0 다운로드·해시 확인 완료, 측정 없음
+- 단계: **X2 준비** (X0 · X1 · XB 완료). 32K 설정에서 짧은 코딩 과제는 출력 예산 8K 로 12/12 통과, 긴 입력은 아직
 - 목표: **32K 운영** (입력 24,576 · 출력+reasoning 8,192), 8K 기준선 · 16K 중간 · 64K 선택 — [`docs/plan-v2.1-amendment-20261118.md`](docs/plan-v2.1-amendment-20261118.md)
 - 사용 형태: 본체 STRATA 서버를 노트북 코딩 클라이언트(Claude Code · Codex)가 Tailscale 로 부른다. 코드 읽기·수정·테스트는 노트북에서
 - 대상 PC: `desktop-5070` (Tailscale 100.121.174.83), 저장소 `C:\strata-lab`
@@ -23,7 +23,7 @@
 | 컨텍스트 지원 확인 | X0 | 8K→16K→32K | 완료 | 세 단계 모두 로딩·응답·OOM 없음. VRAM expert 77→73→63/256, TG 약 99→100→92 tok/s (입력 526) | 원장 `x0_*` |
 | 기준선 | B0 | 8K | 진행 중 | 처리량 부분 완료(X1 의 8K 행). 품질·최종 답변은 XB 이후. 태그 `m0-e0-freeze` 는 품질까지 본 뒤 | 원장 `x1_*ctx8k*` |
 | 설정 효과 (입력 고정) | X1 | 8K·16K·32K | 완료 | **"8K·16K·32K 설정에서 0.5K·2K·4K 입력 성능 측정"** — 처리량 시험, 32K 실사용 검증 아님. 32K 설정은 8K 대비 TG 약 10~15% 낮음, 최종 답변 0건 | `reports/x1-summary.md` |
-| 출력·reasoning 예산 단계 | XB | 32K | 진행 중 | 코딩 과제 4개 × 예산 2K·4K·8K: 최종 답변 도달·사용 토큰·finish_reason·테스트 통과 | 원장 `xb_*` |
+| 출력·reasoning 예산 단계 | XB | 32K | 완료 (탐색) | 짧은 입력(149~224) 과제 4개 × 2K·4K·8K × 3회: 전부 통과 2K 8/12 · 4K 8/12 · **8K 12/12**. 서버가 max_tokens 의 1/4 을 답변 몫으로 남기고 thinking 을 닫는다(결정 기록) | `reports/xb2-summary.md`, 원장 `xb2_*` |
 | 입력 길이 효과 | X2 | 32K | 미착수 | 2K·8K·16K·24K 코딩 입력 | 원장 |
 | 긴 문맥 코딩 품질 | X3 | 32K | 미착수 | 지시 준수·코드 찾기·수정·테스트 통과·도구 호출 | 원장 |
 | 노트북 경유 | X4 | 32K | 미착수 | 체감 지연(별도 행), tool calling·템플릿 호환 | 원장 `origin=laptop` |
@@ -43,10 +43,10 @@
 5. ~~M0 다운로드~~ 완료 (11-18): `Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf` 22,853,663,008 B, sha256 일치, HF 리비전 `5bc3e23`
 6. ~~X0~~ 완료 (11-18): setup 빌드 → `scripts/serve-ctx.ps1` 로 8K·16K·32K 기동, `scripts/bench/run_bench.py` 로 기록
 7. **B0 + X1** (같은 실행으로 겸한다): 고정 문항 입력 512·2,048·4,096 × 출력 128·512 × 컨텍스트 8K·16K·32K, 반복 3회, 같은 샘플링. thinking 이 출력 예산을 다 쓰면 첫 답변 지연이 NA 가 되므로 출력 512 행으로 첫 답변 지연을 본다
-8. **XB 2차 진행 중 (11-18 11:09~)**: `matrix-xb.ps1 -Repeat 3 -Prefix xb2`, 로그 `engine\matrix-xb2.log`. 끝나면 `summarize.py --prefix xb2_` 로 집계하고 가장 작은 충분한 출력 예산을 정한다 (8K 를 미리 결론 내지 않는다)
+8. ~~XB 2차~~ 완료 (11-18 11:09~11:32): 36행. 출력 예산 8K(= thinking 상한 6,144 + 답변 2,048)만 12/12 통과 → X2 는 `--budgets 8192`. 4K 의 parse_duration 실패(10~13/16)는 thinking 이 3,072 에서 강제로 닫힌 탓으로 본다(Q12 에서 확인)
 9. **X2**: `run_coding.py --ctx 32768 --input-tokens <N> [--position middle] --budgets <XB 결과> --prefix x2` — 저장소 파일(`engine/strata_cli`, `strata_control`)을 붙여 입력 약 2K·8K·16K·한도 근처(32,768 − 예산 − 256)로, 같은 과제·테스트. 러너가 입력+예산 > ctx 를 거부
 10. 그다음 X3(긴 문맥 품질, Q8) → X4(노트북 경유, `origin=laptop`) → B1(Q11 greedy·MTP 포함)
-11. push 대기: 7d08379 이후 커밋들은 본체에만 있다. 사용자 승인 후 `git push`
+11. push: 사용자가 커밋·push 를 맡김(11-18). 단계 커밋 묶음마다 `git push`
 
 ## 사람에게 요청한 것
 
@@ -61,6 +61,7 @@
 
 | 날짜 | 결정 | 근거 |
 | --- | --- | --- |
+| 11-18 | **XB 결론 (탐색)**: 32K 운영의 출력+reasoning 예산은 **8,192** 로 둔다. 2K·4K 는 각각 4/12 실패. 단 STRATA 서버는 thinking 요청에 예산이 없으면 `max_tokens ≥ 1024` 일 때 thinking 을 `max_tokens − max(512, max_tokens/4)` 에서 닫는다(`answer_room`, `serve/server.py:6235`). 그래서 XB 는 사실상 **thinking 상한 시험**이다(2K→1,536 · 4K→3,072 · 8K→6,144). 8K 에서 실제 사용은 2,216~6,512 토큰. 클라이언트의 max_tokens 가 곧 thinking 상한이 된다 | `reports/xb2-summary.md`, 엔진 소스 |
 | 11-18 | **MTP 진단 (Q10 종결)**: 활성화·초안 블록 로딩은 됨. v0.2.15 qwen36 경로는 `spec = mtp_d>0 && !smp.needs_logits() && !adm` (`q36_engine.cu:3730`) — logits 가 필요 없는 greedy 단독 요청만 초안을 쓴다. 순수 greedy(penalty 0)에서 158/198 수락(80%), TG 154~162 tok/s. 권장 샘플링(temperature 1.0 + presence 1.5)은 초안 시도 없음, TG 83~108. 서버 `/metrics` 의 drafts 는 계측 누락(엔진이 158/198 을 보고해도 0/0) → 러너는 엔진 로그에서 읽고, 시도 0 은 '초안 시도 미기록'(NA) | 엔진 로그 · 소스 · 프로브 6건 |
 | 11-18 | 원장 이행: `max_tokens` `finish_reason` `answer_reached` `tests_passed` `tt_reasoning_ms` `experts_vram` `drafts_offered` `drafts_accepted` 추가. 기존 63행은 열 이동만, 새 열 NA | 사용자 지시 1·2·3·5 |
 | 11-18 | 코딩 실사용 성능은 같은 프롬프트에서 최종 답변 + 테스트 통과가 확인된 행만. X1 은 처리량 시험으로만 부른다. 입력+예산 ≤ ctx 를 러너가 강제 | 사용자 지시 4·6 |
@@ -94,6 +95,7 @@
 | Q11 | MTP 를 쓰려면 greedy 가 필요한데, thinking 모델은 greedy 에서 반복 위험이 있다. 운영 샘플링을 greedy 로 바꿀지, `STRATA_SPEC_PROB` 가 qwen36 경로에서 통하는지 | B1 에서 같은 코딩 과제로 greedy vs 권장 샘플링 품질·속도 비교 | B1 | Q10 진단 |
 | Q8 | X3 코딩 품질 탐색 세트의 출처 (긴 문맥 코드 수정·테스트) | 공개 저장소 일부로 합성한 과제 + 고정 단위 테스트, 최종 50문항과 분리 | X3 | 변경안 6절 |
 | Q4 | 맞춤 양자화 원본(BF16 약 70GB) 확보·변환 방식 | 샤드 스트리밍 변환 가능성 먼저 소형 검사 | Q1 단계 | 기획서 6.3 |
+| Q12 | `answer_room` 대신 요청별 `reasoning_budget_tokens` 를 명시할지, 끌지(`"answer_room": false`) — 4K 에서 thinking 을 닫는 방식이 품질을 낮추는지 | B1 에서 같은 과제로 4K+answer_room vs 4K+명시 예산 vs 8K 비교 | B1, 클라이언트 설정 | XB 2차 |
 | Q5 | API 사용량·비용 예산 상한 | 착수 시 사람이 정함 | 탐색 예산 | 기획서 5.2, 11절 |
 
 ## 에이전트 사용
@@ -104,6 +106,7 @@
 
 ## 최근 변경
 
+- 2026-11-18 · Claude Code · XB 2차 완료(32K, 과제 4개 × 2K·4K·8K × 3회, 36행): 8K 만 12/12, 2K·4K 각 8/12. 서버 `answer_room` 이 max_tokens 의 1/4 을 답변 몫으로 남기고 thinking 을 닫는 것을 확인(Q12). 채점기가 문법 오류 답을 0/1 로 세던 것 고침. 커밋 16개 push.
 - 2026-11-18 · Claude Code · X1 완료(54행, 처리량 시험으로 명명), MTP 진단(greedy 전용 경로, /metrics 계측 누락), 원장 열 8개 이행, 러너에 reasoning/답변 지연 분리·예산 가드·expert 상태·엔진 로그 drafts. 탐색 코딩 과제 4개(참고 해답으로 테스트 33개 검증) + XB 러너. XB 진행 중.
 - 2026-11-18 · Claude Code · X0 완료: setup 빌드(E0 확정), 8K·16K·32K 기동·짧은 요청 각 3회 기록(원장 9행). 32K 에서 VRAM expert 63/256, TG 약 8% 하락. RAM 여유 약 0.7GB. 측정 러너·서버 전환 스크립트 추가.
 - 2026-11-18 · Claude Code · 계획 v2.1 변경: 32K 운영 목표, X0~X4 실험 추가, RULES 7 교체, 원장 열 8개 추가(원장은 비어 있어 이행 대상 없음), 클라이언트 예산 8,192/20,000. M0 다운로드 완료(12.4분, sha256 일치). 그동안 측정값은 없어 다시 할 실험 없음.
