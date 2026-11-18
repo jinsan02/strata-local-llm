@@ -127,7 +127,12 @@ def main() -> int:
     ap.add_argument("--position", choices=["end", "middle"], default="end")
     ap.add_argument("--chars-per-token", type=float, default=3.0)
     ap.add_argument("--workload", default=None)
+    ap.add_argument("--reasoning-budget", type=int, default=0,
+                    help="B1: 요청의 reasoning_budget_tokens (0 이면 보내지 않음 = 서버 answer_room 규칙)")
+    ap.add_argument("--settings-id", default="S0", help="원장 settings_id, run_id 에는 소문자로")
     a = ap.parse_args()
+    if a.reasoning_budget > 0:
+        rb.EXTRA_BODY["reasoning_budget_tokens"] = a.reasoning_budget
 
     api_key = os.environ.get("STRATA_API_KEY", "strata-local")
     engine_dir = Path(r"C:\strata-lab\engine")
@@ -162,10 +167,14 @@ def main() -> int:
                                  ensure_ascii=False))
                 continue
             inp = f"_in{round(a.input_tokens / 1024)}k{'m' if a.position == 'middle' else ''}" if a.input_tokens else ""
-            run_id = f"{a.prefix}_m0_e0_s0_ctx{k}k{inp}_{task}_b{budget // 1024}k"
+            run_id = f"{a.prefix}_m0_e0_{a.settings_id.lower()}_ctx{k}k{inp}_{task}_b{budget // 1024}k"
+            # 서버가 실제로 쓰는 thinking 상한: 명시 예산(max_tokens - max(512, max_tokens/4) 를 넘으면 그 값으로 깎임) 또는 answer_room
+            reserve = min(max(512, budget // 4), budget // 2)
+            cap = min(a.reasoning_budget, budget - reserve) if a.reasoning_budget > 0 else (budget - reserve if budget >= 1024 else None)
+            cap_src = "reasoning_budget_tokens" if a.reasoning_budget > 0 else "answer_room"
             cfg = {"task": task, "prompt_sha256": rb.sha256_bytes(prompt.encode("utf-8")), "tests_sha256": tests_sha,
                    "budget": budget, "ctx": a.ctx, "sampling": rb.SAMPLING, "server_config": server_cfg,
-                   "prompt_tokens_exact": exact, "input_tokens_target": a.input_tokens, "position": a.position,
+                   "prompt_tokens_exact": exact, "reasoning_budget_tokens": a.reasoning_budget or None, "thinking_cap": cap, "thinking_cap_source": cap_src, "input_tokens_target": a.input_tokens, "position": a.position,
                    "pad_sources": [str(p) for p in PAD_SOURCES] if a.input_tokens else []}
             config_sha = rb.sha256_bytes(rb.canon(cfg))
             run_dir = rb.ROOT / "experiments" / "runs" / run_id
@@ -176,7 +185,7 @@ def main() -> int:
                 rid = f"{run_id}_r{i}"
                 base = {"run_id": rid, "config_id": a.config_id, "phase": "eval", "origin": "local",
                         "workload": a.workload or (f"code-files-{task}" if a.input_tokens else f"code-task-{task}"), "model_id": "M0", "model_sha256": "55983c5a75a1ab969824077b3bb3de4146e82a9234072b48ad4e8f92ad3fe9f1",
-                        "engine_commit": env["engine_commit"], "settings_id": "S0", "ctx": a.ctx, "parallel": 1,
+                        "engine_commit": env["engine_commit"], "settings_id": a.settings_id, "ctx": a.ctx, "parallel": 1,
                         "kv": "fp32", "mtp": "on", "thinking": "on", "cache_state": "warm" if i > 1 else "cold",
                         "git_commit": commit, "git_dirty": dirty, "config_sha256": config_sha, "env_sha256": env_sha}
                 row, res = rb.measure(a.base_url, api_key, prompt, budget, a.timeout, server_cfg, base)
@@ -184,7 +193,7 @@ def main() -> int:
                     code = extract_code(res.get("answer", "")) if res.get("answer") else None
                     passed, summary = run_tests(task, code)
                     row["tests_passed"] = passed
-                    row["note"] = f"{row['note']}; tests: {summary}"
+                    row["note"] = f"{row['note']}; thinking_cap {cap} ({cap_src}); tests: {summary}"
                     (run_dir / f"answer_r{i}.md").write_text(res.get("answer", ""), encoding="utf-8")
                     (run_dir / f"reasoning_chars_r{i}.txt").write_text(str(len(res.get("reasoning", ""))), encoding="utf-8")
                 rb.write_row(row)

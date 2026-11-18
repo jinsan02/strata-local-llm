@@ -34,6 +34,8 @@ SOURCE_TEXT = ROOT / "docs" / "plan-v2.0.md"          # 고정 문항의 재료 
 # 서버가 qwen35moe(Qwen3.6) thinking 에 쓰는 권장 샘플링과 같은 값을 명시해 고정한다
 # (serve/server.py 의 qwen35moe thinking 세트, 변경안 5절). 2026-11-18 X0 8K 첫 3행은 0.6/0.95/20 이었다.
 SAMPLING = {"temperature": 1.0, "top_p": 0.95, "top_k": 20, "presence_penalty": 1.5, "seed": 42}
+# 요청 본문에 더할 서버 옵션 (예: B1 의 reasoning_budget_tokens). 러너가 채운다.
+EXTRA_BODY: dict = {}
 
 
 def sha256_bytes(b: bytes) -> str:
@@ -109,7 +111,7 @@ def stream_chat(base_url: str, api_key: str, prompt, max_tokens: int, timeout: f
     """prompt: 문자열(사용자 메시지 하나) 또는 messages 리스트."""
     messages = [{"role": "user", "content": prompt}] if isinstance(prompt, str) else prompt
     body = {"model": "strata", "stream": True, "stream_options": {"include_usage": True},
-            "max_tokens": max_tokens, "messages": messages, **SAMPLING}
+            "max_tokens": max_tokens, "messages": messages, **SAMPLING, **EXTRA_BODY}
     req = urllib.request.Request(base_url.rstrip("/") + "/v1/chat/completions", data=canon(body), method="POST",
                                  headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"})
     t0 = time.perf_counter()
