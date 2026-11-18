@@ -1,0 +1,1 @@
+Blueprint 클래스의 `__init__` 메서드에서 `name` 매개변수가 빈 값인 경우 `ValueError`를 발생하도록 수정했습니다. (src/flask/blueprints.py)

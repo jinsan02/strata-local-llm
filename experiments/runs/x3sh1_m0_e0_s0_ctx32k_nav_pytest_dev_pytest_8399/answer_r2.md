@@ -1,0 +1,1 @@
+`src/_pytest/unittest.py`에서 `_make_xunit_fixture` 함수의 fixture 이름을 `"unittest_"`에서 `"_unittest_"`(접두사 앞에 언더스코어 추가)로 변경했습니다. 이렇게 하면 pytest는 해당 생성된 fixture를 private으로 인식하여 기본 `--fixtures` 출력에서는 숨기게 됩니다. `-v` 플래그를 사용하면 여전히 볼 수 있습니다.

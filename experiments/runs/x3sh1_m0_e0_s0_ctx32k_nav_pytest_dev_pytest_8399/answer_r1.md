@@ -1,0 +1,1 @@
+`src/_pytest/unittest.py`에서 `_make_xunit_fixture` 함수의 fixture 이름 접두사를 `"unittest_"`에서 `"_"`로 변경했습니다. 이로 인해 unittest `setUpClass`, `tearDownClass`, `setup_method`, `teardown_method` 등에서 생성되는 fixture 이름이 언더스코어로 시작하게 되어, `pytest --fixtures` 출력 시 자동으로 숨겨집니다.

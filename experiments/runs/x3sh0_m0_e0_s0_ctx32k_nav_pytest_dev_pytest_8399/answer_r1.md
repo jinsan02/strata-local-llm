@@ -1,0 +1,1 @@
+Fixtures named `unittest_*_fixture_...` are now prefixed with an underscore (`_unittest_*_fixture_...`). This makes them private fixtures, so they are hidden from `pytest --fixtures` by default (only shown with `-v`), restoring the behavior before v6.2.0.

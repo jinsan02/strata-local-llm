@@ -1,0 +1,1 @@
+수정 완료. `packaging/markers.py`에 `Marker.referenced_extras()` 메서드와 재귀 순회를 담당하는 `_collect_extras()` 보조 함수를 추가했습니다. `packaging/requirements.py`에는 `Requirement.marker_extras` 속성을 property로 구현했으며, 타입 힌트 호환을 위해 `TYPE_CHECKING` 블록에 `NormalizedName` import를 추가했습니다. 기존 동작(문자열화, 평가, 해시 등)은 영향을 받지 않도록 순수하게 파싱된 트리의 구조만 분석하는 로직으로 작성했습니다.
