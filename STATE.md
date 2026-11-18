@@ -20,7 +20,7 @@
 | --- | --- | --- | --- | --- | --- |
 | 호환성·자원 조사 | — | — | 완료 | 엔진·모델 지원, 메모리·디스크·CPU·PCIe 정보 | `docs/prep-plan-20261118.md`, `env/hw-20261118.md` |
 | 환경 준비 | — | — | 완료 | conda · 툴체인 · E0 빌드 · `--plan` · M0 다운로드(해시 일치) | `env/strata-plan-20261118.md`, `env/download-m0.log` |
-| 컨텍스트 지원 확인 | X0 | 8K→16K→32K | 진행 중 | 단계마다 로딩·짧은 요청·OOM 없음, 실패는 원장 `fail` | 변경안 6절 |
+| 컨텍스트 지원 확인 | X0 | 8K→16K→32K | 완료 | 세 단계 모두 로딩·응답·OOM 없음. VRAM expert 77→73→63/256, TG 약 99→100→92 tok/s (입력 526) | 원장 `x0_*` |
 | 기준선 | B0 | 8K | 미착수 | M0 · E0 고정(태그 `m0-e0-freeze`), 성능·품질·자원 로그 | 원장 |
 | 설정 효과 (입력 고정) | X1 | 8K·16K·32K | 미착수 | 같은 고정 문항으로 메모리 할당·PP·TG·지연 비교 | 원장 |
 | 입력 길이 효과 | X2 | 32K | 미착수 | 2K·8K·16K·24K 코딩 입력 | 원장 |
@@ -40,9 +40,9 @@
 3. ~~`--plan` 결과 저장~~ 완료 (11-18): qwen36 계획기는 다운로드 크기를 모름(실제 22.9GB), coder IQ1_M 은 64.5GB
 4. ~~소스 빌드 연결 경로 확인~~ (11-18): `strata launch`(터미널)는 서명된 설치 엔진만 쓴다. 소스 경로는 `setup.py --build`(엔진을 `engine\build` 에 빌드하고 `strata-<model>.json` · `run-<model>.bat` 을 쓴다) → `serve/server.py`
 5. ~~M0 다운로드~~ 완료 (11-18): `Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf` 22,853,663,008 B, sha256 일치, HF 리비전 `5bc3e23`
-6. **X0**: conda Python 으로 `setup.py --family qwen36 --model UD-Q4_K_XL --gguf-dir <M0> --context 8192 --parallel 1 --vision no --build --no-start` → 본체 로컬로 로딩·짧은 요청 → 16K → 32K
-7. 측정 러너(`scripts/bench/`) 작성: 스트리밍으로 첫 스트림·첫 답변 지연, 엔진 보고 토큰·속도, Peak VRAM·RAM, 디스크 읽기를 원장에 쓴다
-8. B0(8K) → X1 → X2 → X3 → X4 순서
+6. ~~X0~~ 완료 (11-18): setup 빌드 → `scripts/serve-ctx.ps1` 로 8K·16K·32K 기동, `scripts/bench/run_bench.py` 로 기록
+7. **B0 + X1** (같은 실행으로 겸한다): 고정 문항 입력 512·2,048·4,096 × 출력 128·512 × 컨텍스트 8K·16K·32K, 반복 3회, 같은 샘플링. thinking 이 출력 예산을 다 쓰면 첫 답변 지연이 NA 가 되므로 출력 512 행으로 첫 답변 지연을 본다
+8. X2 → X3 → X4 순서. X3 은 탐색 세트 출처(Q8) 결정 필요
 
 ## 사람에게 요청한 것
 
@@ -57,6 +57,9 @@
 
 | 날짜 | 결정 | 근거 |
 | --- | --- | --- |
+| 11-18 | **E0 확정 (Q6 종결)**: `setup.py --build` 가 같은 커밋 `c775728` 로 만든 `engine\engine\strata.exe` (sha256 `dac0229467a62eb6d18b8f54ecfc21b15421978201a8bed1388cc37af8cfc777`, llama.cpp `3cf0325` 포함). 직접 빌드 `build-e0`(`907008da…`)는 참고용. 서버는 `serve/server.py` + `strata-qwen36-ctx<N>.json`(setup 설정에서 `--max-context` 만 바꾼 사본) | setup 이 쓰는 빌드 경로가 운영 경로 |
+| 11-18 | 측정 샘플링은 서버의 qwen35moe thinking 권장값(temperature 1.0, top_p 0.95, top_k 20, presence_penalty 1.5, seed 42)으로 고정. X0 8K 3행만 0.6/0.95/20 이라 비교에 쓰지 않는다 | `serve/server.py` 권장 세트 |
+| 11-18 | SSD 의존도는 서버 `/metrics` 의 요청별 `file_mb`, MTP 는 `drafts_accepted/offered` 를 원장 `note` 에 남긴다. chat API 는 reasoning 토큰 수를 주지 않아 `reasoning_tokens=NA` (Responses API 로 X3·X4 에서 잰다) | `/metrics` requests 필드 |
 | 11-18 | **컨텍스트 목표 변경 (Q7 종결)**: 8K 기준선 · 16K 중간 · **32K 운영 목표**(입력 24,576 · 출력+reasoning 8,192, 초기안) · 64K 는 32K 통과 뒤 선택. 설정 효과(X1)와 입력 길이 효과(X2)를 나눠 잰다. 32K 부적합 시 원인과 16K 운영안을 낸다. M0 는 학습 범위 262,144 라 RoPE 확장 불필요 | 사용자 지시, `docs/plan-v2.1-amendment-20261118.md` |
 | 11-18 | 클라이언트 출력+reasoning 예산을 STRATA 권장 4,096 대신 창의 1/4(32K → 8,192)로, Codex 요약 기준은 20,000 으로 둔다 | 변경안 4절 예산. reasoning 이 예산을 자주 다 쓰면 재조정 |
 | 11-18 | 측정은 본체 로컬 API(`origin=local`)가 먼저, 노트북 경유(`origin=laptop`)는 별도 행. 원장에 origin · workload · kv · mtp · thinking · cache_state · reasoning_tokens · ssd_read_mb 열 추가 | 변경안 6·7절, RULES 7 |
@@ -80,7 +83,8 @@
 | Q1 | 주 실행자 Codex/Claude Code 중 하나로 고정할지, 비교 실험을 할지 | Claude Code 고정, 비교는 B1 이후 별도 브랜치 | 5절 예산 | 기획서 5절 |
 | Q2 | 탐색·최종 평가 데이터 출처(공개·합성) | 공개 벤치 일부 + 합성, 출처·버전 기록 | B0 품질 측정 | 기획서 8절 |
 | Q3 | qwen36 경로에서 `--kv int8\|q4_0\|k8v4\|fp16` 이 실제로 적용되는지 (launcher 에는 옵션이 있고 기본 int8, QWEN36.md 는 fp32 라고 적음) | M0 로딩 뒤 KV 메모리로 확인, 적용되면 B1 후보 | B1 탐색 목록 | `env/strata-plan-20261118.md` |
-| Q6 | `setup.py --build` 가 만드는 엔진(`engine\build`)을 E0 로 볼지, 먼저 만든 `build-e0` 와 같은지 | 같은 커밋·같은 플래그면 산출물 해시와 CMake 캐시를 비교해 기록하고, setup 빌드를 운영 경로로 쓴다 | X0 | RULES 1번 |
+| Q9 | RAM 여유가 약 0.7GB 뿐이다 (엔진 private 35.6GB, 페이지 파일 자동 증가 최대 8GB). 32K 긴 입력에서 페이징이 늘면 `--resident-budget-gib` · `--low-ram` 조정이 필요할 수 있다 | X1·X2 에서 페이지 파일·`file_mb`·지연을 같이 보고 판단 | X2, B1 | X0 관측 |
+| Q10 | MTP 가 짧은 요청에서 초안을 하나도 내지 않는다 (`draft_n 0`) | 긴 출력(512)에서 `drafts_*` 확인, 계속 0 이면 엔진 로그 확인 | B1 MTP 실험 | X0 관측 |
 | Q8 | X3 코딩 품질 탐색 세트의 출처 (긴 문맥 코드 수정·테스트) | 공개 저장소 일부로 합성한 과제 + 고정 단위 테스트, 최종 50문항과 분리 | X3 | 변경안 6절 |
 | Q4 | 맞춤 양자화 원본(BF16 약 70GB) 확보·변환 방식 | 샤드 스트리밍 변환 가능성 먼저 소형 검사 | Q1 단계 | 기획서 6.3 |
 | Q5 | API 사용량·비용 예산 상한 | 착수 시 사람이 정함 | 탐색 예산 | 기획서 5.2, 11절 |
@@ -93,6 +97,7 @@
 
 ## 최근 변경
 
+- 2026-11-18 · Claude Code · X0 완료: setup 빌드(E0 확정), 8K·16K·32K 기동·짧은 요청 각 3회 기록(원장 9행). 32K 에서 VRAM expert 63/256, TG 약 8% 하락. RAM 여유 약 0.7GB. 측정 러너·서버 전환 스크립트 추가.
 - 2026-11-18 · Claude Code · 계획 v2.1 변경: 32K 운영 목표, X0~X4 실험 추가, RULES 7 교체, 원장 열 8개 추가(원장은 비어 있어 이행 대상 없음), 클라이언트 예산 8,192/20,000. M0 다운로드 완료(12.4분, sha256 일치). 그동안 측정값은 없어 다시 할 실험 없음.
 - 2026-11-18 · Claude Code · 노트북 → Tailscale → 본체 호출 준비: `scripts/client/`(연결 확인, Claude Code·Codex 실행 스크립트), 방화벽 명령 문서화. 노트북에서 `strata-remote.ps1` 은 TCP 8080 실패까지 확인(서버 없음, 예상대로). 실제 호출은 M0 다운로드·서버 기동 뒤.
 - 2026-11-18 · Claude Code · STRATA v0.2.15 clone·고정, E0 소스 빌드 성공(2.8분), 엔진 Python 런타임을 conda 환경에 설치, `--plan` 2건 기록. 모델 다운로드 없음. 엔진 실행(GPU 인식) 검증은 모델이 없어 미실행.
