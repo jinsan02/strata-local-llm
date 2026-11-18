@@ -30,3 +30,6 @@ __pycache__/
 .env
 Thumbs.db
 desktop.ini
+
+# 실험 작업 복사본 (packaging · SWE-bench clone, conda 산출물)
+work/
