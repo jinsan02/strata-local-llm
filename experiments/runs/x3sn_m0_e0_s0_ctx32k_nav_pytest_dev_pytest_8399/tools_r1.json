@@ -1,0 +1,191 @@
+[
+ {
+  "step": 0,
+  "tool": "grep",
+  "args": {
+   "path_glob": "src/_pytest/unittest.py",
+   "pattern": "setUpClass"
+  },
+  "out_chars": 179
+ },
+ {
+  "step": 0,
+  "tool": "grep",
+  "args": {
+   "path_glob": "src/_pytest/unittest.py",
+   "pattern": "fixture.*name"
+  },
+  "out_chars": 94
+ },
+ {
+  "step": 1,
+  "tool": "read_file",
+  "args": {
+   "end_line": 160,
+   "path": "src/_pytest/unittest.py",
+   "start_line": 90
+  },
+  "out_chars": 2917
+ },
+ {
+  "step": 2,
+  "tool": "edit_file",
+  "args": {
+   "path": "src/_pytest/unittest.py",
+   "ok": true,
+   "old_chars": 113,
+   "new_chars": 112
+  },
+  "out_chars": 39
+ },
+ {
+  "step": 3,
+  "tool": "edit_file",
+  "args": {
+   "path": "src/_pytest/unittest.py",
+   "ok": false,
+   "old_chars": 113,
+   "new_chars": 114
+  },
+  "out_chars": 113
+ },
+ {
+  "step": 4,
+  "tool": "read_file",
+  "args": {
+   "end_line": 150,
+   "path": "src/_pytest/unittest.py",
+   "start_line": 143
+  },
+  "out_chars": 361
+ },
+ {
+  "step": 5,
+  "tool": "grep",
+  "args": {
+   "path_glob": "src/_pytest/unittest.py",
+   "pattern": "pytest_.*fixture_"
+  },
+  "out_chars": 93
+ },
+ {
+  "step": 6,
+  "tool": "read_file",
+  "args": {
+   "end_line": 180,
+   "path": "src/_pytest/unittest.py",
+   "start_line": 97
+  },
+  "out_chars": 3108
+ },
+ {
+  "step": 7,
+  "tool": "grep",
+  "args": {
+   "path_glob": "**/*.py",
+   "pattern": "unittest_.*fixture_"
+  },
+  "out_chars": 7
+ },
+ {
+  "step": 8,
+  "tool": "grep",
+  "args": {
+   "path_glob": "src/_pytest/fixture.py",
+   "pattern": "hidden|underscore|^_\""
+  },
+  "out_chars": 7
+ },
+ {
+  "step": 9,
+  "tool": "grep",
+  "args": {
+   "path_glob": "src/_pytest/fixture.py",
+   "pattern": "show|print.*fixture"
+  },
+  "out_chars": 7
+ },
+ {
+  "step": 10,
+  "tool": "grep",
+  "args": {
+   "path_glob": "src/_pytest/*.py",
+   "pattern": "startswith.*_.*fixture|hidden.*fixture"
+  },
+  "out_chars": 597
+ },
+ {
+  "step": 11,
+  "tool": "grep",
+  "args": {
+   "path_glob": "**/*.py",
+   "pattern": "_setUpClass_fixture|_setUp_method_fixture"
+  },
+  "out_chars": 7
+ },
+ {
+  "step": 12,
+  "tool": "read_file",
+  "args": {
+   "end_line": 150,
+   "path": "src/_pytest/unittest.py",
+   "start_line": 143
+  },
+  "out_chars": 361
+ },
+ {
+  "step": 13,
+  "tool": "grep",
+  "args": {
+   "path_glob": "src/_pytest/unittest.py",
+   "pattern": "name=f\\\""
+  },
+  "out_chars": 93
+ },
+ {
+  "step": 14,
+  "tool": "grep",
+  "args": {
+   "path_glob": "src/_pytest/unittest.py",
+   "pattern": "f\\\".*fixture_"
+  },
+  "out_chars": 93
+ },
+ {
+  "step": 15,
+  "tool": "grep",
+  "args": {
+   "path_glob": "**/*.py",
+   "pattern": "_pytest_.*fixture_"
+  },
+  "out_chars": 209
+ },
+ {
+  "step": 16,
+  "tool": "grep",
+  "args": {
+   "path_glob": "src/_pytest/*.py",
+   "pattern": "def show|_fixtures.*hidden|fixture_name.*startswith"
+  },
+  "out_chars": 971
+ },
+ {
+  "step": 17,
+  "tool": "read_file",
+  "args": {
+   "end_line": 1500,
+   "path": "src/_pytest/python.py",
+   "start_line": 1400
+  },
+  "out_chars": 4235
+ },
+ {
+  "step": 18,
+  "tool": "grep",
+  "args": {
+   "path_glob": "**/*.py",
+   "pattern": "_pytest_.*fixture_|unittest_.*fixture_"
+  },
+  "out_chars": 209
+ }
+]
