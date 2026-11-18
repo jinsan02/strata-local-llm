@@ -1,0 +1,65 @@
+diff --git a/src/packaging/markers.py b/src/packaging/markers.py
+index b230c76..76d7a07 100644
+--- a/src/packaging/markers.py
++++ b/src/packaging/markers.py
+@@ -25,7 +25,7 @@ from ._parser import MarkerAtom, MarkerList, MarkerLogical, Op, Value, Variable
+ from ._parser import parse_marker as _parse_marker
+ from ._tokenizer import ParserSyntaxError
+ from .specifiers import InvalidSpecifier, Specifier
+-from .utils import canonicalize_name
++from .utils import NormalizedName, canonicalize_name
+ 
+ if TYPE_CHECKING:
+     from collections.abc import Mapping
+@@ -647,6 +647,24 @@ class Marker:
+             return NotImplemented
+         return self._from_markers(_join_markers(self._markers, "or", other._markers))
+ 
++    def referenced_extras(self) -> frozenset[NormalizedName]:
++        """Return the normalized extra names this marker compares against."""
++        found: set[str] = set()
++
++        def walk(items: object) -> None:
++            for item in items:  # type: ignore[attr-defined]
++                if isinstance(item, list):
++                    walk(item)
++                elif isinstance(item, tuple):
++                    lhs, _, rhs = item
++                    if isinstance(lhs, Variable) and lhs.value == "extra" and isinstance(rhs, Value):
++                        found.add(rhs.value)
++                    elif isinstance(rhs, Variable) and rhs.value in ("extra", "extras") and isinstance(lhs, Value):
++                        found.add(lhs.value)
++
++        walk(self._markers)
++        return frozenset(canonicalize_name(name) for name in found)
++
+     def evaluate(
+         self,
+         environment: Mapping[str, str | AbstractSet[str]] | None = None,
+diff --git a/src/packaging/requirements.py b/src/packaging/requirements.py
+index c5ace28..121459a 100644
+--- a/src/packaging/requirements.py
++++ b/src/packaging/requirements.py
+@@ -21,7 +21,7 @@ from ._parser import parse_requirement as _parse_requirement
+ from ._tokenizer import ParserSyntaxError
+ from .markers import Marker, _normalize_extra_values
+ from .specifiers import InvalidSpecifier, SpecifierSet
+-from .utils import canonicalize_name
++from .utils import NormalizedName, canonicalize_name
+ 
+ if TYPE_CHECKING:
+     from collections.abc import Iterator
+@@ -274,6 +274,13 @@ class Requirement:
+         self.specifier = tmp.specifier
+         self.marker = tmp.marker
+ 
++    @property
++    def marker_extras(self) -> frozenset[NormalizedName]:
++        """Normalized extra names referenced by the marker (empty without a marker)."""
++        if self.marker is None:
++            return frozenset()
++        return self.marker.referenced_extras()
++
+     def __str__(self) -> str:
+         return "".join(self._iter_parts(self.name))
+ 

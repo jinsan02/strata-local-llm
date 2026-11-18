@@ -1,0 +1,76 @@
+diff --git a/src/packaging/dependency_groups.py b/src/packaging/dependency_groups.py
+index d177037..06a1ec0 100644
+--- a/src/packaging/dependency_groups.py
++++ b/src/packaging/dependency_groups.py
+@@ -14,6 +14,7 @@ from collections.abc import Mapping, Sequence
+ 
+ from .errors import _ErrorCollector
+ from .requirements import InvalidRequirement, Requirement
++from .utils import InvalidName, canonicalize_name
+ 
+ __all__ = [
+     "CyclicDependencyGroup",
+@@ -21,6 +22,7 @@ __all__ = [
+     "DependencyGroupResolver",
+     "DuplicateGroupNames",
+     "InvalidDependencyGroupObject",
++    "InvalidGroupName",
+     "resolve_dependency_groups",
+ ]
+ 
+@@ -42,6 +44,13 @@ class DuplicateGroupNames(ValueError):
+     """
+ 
+ 
++class InvalidGroupName(ValueError):
++    """
++    A dependency group name is not a valid name (same rule as the core
++    metadata ``Name`` field).
++    """
++
++
+ class CyclicDependencyGroup(ValueError):
+     """
+     The dependency group includes form a cycle.
+@@ -144,6 +153,7 @@ class DependencyGroupResolver:
+ 
+         :param group: the name of the group to lookup
+         """
++        _check_group_name(group)
+         group = _normalize_name(group)
+ 
+         with _ErrorCollector().on_exit(
+@@ -157,6 +167,7 @@ class DependencyGroupResolver:
+ 
+         :param group: the name of the group to resolve
+         """
++        _check_group_name(group)
+         group = _normalize_name(group)
+ 
+         if group not in self._resolve_cache:
+@@ -311,6 +322,13 @@ def resolve_dependency_groups(
+ _NORMALIZE_PATTERN = re.compile(r"[-_.]+")
+ 
+ 
++def _check_group_name(name: str) -> None:
++    try:
++        canonicalize_name(name, validate=True)
++    except InvalidName:
++        raise InvalidGroupName(f"Invalid dependency group name: {name!r}") from None
++
++
+ def _normalize_name(name: str) -> str:
+     return _NORMALIZE_PATTERN.sub("-", name).lower()
+ 
+@@ -323,6 +341,11 @@ def _normalize_group_names(
+     normalized_groups: dict[str, Sequence[str | Mapping[str, str]]] = {}
+ 
+     for group_name, value in dependency_groups.items():
++        try:
++            _check_group_name(group_name)
++        except InvalidGroupName as e:
++            errors.error(e)
++            continue
+         normed_group_name = _normalize_name(group_name)
+         original_names.setdefault(normed_group_name, []).append(group_name)
+         normalized_groups[normed_group_name] = value

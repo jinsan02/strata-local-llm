@@ -1,0 +1,26 @@
+{
+ "commit": "6a69a83d8d89c6a01d554a8ad1b420cbb45fb4bc",
+ "tasks": {
+  "dg_group_names": {
+   "base_hidden": "10 failed, 4 passed in 0.52s",
+   "base_regress": "129 passed in 0.53s",
+   "ref_hidden": "14 passed in 0.36s",
+   "ref_regress": "129 passed in 0.73s",
+   "ok": true
+  },
+  "marker_extras": {
+   "base_hidden": "11 failed in 0.69s",
+   "base_regress": "7921 passed, 1 skipped in 6.23s",
+   "ref_hidden": "11 passed in 0.25s",
+   "ref_regress": "7921 passed, 1 skipped in 6.61s",
+   "ok": true
+  },
+  "version_bump": {
+   "base_hidden": "16 failed in 0.23s",
+   "base_regress": "51524 passed in 36.64s",
+   "ref_hidden": "16 passed in 0.17s",
+   "ref_regress": "51524 passed in 43.25s",
+   "ok": true
+  }
+ }
+}

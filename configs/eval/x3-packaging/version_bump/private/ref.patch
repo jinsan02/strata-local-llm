@@ -1,0 +1,27 @@
+diff --git a/src/packaging/version.py b/src/packaging/version.py
+index 1c17a9d..40cd5ea 100644
+--- a/src/packaging/version.py
++++ b/src/packaging/version.py
+@@ -883,6 +883,22 @@ class Version(_BaseVersion):
+         """
+         return f"<{self.__class__.__name__}({str(self)!r})>"
+ 
++    def bump(self, part: str) -> Version:
++        """Return a new version with the given release component incremented."""
++        index = {"major": 0, "minor": 1, "micro": 2}.get(part)
++        if index is None:
++            raise ValueError(f"unknown version part: {part!r}")
++        release = list(self.release)
++        if len(release) <= index:
++            release.extend([0] * (index + 1 - len(release)))
++        release[index] += 1
++        for pos in range(index + 1, len(release)):
++            release[pos] = 0
++        text = ".".join(str(x) for x in release)
++        if self.epoch:
++            text = f"{self.epoch}!{text}"
++        return Version(text)
++
+     def __str__(self) -> str:
+         """A string representation of the version that can be round-tripped.
+ 
