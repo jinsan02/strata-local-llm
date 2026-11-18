@@ -1,0 +1,706 @@
+[
+ {
+  "api": "chat_completions",
+  "stream": false,
+  "r": 1,
+  "stage": "ok",
+  "call_id": "call_1b0ed47b1a95473a90284ca0",
+  "args": {
+   "path": "notes/todo.txt"
+  },
+  "turns": [
+   {
+    "text": "",
+    "calls": [
+     [
+      "call_1b0ed47b1a95473a90284ca0",
+      "read_file",
+      "{\"path\":\"notes/todo.txt\"}"
+     ]
+    ],
+    "usage": {
+     "prompt_tokens": 283,
+     "completion_tokens": 173,
+     "total_tokens": 456,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "timings": {
+     "cache_n": 0,
+     "prompt_n": 283,
+     "prompt_ms": 1994.2,
+     "prompt_per_token_ms": 7.047,
+     "prompt_per_second": 141.9,
+     "predicted_n": 173,
+     "predicted_ms": 2328.6,
+     "predicted_per_token_ms": 13.46,
+     "predicted_per_second": 74.3,
+     "draft_n": 0,
+     "draft_n_accepted": 0
+    },
+    "ms": 4375.226200005272,
+    "first_ms": null,
+    "pieces": null
+   },
+   {
+    "text": "KUMQUAT-7",
+    "calls": [],
+    "usage": {
+     "prompt_tokens": 337,
+     "completion_tokens": 93,
+     "total_tokens": 430,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "timings": {
+     "cache_n": 0,
+     "prompt_n": 337,
+     "prompt_ms": 1036.6,
+     "prompt_per_token_ms": 3.076,
+     "prompt_per_second": 325.1,
+     "predicted_n": 93,
+     "predicted_ms": 1062.3,
+     "predicted_per_token_ms": 11.423,
+     "predicted_per_second": 87.5,
+     "draft_n": 0,
+     "draft_n_accepted": 0
+    },
+    "ms": 2102.6544999913312,
+    "first_ms": null,
+    "pieces": null
+   }
+  ]
+ },
+ {
+  "api": "chat_completions",
+  "stream": false,
+  "r": 2,
+  "stage": "ok",
+  "call_id": "call_e56d22ff40fc4f80bf0f2f4f",
+  "args": {
+   "path": "notes/todo.txt"
+  },
+  "turns": [
+   {
+    "text": "",
+    "calls": [
+     [
+      "call_e56d22ff40fc4f80bf0f2f4f",
+      "read_file",
+      "{\"path\":\"notes/todo.txt\"}"
+     ]
+    ],
+    "usage": {
+     "prompt_tokens": 283,
+     "completion_tokens": 184,
+     "total_tokens": 467,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "timings": {
+     "cache_n": 0,
+     "prompt_n": 283,
+     "prompt_ms": 1004.2,
+     "prompt_per_token_ms": 3.548,
+     "prompt_per_second": 281.8,
+     "predicted_n": 184,
+     "predicted_ms": 2145.5,
+     "predicted_per_token_ms": 11.66,
+     "predicted_per_second": 85.8,
+     "draft_n": 0,
+     "draft_n_accepted": 0
+    },
+    "ms": 3152.438599994639,
+    "first_ms": null,
+    "pieces": null
+   },
+   {
+    "text": "KUMQUAT-7",
+    "calls": [],
+    "usage": {
+     "prompt_tokens": 337,
+     "completion_tokens": 81,
+     "total_tokens": 418,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "timings": {
+     "cache_n": 0,
+     "prompt_n": 337,
+     "prompt_ms": 1319.9,
+     "prompt_per_token_ms": 3.917,
+     "prompt_per_second": 255.3,
+     "predicted_n": 81,
+     "predicted_ms": 993.2,
+     "predicted_per_token_ms": 12.262,
+     "predicted_per_second": 81.6,
+     "draft_n": 0,
+     "draft_n_accepted": 0
+    },
+    "ms": 2315.747200016631,
+    "first_ms": null,
+    "pieces": null
+   }
+  ]
+ },
+ {
+  "api": "chat_completions",
+  "stream": true,
+  "r": 1,
+  "stage": "ok",
+  "call_id": "call_f9e1ffffcad94ab198dc1746",
+  "args": {
+   "path": "notes/todo.txt"
+  },
+  "turns": [
+   {
+    "text": "",
+    "calls": [
+     [
+      "call_f9e1ffffcad94ab198dc1746",
+      "read_file",
+      "{\"path\":\"notes/todo.txt\"}"
+     ]
+    ],
+    "usage": {
+     "prompt_tokens": 283,
+     "completion_tokens": 179,
+     "total_tokens": 462,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "timings": {
+     "cache_n": 0,
+     "prompt_n": 283,
+     "prompt_ms": 993.3,
+     "prompt_per_token_ms": 3.51,
+     "prompt_per_second": 284.9,
+     "predicted_n": 179,
+     "predicted_ms": 1994.8,
+     "predicted_per_token_ms": 11.144,
+     "predicted_per_second": 89.7,
+     "draft_n": 0,
+     "draft_n_accepted": 0
+    },
+    "ms": 2990.7484999857843,
+    "first_ms": 1.5498999855481088,
+    "pieces": 8
+   },
+   {
+    "text": "KUMQUAT-7",
+    "calls": [],
+    "usage": {
+     "prompt_tokens": 337,
+     "completion_tokens": 191,
+     "total_tokens": 528,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "timings": {
+     "cache_n": 0,
+     "prompt_n": 337,
+     "prompt_ms": 1091.5,
+     "prompt_per_token_ms": 3.239,
+     "prompt_per_second": 308.7,
+     "predicted_n": 191,
+     "predicted_ms": 2427.4,
+     "predicted_per_token_ms": 12.709,
+     "predicted_per_second": 78.7,
+     "draft_n": 0,
+     "draft_n_accepted": 0
+    },
+    "ms": 3536.4790000021458,
+    "first_ms": 16.57770000747405,
+    "pieces": 0
+   }
+  ]
+ },
+ {
+  "api": "chat_completions",
+  "stream": true,
+  "r": 2,
+  "stage": "ok",
+  "call_id": "call_871e55e775fc43cd8a834346",
+  "args": {
+   "path": "notes/todo.txt"
+  },
+  "turns": [
+   {
+    "text": "",
+    "calls": [
+     [
+      "call_871e55e775fc43cd8a834346",
+      "read_file",
+      "{\"path\":\"notes/todo.txt\"}"
+     ]
+    ],
+    "usage": {
+     "prompt_tokens": 283,
+     "completion_tokens": 140,
+     "total_tokens": 423,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "timings": {
+     "cache_n": 0,
+     "prompt_n": 283,
+     "prompt_ms": 993.5,
+     "prompt_per_token_ms": 3.511,
+     "prompt_per_second": 284.9,
+     "predicted_n": 140,
+     "predicted_ms": 1492.2,
+     "predicted_per_token_ms": 10.659,
+     "predicted_per_second": 93.8,
+     "draft_n": 0,
+     "draft_n_accepted": 0
+    },
+    "ms": 2513.4064000158105,
+    "first_ms": 26.643400022294372,
+    "pieces": 8
+   },
+   {
+    "text": "KUMQUAT-7",
+    "calls": [],
+    "usage": {
+     "prompt_tokens": 337,
+     "completion_tokens": 92,
+     "total_tokens": 429,
+     "prompt_tokens_details": {
+      "cached_tokens": 0
+     }
+    },
+    "timings": {
+     "cache_n": 0,
+     "prompt_n": 337,
+     "prompt_ms": 1063.9,
+     "prompt_per_token_ms": 3.157,
+     "prompt_per_second": 316.8,
+     "predicted_n": 92,
+     "predicted_ms": 1010.2,
+     "predicted_per_token_ms": 10.98,
+     "predicted_per_second": 91.1,
+     "draft_n": 0,
+     "draft_n_accepted": 0
+    },
+    "ms": 2092.3805000202265,
+    "first_ms": 17.334400006802753,
+    "pieces": 0
+   }
+  ]
+ },
+ {
+  "api": "anthropic_messages",
+  "stream": false,
+  "r": 1,
+  "stage": "ok",
+  "call_id": "call_6bcdcb226eb74462b2e17f4e",
+  "args": {
+   "path": "notes/todo.txt"
+  },
+  "turns": [
+   {
+    "text": "",
+    "calls": [
+     [
+      "call_6bcdcb226eb74462b2e17f4e",
+      "read_file",
+      "{\"path\": \"notes/todo.txt\"}"
+     ]
+    ],
+    "usage": {
+     "input_tokens": 1,
+     "output_tokens": 149,
+     "cache_creation_input_tokens": 282,
+     "cache_read_input_tokens": 0
+    },
+    "timings": null,
+    "ms": 2751.645300013479,
+    "first_ms": null,
+    "pieces": null
+   },
+   {
+    "text": "KUMQUAT-7",
+    "calls": [],
+    "usage": {
+     "input_tokens": 1,
+     "output_tokens": 79,
+     "cache_creation_input_tokens": 336,
+     "cache_read_input_tokens": 0
+    },
+    "timings": null,
+    "ms": 1939.332000009017,
+    "first_ms": null,
+    "pieces": null
+   }
+  ]
+ },
+ {
+  "api": "anthropic_messages",
+  "stream": false,
+  "r": 2,
+  "stage": "ok",
+  "call_id": "call_a27f23be312a4e568c5762fa",
+  "args": {
+   "path": "notes/todo.txt"
+  },
+  "turns": [
+   {
+    "text": "",
+    "calls": [
+     [
+      "call_a27f23be312a4e568c5762fa",
+      "read_file",
+      "{\"path\": \"notes/todo.txt\"}"
+     ]
+    ],
+    "usage": {
+     "input_tokens": 1,
+     "output_tokens": 163,
+     "cache_creation_input_tokens": 282,
+     "cache_read_input_tokens": 0
+    },
+    "timings": null,
+    "ms": 2896.7950000078417,
+    "first_ms": null,
+    "pieces": null
+   },
+   {
+    "text": "KUMQUAT-7",
+    "calls": [],
+    "usage": {
+     "input_tokens": 1,
+     "output_tokens": 93,
+     "cache_creation_input_tokens": 336,
+     "cache_read_input_tokens": 0
+    },
+    "timings": null,
+    "ms": 2116.2947999837343,
+    "first_ms": null,
+    "pieces": null
+   }
+  ]
+ },
+ {
+  "api": "anthropic_messages",
+  "stream": true,
+  "r": 1,
+  "stage": "ok",
+  "call_id": "call_706c2b1a5c3b4243948988cd",
+  "args": {
+   "path": "notes/todo.txt"
+  },
+  "turns": [
+   {
+    "text": "",
+    "calls": [
+     [
+      "call_706c2b1a5c3b4243948988cd",
+      "read_file",
+      "{\"path\":\"notes/todo.txt\"}"
+     ]
+    ],
+    "usage": {
+     "input_tokens": 1,
+     "output_tokens": 155,
+     "cache_creation_input_tokens": 282,
+     "cache_read_input_tokens": 0
+    },
+    "timings": null,
+    "ms": 3274.4216000137385,
+    "first_ms": 14.385799993760884,
+    "pieces": 8
+   },
+   {
+    "text": "KUMQUAT-7",
+    "calls": [],
+    "usage": {
+     "input_tokens": 1,
+     "output_tokens": 100,
+     "cache_creation_input_tokens": 336,
+     "cache_read_input_tokens": 0
+    },
+    "timings": null,
+    "ms": 2544.668999995338,
+    "first_ms": 21.180500014452264,
+    "pieces": 0
+   }
+  ]
+ },
+ {
+  "api": "anthropic_messages",
+  "stream": true,
+  "r": 2,
+  "stage": "ok",
+  "call_id": "call_ed20550b6bc44b3d8e334c33",
+  "args": {
+   "path": "notes/todo.txt"
+  },
+  "turns": [
+   {
+    "text": "",
+    "calls": [
+     [
+      "call_ed20550b6bc44b3d8e334c33",
+      "read_file",
+      "{\"path\":\"notes/todo.txt\"}"
+     ]
+    ],
+    "usage": {
+     "input_tokens": 1,
+     "output_tokens": 160,
+     "cache_creation_input_tokens": 282,
+     "cache_read_input_tokens": 0
+    },
+    "timings": null,
+    "ms": 2825.5063999968115,
+    "first_ms": 1.362200011499226,
+    "pieces": 8
+   },
+   {
+    "text": "KUMQUAT-7",
+    "calls": [],
+    "usage": {
+     "input_tokens": 1,
+     "output_tokens": 92,
+     "cache_creation_input_tokens": 336,
+     "cache_read_input_tokens": 0
+    },
+    "timings": null,
+    "ms": 2096.021900011692,
+    "first_ms": 1.427100010914728,
+    "pieces": 0
+   }
+  ]
+ },
+ {
+  "api": "responses",
+  "stream": false,
+  "r": 1,
+  "stage": "ok",
+  "call_id": "call_d1b898ddad0645e4aa998e69",
+  "args": {
+   "path": "notes/todo.txt"
+  },
+  "turns": [
+   {
+    "text": "",
+    "calls": [
+     [
+      "call_d1b898ddad0645e4aa998e69",
+      "read_file",
+      "{\"path\":\"notes/todo.txt\"}"
+     ]
+    ],
+    "usage": {
+     "input_tokens": 283,
+     "input_tokens_details": {
+      "cached_tokens": 0
+     },
+     "output_tokens": 145,
+     "output_tokens_details": {
+      "reasoning_tokens": 117
+     },
+     "total_tokens": 428
+    },
+    "timings": null,
+    "ms": 2954.937100003008,
+    "first_ms": null,
+    "pieces": null
+   },
+   {
+    "text": "KUMQUAT-7",
+    "calls": [],
+    "usage": {
+     "input_tokens": 453,
+     "input_tokens_details": {
+      "cached_tokens": 427
+     },
+     "output_tokens": 63,
+     "output_tokens_details": {
+      "reasoning_tokens": 55
+     },
+     "total_tokens": 516
+    },
+    "timings": null,
+    "ms": 912.9506000026595,
+    "first_ms": null,
+    "pieces": null
+   }
+  ]
+ },
+ {
+  "api": "responses",
+  "stream": false,
+  "r": 2,
+  "stage": "ok",
+  "call_id": "call_cfe88c71946c4a86b43a65cf",
+  "args": {
+   "path": "notes/todo.txt"
+  },
+  "turns": [
+   {
+    "text": "",
+    "calls": [
+     [
+      "call_cfe88c71946c4a86b43a65cf",
+      "read_file",
+      "{\"path\":\"notes/todo.txt\"}"
+     ]
+    ],
+    "usage": {
+     "input_tokens": 283,
+     "input_tokens_details": {
+      "cached_tokens": 0
+     },
+     "output_tokens": 157,
+     "output_tokens_details": {
+      "reasoning_tokens": 129
+     },
+     "total_tokens": 440
+    },
+    "timings": null,
+    "ms": 2818.484899995383,
+    "first_ms": null,
+    "pieces": null
+   },
+   {
+    "text": "KUMQUAT-7",
+    "calls": [],
+    "usage": {
+     "input_tokens": 465,
+     "input_tokens_details": {
+      "cached_tokens": 439
+     },
+     "output_tokens": 61,
+     "output_tokens_details": {
+      "reasoning_tokens": 53
+     },
+     "total_tokens": 526
+    },
+    "timings": null,
+    "ms": 760.6555999955162,
+    "first_ms": null,
+    "pieces": null
+   }
+  ]
+ },
+ {
+  "api": "responses",
+  "stream": true,
+  "r": 1,
+  "stage": "ok",
+  "call_id": "call_52b349c0582f438a8fb2791e",
+  "args": {
+   "path": "notes/todo.txt"
+  },
+  "turns": [
+   {
+    "text": "",
+    "calls": [
+     [
+      "call_52b349c0582f438a8fb2791e",
+      "read_file",
+      "{\"path\":\"notes/todo.txt\"}"
+     ]
+    ],
+    "usage": {
+     "input_tokens": 283,
+     "input_tokens_details": {
+      "cached_tokens": 0
+     },
+     "output_tokens": 153,
+     "output_tokens_details": {
+      "reasoning_tokens": 125
+     },
+     "total_tokens": 436
+    },
+    "timings": null,
+    "ms": 2707.50560000306,
+    "first_ms": 16.86830000835471,
+    "pieces": 8
+   },
+   {
+    "text": "KUMQUAT-7",
+    "calls": [],
+    "usage": {
+     "input_tokens": 461,
+     "input_tokens_details": {
+      "cached_tokens": 435
+     },
+     "output_tokens": 55,
+     "output_tokens_details": {
+      "reasoning_tokens": 47
+     },
+     "total_tokens": 516
+    },
+    "timings": null,
+    "ms": 713.2570999965537,
+    "first_ms": 21.32939998409711,
+    "pieces": 0
+   }
+  ]
+ },
+ {
+  "api": "responses",
+  "stream": true,
+  "r": 2,
+  "stage": "ok",
+  "call_id": "call_a1d6e88e81024633986c4b02",
+  "args": {
+   "path": "notes/todo.txt"
+  },
+  "turns": [
+   {
+    "text": "",
+    "calls": [
+     [
+      "call_a1d6e88e81024633986c4b02",
+      "read_file",
+      "{\"path\":\"notes/todo.txt\"}"
+     ]
+    ],
+    "usage": {
+     "input_tokens": 283,
+     "input_tokens_details": {
+      "cached_tokens": 0
+     },
+     "output_tokens": 158,
+     "output_tokens_details": {
+      "reasoning_tokens": 130
+     },
+     "total_tokens": 441
+    },
+    "timings": null,
+    "ms": 2771.5572000015527,
+    "first_ms": 16.66230001137592,
+    "pieces": 8
+   },
+   {
+    "text": "KUMQUAT-7",
+    "calls": [],
+    "usage": {
+     "input_tokens": 466,
+     "input_tokens_details": {
+      "cached_tokens": 440
+     },
+     "output_tokens": 61,
+     "output_tokens_details": {
+      "reasoning_tokens": 53
+     },
+     "total_tokens": 527
+    },
+    "timings": null,
+    "ms": 763.1448000029195,
+    "first_ms": 2.6843000086955726,
+    "pieces": 0
+   }
+  ]
+ }
+]

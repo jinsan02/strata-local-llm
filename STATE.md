@@ -5,7 +5,7 @@
 ## 지금
 
 - 마지막 갱신: 2026-11-18
-- 단계: **B1-1 thinking 상한 시험 진행 중** (`matrix-b1t.ps1`, 로그 `engine\matrix-b1t.log`), 다음 X3 준비 (X0 · X1 · XB · X2 완료). 32K 설정에서 실제 입력 24K 까지 코딩 과제 답변 · 테스트 통과 확인 (탐색 세트, 24K 전부 통과 20/24)
+- 단계: **X3 하네스 A/B (H0 기준선 vs H1 도구 응답 페이지 나누기, 번갈아 3회) 밤 체인 진행 중** (`scripts/bench/night-chain.ps1`, WMI 로 띄워 노트북 연결과 무관, 로그 `engine\night-chain.log`, 끝 표시 `[night] done`, 원장 커밋은 연결 재개 뒤). X0 · X1 · XB · X2 · B1-1 · X3 파일럿 완료. 탐색 v2(edit_file) 로 X3 2/3 · SWE 2/2 통과
 - 계획: v2.0 + v2.1 + **v2.2** ([`docs/plan-v2.2-amendment-20261118.md`](docs/plan-v2.2-amendment-20261118.md): 1차 실행 설정 → 2차 양자화 → 3차 서버·엔진, 기존 ID 대응표, KV 독립 변수. 9절 = 3차 P0 · HR · E1 후속 전달문)
 - 목표: **32K 운영** (입력 24,576 · 출력+reasoning 8,192), 8K 기준선 · 16K 중간 · 64K 선택 — [`docs/plan-v2.1-amendment-20261118.md`](docs/plan-v2.1-amendment-20261118.md)
 - 사용 형태: 본체 STRATA 서버를 노트북 코딩 클라이언트(Claude Code · Codex)가 Tailscale 로 부른다. 코드 읽기·수정·테스트는 노트북에서
@@ -26,8 +26,9 @@
 | 설정 효과 (입력 고정) | X1 | 8K·16K·32K | 완료 | **"8K·16K·32K 설정에서 0.5K·2K·4K 입력 성능 측정"** — 처리량 시험, 32K 실사용 검증 아님. 32K 설정은 8K 대비 TG 약 10~15% 낮음, 최종 답변 0건 | `reports/x1-summary.md` |
 | 출력·reasoning 예산 단계 | XB | 32K | 완료 (탐색) | 짧은 입력(149~224) 과제 4개 × 2K·4K·8K × 3회: 전부 통과 2K 8/12 · 4K 8/12 · **8K 12/12**. 서버가 max_tokens 의 1/4 을 답변 몫으로 남기고 thinking 을 닫는다(결정 기록) | `reports/xb2-summary.md`, 원장 `xb2_*` |
 | 입력 길이 효과 | X2 | 32K | 완료 (탐색) | 입력 2K · 8K · 16K · 24K x 끝/중간 x 과제 4개 x 3회(84행). 전부 통과 2K 11/12 · 8K 23/24 · 16K 21/24 · 24K 20/24, length 0. TG 77→50, 첫 토큰 1.3→17초, 첫 답변 중앙 44→69~85초, SSD 0, RAM 25~26GB | `reports/x2-summary.md`, 원장 `x2_*` |
-| 긴 문맥 코딩 품질 | X3 | 32K | 파일럿 2차(x3q) 진행 중 — 1차는 채점 파서 결함으로 중단(T-010) | 지시 준수·코드 찾기·수정·테스트 통과·도구 호출 | 원장 |
-| 노트북 경유 | X4 | 32K | 미착수 | 체감 지연(별도 행), tool calling·템플릿 호환 | 원장 `origin=laptop` |
+| 긴 문맥 코딩 품질 | X3 | 32K | 파일럿 완료 · **하네스 A/B 진행 중**. preload(입력 길이): 필수 파일만 2/3 첫 답 통과, 16K · 24K 는 6건 모두 첫 답 실패. navigate v1(읽기만 도구) 0/5 → v2(edit_file, T-011) X3 2/3 · SWE 2/2 | 지시 준수·코드 찾기·수정·테스트 통과·도구 호출 | 원장 `x3q_*` `x3s_*` `x3n_*` `x3sn_*`, `reports/x3-harness-summary.md` |
+| X3 하네스 | H0 · H1 | 32K | 진행 중 (밤 체인). H0 = nav-v3(깨진 JSON 거부 · 오류 읽기 제외 · count_tokens 예산 · 턴별 캐시 기록), H1 = 도구 응답 페이지 나누기만 다름 | 같은 과제 5개 x 3회, 통과 · 회귀 먼저, 같으면 작업 시간 · 새로 읽은 입력 | 원장 `x3h0_*` `x3h1_*` `x3sh0_*` `x3sh1_*` |
+| 노트북 경유 | X4 | 32K | 착수 전 · API 왕복 확인됨: Chat · Messages(Claude Code) · Responses(Codex) x 비스트림 · 스트림 12/12 (도구 호출 → 같은 ID 결과 → 후속 답, 스트림 인자 조각 조립) | 체감 지연(별도 행), tool calling·템플릿 호환 | `experiments/probes/probe_tools_20261118.json`, 원장 `origin=laptop` |
 | 실행 설정 튜닝 | B1 | 32K | B1-1 완료 (thinking 3K 가 짧은 과제 12/12 · 첫 답변 37초, TG 동일). 다음: P-diag 병목 진단 → v2.2 10.3 표로 첫 A/B | S1, 병목 프로파일(KV·expert 캐시·버퍼 경쟁), 후보 순위 | 원장 |
 | 맞춤 양자화 | Q1 | 32K | 미착수 | M1 레시피·형식 표·호환성·품질 | 원장 |
 | 엔진 최적화 | E1 | 32K | 미착수 | 패치·수치 검사·E1 비교 | 원장 |
@@ -46,8 +47,12 @@
 7. **B0 + X1** (같은 실행으로 겸한다): 고정 문항 입력 512·2,048·4,096 × 출력 128·512 × 컨텍스트 8K·16K·32K, 반복 3회, 같은 샘플링. thinking 이 출력 예산을 다 쓰면 첫 답변 지연이 NA 가 되므로 출력 512 행으로 첫 답변 지연을 본다
 8. ~~XB 2차~~ 완료 (11-18 11:09~11:32): 36행. 출력 예산 8K(= thinking 상한 6,144 + 답변 2,048)만 12/12 통과 → X2 는 `--budgets 8192`. 4K 의 parse_duration 실패(10~13/16)는 thinking 이 3,072 에서 강제로 닫힌 탓으로 본다(Q12 에서 확인)
 9. ~~X2~~ 완료 (11:44~13:39, 84행): `scripts/bench/matrix-x2.ps1` (입력 2K · 8K · 16K · 24,320 × 끝/중간, 예산 8,192, 3회, 로그 `engine\matrix-x2.log`). 러너: `run_coding.py --ctx 32768 --input-tokens <N> [--position middle] --budgets <XB 결과> --prefix x2` — 저장소 파일(`engine/strata_cli`, `strata_control`)을 붙여 입력 약 2K·8K·16K·한도 근처(32,768 − 예산 − 256)로, 같은 과제·테스트. 러너가 입력+예산 > ctx 를 거부
-10. 그다음 X3(긴 문맥 품질, Q8) → X4(노트북 경유, `origin=laptop`) → B1(Q11 greedy·MTP 포함)
+10. ~~X3 파일럿~~ 완료 (11-18): preload 9 + navigate, SWE 2건 로컬 conda 검증(flask 는 Werkzeug 2.3.7 고정)
 11. push: 사용자가 커밋·push 를 맡김(11-18). 단계 커밋 묶음마다 `git push`
+12. **밤 체인 결과 받기** (연결 재개 뒤): `[night] done` 확인 → H0 · H1 30행 원장 커밋 → `reports/x3-harness-summary.md` 에 A/B 표(통과 · 회귀 → 작업 시간 · 새로 읽은 입력 · 호출 수 · 최대 · 누적 입력)
+13. 다음 하네스 후보 하나: **H2 = 이전 assistant 답에 reasoning_content 포함** (Q14, 캐시 재사용 0 → 재사용). 그 뒤 `run_tests` 도구(Q15)
+14. X4 기준선: 노트북에서 Claude Code CLI · Codex CLI 로 같은 과제(파일 탐색 → 수정 → 테스트 → 실패 로그 재수정), 같은 STRATA 32K. 후보 하나 더면 OpenCode. Hermes 는 64K 뒤
+15. 그다음 B1(P-diag → 첫 A/B, Q11 greedy·MTP 포함) · 남은 X3 과제 3개 구현
 
 ## 사람에게 요청한 것
 
@@ -62,6 +67,10 @@
 
 | 날짜 | 결정 | 근거 |
 | --- | --- | --- |
+| 11-18 | **하네스 비교 원칙**: X3 = 통제된 탐색 · 편집 평가(Chat Completions), X4 = 노트북 클라이언트 실제 흐름 검증. 모델 · 엔진 · 샘플링 · 과제 커밋 · 출력 예산 8,192 · 최대 20턴 · 32K · 단일 슬롯 고정, 후보는 요인 하나씩 새 ID(H0, H1, …). B1-1 상한(Q12)은 미확정이라 양쪽 S0 | 사용자 하네스 지시 |
+| 11-18 | **T-011 C안**: navigate 의 쓰기도 도구로(`edit_file`), 텍스트 도구 호출 감지 시 1회 재요청. v1 5행은 fix 커밋 Invalidates | 사용자 결정, v2 재측정 4/5 |
+| 11-18 | 서버는 선언되지 않은 도구 호출을 거부하고 텍스트로 둔다(`strata_rejected_tool_calls`). 'SEARCH' 실패는 API 변환이 아니라 모델 도구 선택으로 분류 | `serve/server.py` |
+| 11-18 | 본체 장시간 실행은 WMI(`launch_night.ps1`)로 띄운다. ssh 세션이 끝나면 그 세션에서 띄운 서버 · 측정도 꺼진다(T-012) | 11-18 관측 |
 | 11-18 | **XB 결론 (탐색)**: 32K 운영의 출력+reasoning 예산은 **8,192** 로 둔다. 2K·4K 는 각각 4/12 실패. 단 STRATA 서버는 thinking 요청에 예산이 없으면 `max_tokens ≥ 1024` 일 때 thinking 을 `max_tokens − max(512, max_tokens/4)` 에서 닫는다(`answer_room`, `serve/server.py:6235`). 그래서 XB 는 사실상 **thinking 상한 시험**이다(2K→1,536 · 4K→3,072 · 8K→6,144). 8K 에서 실제 사용은 2,216~6,512 토큰. 클라이언트의 max_tokens 가 곧 thinking 상한이 된다 | `reports/xb2-summary.md`, 엔진 소스 |
 | 11-18 | **MTP 진단 (Q10 종결)**: 활성화·초안 블록 로딩은 됨. v0.2.15 qwen36 경로는 `spec = mtp_d>0 && !smp.needs_logits() && !adm` (`q36_engine.cu:3730`) — logits 가 필요 없는 greedy 단독 요청만 초안을 쓴다. 순수 greedy(penalty 0)에서 158/198 수락(80%), TG 154~162 tok/s. 권장 샘플링(temperature 1.0 + presence 1.5)은 초안 시도 없음, TG 83~108. 서버 `/metrics` 의 drafts 는 계측 누락(엔진이 158/198 을 보고해도 0/0) → 러너는 엔진 로그에서 읽고, 시도 0 은 '초안 시도 미기록'(NA) | 엔진 로그 · 소스 · 프로브 6건 |
 | 11-18 | 원장 이행: `max_tokens` `finish_reason` `answer_reached` `tests_passed` `tt_reasoning_ms` `experts_vram` `drafts_offered` `drafts_accepted` 추가. 기존 63행은 열 이동만, 새 열 NA | 사용자 지시 1·2·3·5 |
@@ -99,6 +108,8 @@
 | Q12 | thinking 상한을 서버 `reasoning_budget_tokens` 로 명시(b)할 때 값 — 11-18 토의로 (b) 방향, (c) 제외. 상세 `docs/TROUBLESHOOTING.md` T-007 | B1: max_tokens 8,192 고정, 상한 3K · 4.5K · 6K, 긴 답변 과제 추가 | B1, 클라이언트 설정 | XB 2차 |
 | Q13 | 출력+reasoning 예산 8K 가 긴 답변(모듈 전체 · 긴 diff)에 충분한가 — 짧은 과제 96회 최대 6.6K · 잘림 0, kv_store 는 상한 6,144 에서 7.7~8.2K · 잘림 1 (11-18). 사용자: 32K 검증 뒤 예정대로 64K 까지 본다 | 32K: 8K+thinking 4.5K vs 10~12K(입력 20~22K)를 B1 · X3 결과로 결정. 64K 는 F1 32K 통과 뒤 — 출력 예산 확대 여지와 KV(FP32 약 2.5GiB) · expert 감소를 같이 잰다 | 클라이언트 설정, 64K 탐색 | B1-1 · XB · X2 |
 | Q5 | API 사용량·비용 예산 상한 | 착수 시 사람이 정함 | 탐색 예산 | 기획서 5.2, 11절 |
+| Q14 | 후속 턴 캐시 재사용이 0 이다(같은 세션 4요청 모두 cached 0, 2회 재현). 이전 답을 reasoning_content 와 함께 보낼 때만 재사용(직전 프롬프트 + 생성분 일부, 451 · 479). 도구 목록 빼기 · 작업 폴더 정보 변경은 차이 없음 | H2 후보로 A/B. 엔진 쪽(혼합 순환 레이어의 체크포인트 · 되감기) 원인 확인은 3차 | navigate 턴마다 전체 재읽기(1만~2만 토큰), X4 체감 지연 | `experiments/probes/probe_cache_20261118.json`, T-013 |
+| Q15 | navigate 에 테스트 도구(`run_tests`, 기존 회귀 테스트만 · 숨은 테스트 제외)를 둘지. 지금 '실패 로그 보고 재수정' 은 preload 보완 턴에만 있다 | H1 · H2 다음 별도 후보 | 재수정 흐름 A/B | 하네스 지시 4절 |
 
 ## 에이전트 사용
 
@@ -108,6 +119,7 @@
 
 ## 최근 변경
 
+- 2026-11-18 · Claude Code · X3 파일럿 2차 · SWE 2건 완료(T-010 · T-011, flask Werkzeug 고정). navigate v2(edit_file) 재측정 X3 2/3 · SWE 2/2. 하네스 v3 = H0(깨진 JSON 거부 · 오류 읽기 제외 · count_tokens 예산 · 턴별 캐시 · wall_ms), H1(도구 응답 페이지 나누기). 점검: 3 API x 스트림 도구 왕복 12/12, 후속 턴 캐시 재사용 0(Q14 · T-013). 서버 수명 문제(T-012) → WMI 밤 체인으로 H0 · H1 번갈아 3회 시작(17:04).
 - 2026-11-18 · Claude Code · B1-1 완료 · 커밋. X3 파일럿 1차에서 채점 파서 결함(경로 줄 없는 · 들여 쓴 블록 0점)과 원장 6행 유실(T-010) → 파서 수정 · 2차 재시작. v2.2 10절: FlashAttention · GQA · KV · expert 배치의 측정 순서(P-diag 8K · 24K) · 병목별 첫 A/B · 채택 기준(10% / 5%, 3회 · 5쌍, 수치 오차 초안) · 업스트림 #3903 · #3904 · #3906 · #3909 (Open, E0 에 없음, 공개 수치만).
 - 2026-11-18 · Claude Code · X3 준비: packaging 고정 커밋 과제 A·B·C 구현(기준 커밋 새 테스트 실패 · 참조 패치 통과 확인), 러너 `run_x3.py`(preload 길이 · navigate 도구 탐색 · 실패 로그 1회 보완), SWE-bench Verified 2건 선정 · `setup_swe.py` · `run_swe.py`. 실행 체인: B1-1 끝 → `matrix-x3.ps1`(preload 9 + navigate 3) → `matrix-swe.ps1`(환경 준비 → 2건). 8K 조건은 marker · version 과제의 필수 파일만으로도 약 12K 라 불가.
 - 2026-11-18 · Claude Code · TurboQuant 자료 검토(v2.2 9.7: KV 양자화, STRATA 미지원 → E1 후보, 이 모델은 KV 비중이 작아 이득 상한 약 1.1GiB). 낮/밤 모드 스크립트 `scripts/llm-mode.ps1` · `user-mode.ps1` 추가(TCube · Claude Cowork 유지, 사용자 결정). X3 평가 자료는 대기.

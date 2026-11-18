@@ -9,7 +9,9 @@
 
 | # | 날짜 | 제목 | 영역 | 상태 |
 | --- | --- | --- | --- | --- |
-| T-011 | 11-18 | 탐색(navigate) 모드 5건 중 4건이 없는 'SEARCH' 도구를 텍스트로 호출하고 끝남 | eval | C안 적용 · 재측정 |
+| T-013 | 11-18 | 같은 세션 후속 턴의 캐시 재사용이 0 (매 턴 전체 다시 읽음) | engine · eval | 토의 필요 (H2 후보, Q14) |
+| T-012 | 11-18 | ssh 세션이 끝나면 그 세션에서 띄운 서버 · 측정이 같이 꺼짐 | infra | 해결 (WMI 밤 체인) |
+| T-011 | 11-18 | 탐색(navigate) 모드 5건 중 4건이 없는 'SEARCH' 도구를 텍스트로 호출하고 끝남 | eval | 해결 (C안, 재측정 4/5) |
 | T-010 | 11-18 | X3 파일럿 1차: 채점 파서가 정답을 0점 처리 + 원장 6행 유실 | eval · infra | 해결 (재측정) |
 | T-009 | 11-18 | 원장 kv 열이 실제(FP32)와 다른 int8 로 기록됨 | bench | 해결 (정정 기록) |
 | T-008 | 11-18 | 긴 입력에서 코드에 `]]` 문법 오류 | eval · quant | 토의 필요 |
@@ -40,9 +42,51 @@
 
 ---
 
+## T-013 같은 세션 후속 턴의 캐시 재사용이 0 (매 턴 전체 다시 읽음)
+- 날짜 · 단계 · 영역: 11-18 17:00~17:07 · X3 하네스 점검 · engine, eval
+- 상태: 토의 필요 (다음 하네스 후보 H2, STATE Q14)
+### 발생 로그
+`scripts/bench/probe_cache.py`(Chat Completions 스트림, 요청마다 max_tokens 1 로 prefill 만, 변형마다 고유 nonce), 2회 재현
+(`experiments/probes/probe_cache_20261118.json`, `engine\night-chain.log`). 요청별 (prompt, cached, 새로 읽음, 첫 스트림 ms):
+- tools_all: (366,0,366,~1.0s) → (4,755,0,4,755,~3.4s) → (8,811,0,8,811,~5.9s) → (8,825,0,8,825,~6.1s)
+- final_no_tools(마지막만 도구 목록 뺌) · volatile_env(작업 폴더 정보 · 시각이 요청마다 바뀜) · reencode(모델이 실제 생성한 답을 reasoning 없이 다시 보냄): 모두 cached 0
+- **reencode_reason**(같은데 reasoning_content 를 함께 보냄): 요청 2 cached 451 · 479 (직전 프롬프트 367 · 364 + 생성분 일부), 새로 읽음 4,358
+### 상황 분석
+(1) 이전 프롬프트가 새 요청의 앞부분과 토큰까지 같아도(합성 기록, tools_all) 재사용 0 [측정]. 재사용은 '직전 요청의 프롬프트 + 생성 토큰' 이
+그대로 이어질 때만 일어난다 [측정: reencode_reason]. 템플릿이 과거 assistant 턴을 생성 때와 다르게(reasoning 없이 · 생성 프롬프트 꼬리 없이)
+렌더링하면 갈라지는 지점이 직전 프롬프트 안쪽에 생긴다.
+(2) M0 는 순환형(선형 attention) 레이어가 섞여 있어 KV 처럼 임의 위치로 되감을 수 없고 체크포인트 위치에서만 이어 읽을 수 있다 [추정, 엔진 소스
+`conversation cache` · `ckpt` 경로 확인 필요]. 그래서 직전 프롬프트 안쪽에서 갈라지면 처음부터 다시 읽는 것으로 보인다.
+(3) 도구 목록 빼기 · 작업 폴더 정보 변경은 이미 0 이라 이 조건에서는 차이를 낼 여지가 없다.
+### 영향
+navigate 는 턴마다 1만~2만 토큰을 다시 읽는다(v2 재측정 마지막 입력 19~22K). X2 기준 24K prefill 첫 토큰 약 17초라 턴 수가 많은 과제(dg 22회,
+pytest 20회)는 대기 시간 대부분이 재읽기일 수 있다 [추정, H0 turns 기록으로 확인]. X4 클라이언트도 이전 답을 reasoning 없이 보내면 같은 영향.
+### 개선 후보 (토의)
+A. 하네스가 이전 assistant 답에 reasoning_content 를 그대로 붙여 보낸다(H2). 입력이 reasoning 만큼 늘지만 재사용이 생긴다 — 순효과를 A/B 로.
+B. 서버 쪽: 대화 캐시 체크포인트 간격 · 정책 확인(엔진 옵션이 있으면 1차 실행 설정 후보, 없으면 3차 엔진 과제).
+C. 클라이언트(X4): Claude Code · Codex 가 thinking 블록을 되돌려 보내는지 확인하고 같은 표로 잰다.
+### 재발 방지
+하네스 · 클라이언트 비교마다 턴별 cached_tokens · prompt_n 을 남긴다(nav-v3 `turns_r*.json`).
+
+## T-012 ssh 세션이 끝나면 그 세션에서 띄운 서버 · 측정이 같이 꺼짐
+- 날짜 · 단계 · 영역: 11-18 16:57~17:04 · X3 하네스 점검 · infra
+- 상태: 해결 (WMI 로 띄우는 밤 체인)
+### 발생 로그
+`matrix-nav.ps1`(ssh 로 실행, 서버를 `Start-Process` 로 띄움)이 끝나 ssh 가 닫힌 뒤, 새 ssh 에서 띄운 점검이 `/health` 연결 거부 — 서버 프로세스 없음.
+### 상황 분석
+Windows OpenSSH 는 세션의 프로세스를 작업 객체로 묶어 세션이 끝나면 자식까지 끝낸다 [추정, 관측과 일치]. 그동안 체인은 서버 기동과 측정을 한 ssh 안에서
+해서 드러나지 않았다.
+### 영향
+첫 점검 실행이 연결 오류만 남김(원장 행 없음, 결과 파일은 재실행으로 덮음). 중단한 H0 dg 1회도 원장 행 없음.
+### 개선·조치
+서버 기동 · 점검을 한 세션에서 하는 `matrix-probe.ps1`, 노트북 연결과 무관한 `night-chain.ps1` + `launch_night.ps1`(Win32_Process.Create).
+17:04 띄운 체인이 ssh 종료 뒤에도 살아 있고 서버를 다시 띄운 것을 별도 ssh 로 확인.
+### 재발 방지
+노트북을 끌 수 있는 장시간 실행은 `launch_night.ps1` 로만 띄운다. 체인은 원장을 커밋하지 않고 끝 표시만 남긴다.
+
 ## T-011 탐색(navigate) 모드: 모델이 없는 'SEARCH' 도구를 텍스트로 호출하고 끝남
 - 날짜 · 단계 · 영역: 11-18 16:02~16:25 · X3 파일럿 2차 · SWE 교차 확인 · eval
-- 상태: C안 결정(11-18 사용자) · 적용 · 재측정 (x3n · x3sn)
+- 상태: 해결 — C안(11-18 사용자 결정) 적용, 재측정 X3 2/3 · SWE 2/2 통과, 텍스트 도구 호출 0건 (`x3n_*` · `x3sn_*`, 커밋 0e98dd4)
 ### 발생 로그
 navigate 5건 결과: X3 dg `no_edit` · marker `apply_fail` · version_bump `no_edit`, SWE flask `no_edit` · pytest `no_edit`.
 `no_edit` 4건의 마지막 답(`experiments/runs/x3q_*_nav_*`, `x3s_*`) 끝이 `<tool_call><function=SEARCH><parameter=path>…<parameter=pattern>…`
