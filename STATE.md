@@ -97,6 +97,7 @@
 | ~~Q8~~ | **종결 (11-18 사용자 결정)**: pypa/packaging `6a69a83` 고정 신규 과제 6개(3개 구현 · 검증) + SWE-bench Verified 2건(`pallets__flask-5014`, `pytest-dev__pytest-8399`, 리비전 `78f471bf`, 로컬 conda 채점 — Docker 없음). `configs/eval/x3-packaging/TASKS.md`. 원 질문: X3 코딩 품질 탐색 세트의 출처 (긴 문맥 코드 수정·테스트) | 공개 저장소 일부로 합성한 과제 + 고정 단위 테스트, 최종 50문항과 분리 | X3 | 변경안 6절 |
 | Q4 | 맞춤 양자화 원본(BF16 약 70GB) 확보·변환 방식 | 샤드 스트리밍 변환 가능성 먼저 소형 검사 | Q1 단계 | 기획서 6.3 |
 | Q12 | thinking 상한을 서버 `reasoning_budget_tokens` 로 명시(b)할 때 값 — 11-18 토의로 (b) 방향, (c) 제외. 상세 `docs/TROUBLESHOOTING.md` T-007 | B1: max_tokens 8,192 고정, 상한 3K · 4.5K · 6K, 긴 답변 과제 추가 | B1, 클라이언트 설정 | XB 2차 |
+| Q13 | 출력+reasoning 예산 8K 가 긴 답변(모듈 전체 · 긴 diff)에 충분한가 — 짧은 과제 96회 최대 6.6K · 잘림 0, kv_store 는 상한 6,144 에서 7.7~8.2K · 잘림 1 (11-18). 사용자: 32K 검증 뒤 예정대로 64K 까지 본다 | 32K: 8K+thinking 4.5K vs 10~12K(입력 20~22K)를 B1 · X3 결과로 결정. 64K 는 F1 32K 통과 뒤 — 출력 예산 확대 여지와 KV(FP32 약 2.5GiB) · expert 감소를 같이 잰다 | 클라이언트 설정, 64K 탐색 | B1-1 · XB · X2 |
 | Q5 | API 사용량·비용 예산 상한 | 착수 시 사람이 정함 | 탐색 예산 | 기획서 5.2, 11절 |
 
 ## 에이전트 사용
