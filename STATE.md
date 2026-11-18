@@ -28,9 +28,10 @@
 ## 다음 할 일
 
 1. ~~툴체인 검증~~ 완료 (11-18): `cl` 19.44.35230, `nvcc` 13.2.86, CMake 4.1.2, Ninja 1.13.1
-2. `engine/` 에 STRATA clone → v0.2.15 태그 checkout → 커밋 해시 기록 → `-DCMAKE_CUDA_ARCHITECTURES=120` 빌드
-3. `strata launch --plan --family qwen36 --model UD-Q4_K_XL` 와 `--family coder --model IQ1_M` 결과 저장
-4. 사람 확인 후 M0 다운로드(약 23GB) → 8K · parallel 1 로딩·API 응답 확인 → 태그 `m0-e0-freeze`
+2. ~~STRATA E0 빌드~~ 완료 (11-18): v0.2.15 `c775728`, sm_120, `strata.exe` sha256 `907008da…` — `env/strata-plan-20261118.md`
+3. ~~`--plan` 결과 저장~~ 완료 (11-18): qwen36 계획기는 다운로드 크기를 모름(실제 22.9GB), coder IQ1_M 은 64.5GB
+4. launcher 가 릴리스 엔진 대신 소스 빌드 `engine\build-e0\strata.exe` 를 쓰게 하는 방법 확인 (`docs/SETTINGS.md`·`DETAILS.md`, `strata_cli/launch`)
+5. 사람 확인 후 M0 다운로드(약 23GB) → 8K · parallel 1 로딩·API 응답 확인 → 태그 `m0-e0-freeze`
 
 ## 사람에게 요청한 것
 
@@ -44,6 +45,7 @@
 
 | 날짜 | 결정 | 근거 |
 | --- | --- | --- |
+| 11-18 | E0 = Niko1221/Strata v0.2.15 `c77572806996349b49995e4f98d41b5294d36a21` 소스 빌드(`build-e0`, sm_120, Ninja). 엔진의 Python 런타임은 `.venv` 대신 conda `strata_local_llm` 에 pip 고정 버전으로 설치하고 `scripts/strata.cmd` 로 부른다 | RULES 1번, 사용자 conda 관리 요청 |
 | 11-18 | AI 작업 문서는 team4 형식(AGENTS · STATE · STRUCTURE · 폴더별 README/AGENTS · PR/이슈 템플릿)으로 둔다. `CLAUDE.md` 는 `@AGENTS.md` 한 줄로 불러오기만 한다 | 사용자 요청, encore-ai-campus/mlo-03-p1-team4 |
 | 11-18 | 커밋·훅·CI·규칙 단일 출처(`docs/RULES.md`)는 kotokenlab 형식을 따른다. scope 는 기획서 단계(env · engine · config · quant · bench · eval · infra · docs) | 사용자 요청, jinsan02/kotokenlab |
 | 11-18 | 저장소는 비공개 `jinsan02/strata-local-llm`. 본체는 이 저장소 전용 쓰기 deploy key 로 push 한다 | 사용자 선택 |
@@ -61,7 +63,8 @@
 | --- | --- | --- | --- | --- |
 | Q1 | 주 실행자 Codex/Claude Code 중 하나로 고정할지, 비교 실험을 할지 | Claude Code 고정, 비교는 B1 이후 별도 브랜치 | 5절 예산 | 기획서 5절 |
 | Q2 | 탐색·최종 평가 데이터 출처(공개·합성) | 공개 벤치 일부 + 합성, 출처·버전 기록 | B0 품질 측정 | 기획서 8절 |
-| Q3 | qwen36 경로 KV 정밀도 옵션 유무 | 고정 커밋에서 확인 후 없으면 E1 후보로 | B1 탐색 목록 | `docs/prep-plan-20261118.md` 2-3 |
+| Q3 | qwen36 경로에서 `--kv int8\|q4_0\|k8v4\|fp16` 이 실제로 적용되는지 (launcher 에는 옵션이 있고 기본 int8, QWEN36.md 는 fp32 라고 적음) | M0 로딩 뒤 KV 메모리로 확인, 적용되면 B1 후보 | B1 탐색 목록 | `env/strata-plan-20261118.md` |
+| Q6 | launcher 가 소스 빌드 E0 를 쓰게 할지, 엔진을 직접 실행할지 | 소스 빌드 연결 방법을 먼저 찾고, 없으면 직접 실행 | B0 | RULES 1번 |
 | Q4 | 맞춤 양자화 원본(BF16 약 70GB) 확보·변환 방식 | 샤드 스트리밍 변환 가능성 먼저 소형 검사 | Q1 단계 | 기획서 6.3 |
 | Q5 | API 사용량·비용 예산 상한 | 착수 시 사람이 정함 | 탐색 예산 | 기획서 5.2, 11절 |
 
@@ -73,6 +76,7 @@
 
 ## 최근 변경
 
+- 2026-11-18 · Claude Code · STRATA v0.2.15 clone·고정, E0 소스 빌드 성공(2.8분), 엔진 Python 런타임을 conda 환경에 설치, `--plan` 2건 기록. 모델 다운로드 없음. 엔진 실행(GPU 인식) 검증은 모델이 없어 미실행.
 - 2026-11-18 · Claude Code · 빌드 툴체인 설치·검증 완료. VS Build Tools 1차 설치가 `--installPath` 공백 분리로 `C:\Program` 에 들어가 제거 후 기본 경로로 재설치(`scripts/fix-vs-buildtools.ps1`), `install-buildtools.ps1` 도 고침. `verify.ps1` 통과.
 - 2026-11-18 · Claude Code · team4 형식의 AI 작업 문서 추가: `AGENTS.md` 재작성, `STATE.md`·`STRUCTURE.md`·`CONTRIBUTING.md`, 폴더별 README/AGENTS, PR·이슈 템플릿, `verify.ps1`. `docs/HANDOFF.md` 는 이 파일로 합침.
 - 2026-11-18 · Claude Code · 빌드 툴체인 설치 시작(VS 2022 Build Tools 종료 코드 0, CUDA 13.2.2 진행 중). 검증 전.

@@ -1,0 +1,21 @@
+[build] engine v0.2.15 c77572806996349b49995e4f98d41b5294d36a21 dirty=0  2026-11-18T09:42:52
+[build] configure: "C:\Program Files\CMake\bin\cmake.exe" -G Ninja -S . -B build-e0 -DCMAKE_BUILD_TYPE=Release -DSTRATA_ENABLE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=120
+[build] build: "C:\Program Files\CMake\bin\cmake.exe" --build build-e0 --target strata -j 12
+[build] exit 0  (2.8 min)  full log: C:\strata-lab\engine\build-e0.log
+            instantiation of "void strata::kernels::<unnamed>::launch_multi<F>(const void *, const void *, float *, int, int, int, void *) [with F=strata::kernels::<unnamed>::SmallTraits<strata::kernels::<unnamed>::IQ4NLBlock, 4>]" at line 2454
+            instantiation of "void strata::kernels::<unnamed>::small_mmvq<Weight,Qi>(const void *, const void *, float *, int, int, int, void *) [with Weight=strata::kernels::<unnamed>::IQ4NLBlock, Qi=4]" at line 3512
+
+native_mmvq.cu
+tmpxft_00000a20_00000000-7_native_mmvq.cudafe1.cpp
+C:\Users\jinsan\AppData\Local\Temp\tmpxft_00000a20_00000000-7_native_mmvq.cudafe1.stub.c(1065): warning C4211: 비표준 확장이 사용됨: extern에서 static으로 재정의되었습니다.
+C:\Users\jinsan\AppData\Local\Temp\tmpxft_00000a20_00000000-7_native_mmvq.cudafe1.stub.c(540): warning C4211: 비표준 확장이 사용됨: extern에서 static으로 재정의되었습니다.
+C:\Users\jinsan\AppData\Local\Temp\tmpxft_00000a20_00000000-7_native_mmvq.cudafe1.stub.c(14): warning C4211: 비표준 확장이 사용됨: extern에서 static으로 재정의되었습니다.
+C:\Users\jinsan\AppData\Local\Temp\tmpxft_00000a20_00000000-7_native_mmvq.cudafe1.stub.c(20): warning C4211: 비표준 확장이 사용됨: extern에서 static으로 재정의되었습니다.
+C:\Users\jinsan\AppData\Local\Temp\tmpxft_00000a20_00000000-7_native_mmvq.cudafe1.stub.c(22): warning C4211: 비표준 확장이 사용됨: extern에서 static으로 재정의되었습니다.
+[153/157] Linking CXX static library strata_kernels.lib
+[154/157] Linking CXX static library strata_engine.lib
+[155/157] Linking CXX static library strata_prefill.lib
+[156/157] Linking CXX static library strata_qwen35.lib
+[157/157] Linking CXX executable strata.exe
+[build] output C:\strata-lab\engine\build-e0\strata.exe  63.7 MB  sha256 907008dae59e5575d4123eca8a1eaa7e36cbf25c80e2cf12c9229b098e764367
+[build] done 2026-11-18T09:45:39

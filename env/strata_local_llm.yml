@@ -31,4 +31,19 @@ dependencies:
   - vc14_runtime=14.51.36247
   - vcomp14=14.51.36247
   - wheel=0.48.0
+  - pip:
+      - certifi==2026.10.19
+      - charset-normalizer==3.5.1
+      - idna==3.20
+      - jinja2==3.1.6
+      - markupsafe==3.0.3
+      - numpy==2.5.3
+      - pillow==13.0.0
+      - psutil==7.2.2
+      - pyyaml==6.0.3
+      - regex==2026.9.10
+      - requests==2.34.2
+      - tqdm==4.70.1
+      - truststore==0.10.5
+      - urllib3==2.8.0
 prefix: C:\ProgramData\anaconda3\envs\strata_local_llm
