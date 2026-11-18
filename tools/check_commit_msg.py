@@ -192,7 +192,8 @@ def main(argv=None) -> int:
     if not args:
         print("usage: check_commit_msg.py [--staged] <COMMIT_MSG_FILE>", file=sys.stderr)
         return 2
-    message = Path(args[0]).read_text(encoding="utf-8", errors="replace")
+    # utf-8-sig: Windows PowerShell 5.1 의 Out-File 이 붙이는 BOM 을 떼어 낸다.
+    message = Path(args[0]).read_text(encoding="utf-8-sig", errors="replace")
     # CI(worktree)는 커밋된 트리를 보므로 스테이지 목록이 없다.
     errors = check(message, source=source, staged=None if source == "index" else [])
     if not errors:
