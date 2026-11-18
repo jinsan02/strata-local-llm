@@ -1,0 +1,26 @@
+name: 버그
+description: 측정 도구·스크립트·훅·환경이 틀렸을 때
+title: "fix(<scope>): <요약>"
+labels: ["bug"]
+body:
+  - type: textarea
+    id: repro
+    attributes:
+      label: 재현 방법
+      description: 명령, 입력, 환경(엔진 커밋·모델 해시·설정 ID)
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대와 실제
+    validations:
+      required: true
+  - type: textarea
+    id: invalidates
+    attributes:
+      label: 무효가 될 수 있는 결과
+      description: 이 버그 때문에 다시 재야 하는 run_id. 없으면 none (fix 커밋의 Invalidates 트레일러가 된다)
+      placeholder: none
+    validations:
+      required: true

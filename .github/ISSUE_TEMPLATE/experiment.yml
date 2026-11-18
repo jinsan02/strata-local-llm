@@ -1,0 +1,51 @@
+name: 실험
+description: 가설 하나를 시험한다 (기획서 5.1 반복 최적화 절차)
+title: "exp(<scope>): <가설 요약>"
+labels: ["experiment"]
+body:
+  - type: dropdown
+    id: scope
+    attributes:
+      label: 단계
+      options: [config, quant, engine, bench, eval, env]
+    validations:
+      required: true
+  - type: input
+    id: config_id
+    attributes:
+      label: 구성 ID · 기준선 run_id
+      placeholder: "B1 · 기준선 bench_b0_m0_e0_s0_ctx8k"
+    validations:
+      required: true
+  - type: textarea
+    id: bottleneck
+    attributes:
+      label: 병목과 가설
+      description: 어떤 프로파일·측정이 이 병목을 가리키는지
+    validations:
+      required: true
+  - type: textarea
+    id: change
+    attributes:
+      label: 바꿀 것
+      description: 대상 파일·텐서·설정, 바꾸지 않는 것
+    validations:
+      required: true
+  - type: textarea
+    id: expect
+    attributes:
+      label: 기대 지표와 품질 위험
+      description: 어느 지표가 얼마나, 무엇이 나빠질 수 있는지
+    validations:
+      required: true
+  - type: textarea
+    id: verify
+    attributes:
+      label: 확인 방법과 완료 조건
+      description: 사전 검사(호환성·빌드·수치 정확성), 교차 측정 반복 수, 허용 오차(결과 보기 전에 정함)
+      value: |
+        - [ ] 사전 검사:
+        - [ ] 교차 측정 (반복 N회):
+        - [ ] 탐색 품질 평가:
+    validations:
+      required: true
