@@ -90,7 +90,9 @@ def main() -> int:
     ap.add_argument("--budget", type=int, default=8192)
     ap.add_argument("--max-steps", type=int, default=20)
     ap.add_argument("--harness", default="H0")
+    ap.add_argument("--tool-out", choices=["chars", "paged"], default="chars")
     ap.add_argument("--repeat", type=int, default=1)
+    ap.add_argument("--rep-start", type=int, default=1, help="반복 번호 시작 (H0 · H1 을 번갈아 돌릴 때 _r<n> 이 겹치지 않게)")
     ap.add_argument("--prefix", default="x3s")
     ap.add_argument("--base-url", default="http://127.0.0.1:8080")
     ap.add_argument("--timeout", type=float, default=1800)
@@ -106,7 +108,7 @@ def main() -> int:
     for iid in a.instances:
         case = json.loads((CASES / iid / "instance.json").read_text(encoding="utf-8"))
         py = str(ENVS / case["env"] / "python.exe")
-        for i in range(1, a.repeat + 1):
+        for i in range(a.rep_start, a.rep_start + a.repeat):
             name = f"{a.prefix}_m0_e0_s0_ctx{k}k_nav_{iid.replace('__', '_').replace('-', '_')}"
             run_dir = rb.ROOT / "experiments" / "runs" / name
             run_dir.mkdir(parents=True, exist_ok=True)
@@ -117,7 +119,9 @@ def main() -> int:
                     {"role": "user", "content": "### 이슈\n" + case["problem_statement"] + "\n\n" + x3.NAV_FORMAT}]
             cfg = {"instance": iid, "dataset_revision": case["dataset_revision"], "base_commit": case["base_commit"], "mode": "navigate",
                    "tools": x3.NAV_TOOLS, "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, "server_config": server_cfg,
-                   "harness": "local conda, not official Docker", "nav_harness": a.harness, "tool_out_limit": x3.TOOL_OUT_LIMIT}
+                   "harness": "local conda, not official Docker", "nav_harness": a.harness, "tool_out_limit": x3.TOOL_OUT_LIMIT, "tool_out": a.tool_out,
+                   **({"page_tokens": x3.PAGE_TOKENS, "chars_per_token": x3.CHARS_PER_TOKEN, "grep_hits": x3.GREP_HITS,
+                       "list_files": x3.LIST_FILES} if a.tool_out == "paged" else {})}
             cfg_sha = rb.sha256_bytes(rb.canon(cfg))
             (run_dir / "config.json").write_bytes(rb.canon(cfg))
             (run_dir / "env.json").write_bytes(rb.canon(env))

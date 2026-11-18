@@ -414,7 +414,7 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
                     logged = {"path": args.get("path"), "old_chars": len(args.get("old_string") or ""),
                               "new_chars": len(args.get("new_string") or "")}
                 else:
-                    out = run_tool(root, fn, args)
+                    out = (run_tool_paged if getattr(a, "tool_out", "chars") == "paged" else run_tool)(root, fn, args)
                     ok, logged = _tool_ok(fn, out), args
             r["tool_ms"] += (time.perf_counter() - t0) * 1000
             if not ok:
@@ -494,6 +494,63 @@ def run_tool(root: Path, name: str, args: dict) -> str:
         return f"오류: {ex}"
 
 
+# H1 (도구 응답 크기 제한): 도구 정의는 H0 와 같고 출력만 다르다. 끝을 글자 수로 자르는 대신 토큰 예산 안에서
+# 범위를 끊고 다음 범위를 안내한다. 코드 글자 / 토큰 비 3.0 (서버 count_tokens 로 M0 · packaging 에서 확인 후 고정).
+PAGE_TOKENS = 2500
+CHARS_PER_TOKEN = 3.0
+GREP_HITS = 40
+LIST_FILES = 100
+
+
+def run_tool_paged(root: Path, name: str, args: dict) -> str:
+    try:
+        if name == "list_files":
+            fs = _files(root, args.get("pattern") or "*")
+            if not fs:
+                return "(없음)"
+            more = f"\n... ({len(fs)}개 중 {LIST_FILES}개. pattern 을 좁혀라, 예: src/packaging/*.py)" if len(fs) > LIST_FILES else ""
+            return "\n".join(fs[:LIST_FILES]) + more
+        if name == "grep":
+            rx = re.compile(args["pattern"])
+            hits, total, files = [], 0, set()
+            for rel in _files(root, args.get("path_glob") or "src/**/*.py"):
+                lines = (root / rel).read_text(encoding="utf-8", errors="replace").splitlines()
+                for i, line in enumerate(lines, 1):
+                    if rx.search(line):
+                        total += 1
+                        files.add(rel)
+                        if len(hits) < GREP_HITS:
+                            prev = lines[i - 2].strip()[:80] if i > 1 else ""
+                            hits.append(f"{rel}:{i}: {line.strip()[:160]}" + (f"   (앞 줄: {prev})" if prev else ""))
+            if not hits:
+                return "(일치 없음)"
+            tail = (f"\n... 총 {total}건({len(files)}개 파일) 중 {GREP_HITS}건. pattern 이나 path_glob 를 좁히거나 "
+                    "read_file(path, start_line=…) 로 해당 줄 근처를 읽어라" if total > GREP_HITS else f"\n(총 {total}건)")
+            return "\n".join(hits) + tail
+        if name == "read_file":
+            p = (root / args["path"]).resolve()
+            if root.resolve() not in p.parents or ".git" in p.parts or not p.is_file():
+                return "오류: 읽을 수 없는 경로"
+            lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
+            s = max(1, int(args.get("start_line") or 1))
+            want_e = min(len(lines), int(args.get("end_line") or len(lines)))
+            budget, out, e = int(PAGE_TOKENS * CHARS_PER_TOKEN), [], s - 1
+            for i in range(s, want_e + 1):
+                ln = f"{i:5d}  {lines[i - 1]}"
+                if out and sum(len(x) + 1 for x in out) + len(ln) > budget:
+                    break
+                out.append(ln)
+                e = i
+            if s > len(lines):
+                return f"오류: start_line {s} 이 파일 길이({len(lines)}줄)를 넘는다"
+            hint = (f"\n... (줄 {s}~{e} / 전체 {len(lines)}줄. 이어 읽기: read_file(path=\"{args['path']}\", start_line={e + 1}))"
+                    if e < len(lines) else f"\n(파일 끝, 전체 {len(lines)}줄)")
+            return "\n".join(out) + hint
+        return f"오류: 알 수 없는 도구 {name}"
+    except Exception as ex:  # noqa: BLE001
+        return f"오류: {ex}"
+
+
 def chat_once(base_url: str, api_key: str, messages: list, max_tokens: int, timeout: float, tools=None) -> tuple[dict, float]:
     body = {"model": "strata", "stream": False, "max_tokens": max_tokens, "messages": messages, **rb.SAMPLING, **rb.EXTRA_BODY}
     if tools:
@@ -522,9 +579,11 @@ def main() -> int:
     ap.add_argument("--inputs", type=int, nargs="+", default=[0, 16384, 24320], help="preload 목표 입력 토큰. 0 = 필수 파일만")
     ap.add_argument("--tasks", nargs="+", default=["dg_group_names", "marker_extras", "version_bump"])
     ap.add_argument("--repeat", type=int, default=1)
+    ap.add_argument("--rep-start", type=int, default=1, help="반복 번호 시작 (H0 · H1 을 번갈아 돌릴 때 _r<n> 이 겹치지 않게)")
     ap.add_argument("--prefix", default="x3")
     ap.add_argument("--max-steps", type=int, default=20)
     ap.add_argument("--harness", default="H0", help="하네스 후보 ID (H0 = nav-v3 기준선: edit_file · 재요청 1회 · 글자 수 자르기 12,000)")
+    ap.add_argument("--tool-out", choices=["chars", "paged"], default="chars", help="H0 chars(글자 수 자르기) / H1 paged(토큰 예산 범위 · 다음 범위 안내)")
     ap.add_argument("--base-url", default="http://127.0.0.1:8080")
     ap.add_argument("--timeout", type=float, default=1800)
     ap.add_argument("--chars-per-token", type=float, default=3.2)
@@ -553,7 +612,7 @@ def main() -> int:
 
         conds = a.inputs if a.mode == "preload" else [0]
         for target in conds:
-            for i in range(1, a.repeat + 1):
+            for i in range(a.rep_start, a.rep_start + a.repeat):
                 tag = (f"in{round(target / 1024)}k" if target else "inreq") if a.mode == "preload" else "nav"
                 run_name = f"{a.prefix}_m0_e0_s0_ctx{k}k_{tag}_{task}"
                 run_dir = rb.ROOT / "experiments" / "runs" / run_name
@@ -634,6 +693,8 @@ def main() -> int:
                                "list_files · grep · read_file 도구로 필요한 코드를 찾아 읽고, edit_file 도구로 직접 고쳐라.")
                     msgs = [{"role": "system", "content": sys_txt}, {"role": "user", "content": "### 과제\n" + task_txt + "\n\n" + NAV_FORMAT}]
                     cfg = {"task": task, "mode": "navigate", "harness": a.harness, "commit": COMMIT, "tool_out_limit": TOOL_OUT_LIMIT,
+                           "tool_out": a.tool_out, **({"page_tokens": PAGE_TOKENS, "chars_per_token": CHARS_PER_TOKEN, "grep_hits": GREP_HITS,
+                                                       "list_files": LIST_FILES} if a.tool_out == "paged" else {}),
                            "tools": NAV_TOOLS, "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, "server_config": server_cfg}
                     cfg_sha = rb.sha256_bytes(rb.canon(cfg))
                     (run_dir / "config.json").write_bytes(rb.canon(cfg))
