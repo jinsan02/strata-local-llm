@@ -33,6 +33,25 @@ def extract_code(answer: str) -> str | None:
     return blocks[-1] if blocks else None
 
 
+def count_tests(tests: Path) -> int | None:
+    """테스트 파일의 전체 테스트 수. solution 의 이름을 None 으로 둔 가짜 모듈로 수집만 한다.
+
+    코드 블록이 없을 때 그냥 수집하면 import 오류 1건이 '1개' 로 세어졌다 (2026-11-18 xb lru_cache b2k: 0/1, 실제 5개).
+    """
+    names = re.findall(r"^from solution import (.+)$", tests.read_text(encoding="utf-8"), flags=re.M)
+    stub = "".join(f"{n.strip()} = None\n" for line in names for n in line.split(","))
+    with tempfile.TemporaryDirectory() as d:
+        shutil.copy(tests, d)
+        Path(d, "solution.py").write_text(stub, encoding="utf-8")
+        r = subprocess.run([PY, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider", d],
+                           capture_output=True, text=True, timeout=120, cwd=d)
+        m = re.search(r"(\d+) tests? collected", r.stdout) or re.search(r"^(\d+) tests?", r.stdout, flags=re.M)
+        if m:
+            return int(m.group(1))
+        n = len([ln for ln in r.stdout.splitlines() if "::" in ln])
+        return n or None
+
+
 def run_tests(task: str, code: str | None) -> tuple[str, str]:
     """(통과/전체, 요약). 코드가 없으면 0/전체."""
     tests = TASKS / task / "test_solution.py"
@@ -40,10 +59,8 @@ def run_tests(task: str, code: str | None) -> tuple[str, str]:
     with tempfile.TemporaryDirectory() as d:
         shutil.copy(tests, d)
         if code is None:
-            collect = subprocess.run([PY, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider", d],
-                                     capture_output=True, text=True, timeout=120)
-            m = re.search(r"(\d+) tests? collected", collect.stdout) or re.search(r"(\d+) errors?", collect.stdout)
-            return (f"0/{m.group(1)}" if m else "0/NA"), "코드 블록 없음"
+            n = count_tests(tests)
+            return (f"0/{n}" if n else "0/NA"), "코드 블록 없음"
         Path(d, "solution.py").write_text(code, encoding="utf-8")
         try:
             r = subprocess.run([PY, "-m", "pytest", "-q", "--tb=line", "-p", "no:cacheprovider", d],
