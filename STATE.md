@@ -21,8 +21,9 @@
 | 호환성·자원 조사 | — | — | 완료 | 엔진·모델 지원, 메모리·디스크·CPU·PCIe 정보 | `docs/prep-plan-20261118.md`, `env/hw-20261118.md` |
 | 환경 준비 | — | — | 완료 | conda · 툴체인 · E0 빌드 · `--plan` · M0 다운로드(해시 일치) | `env/strata-plan-20261118.md`, `env/download-m0.log` |
 | 컨텍스트 지원 확인 | X0 | 8K→16K→32K | 완료 | 세 단계 모두 로딩·응답·OOM 없음. VRAM expert 77→73→63/256, TG 약 99→100→92 tok/s (입력 526) | 원장 `x0_*` |
-| 기준선 | B0 | 8K | 미착수 | M0 · E0 고정(태그 `m0-e0-freeze`), 성능·품질·자원 로그 | 원장 |
-| 설정 효과 (입력 고정) | X1 | 8K·16K·32K | 미착수 | 같은 고정 문항으로 메모리 할당·PP·TG·지연 비교 | 원장 |
+| 기준선 | B0 | 8K | 진행 중 | 처리량 부분 완료(X1 의 8K 행). 품질·최종 답변은 XB 이후. 태그 `m0-e0-freeze` 는 품질까지 본 뒤 | 원장 `x1_*ctx8k*` |
+| 설정 효과 (입력 고정) | X1 | 8K·16K·32K | 완료 | **"8K·16K·32K 설정에서 0.5K·2K·4K 입력 성능 측정"** — 처리량 시험, 32K 실사용 검증 아님. 32K 설정은 8K 대비 TG 약 10~15% 낮음, 최종 답변 0건 | `reports/x1-summary.md` |
+| 출력·reasoning 예산 단계 | XB | 32K | 진행 중 | 코딩 과제 4개 × 예산 2K·4K·8K: 최종 답변 도달·사용 토큰·finish_reason·테스트 통과 | 원장 `xb_*` |
 | 입력 길이 효과 | X2 | 32K | 미착수 | 2K·8K·16K·24K 코딩 입력 | 원장 |
 | 긴 문맥 코딩 품질 | X3 | 32K | 미착수 | 지시 준수·코드 찾기·수정·테스트 통과·도구 호출 | 원장 |
 | 노트북 경유 | X4 | 32K | 미착수 | 체감 지연(별도 행), tool calling·템플릿 호환 | 원장 `origin=laptop` |
@@ -57,6 +58,9 @@
 
 | 날짜 | 결정 | 근거 |
 | --- | --- | --- |
+| 11-18 | **MTP 진단 (Q10 종결)**: 활성화·초안 블록 로딩은 됨. v0.2.15 qwen36 경로는 `spec = mtp_d>0 && !smp.needs_logits() && !adm` (`q36_engine.cu:3730`) — logits 가 필요 없는 greedy 단독 요청만 초안을 쓴다. 순수 greedy(penalty 0)에서 158/198 수락(80%), TG 154~162 tok/s. 권장 샘플링(temperature 1.0 + presence 1.5)은 초안 시도 없음, TG 83~108. 서버 `/metrics` 의 drafts 는 계측 누락(엔진이 158/198 을 보고해도 0/0) → 러너는 엔진 로그에서 읽고, 시도 0 은 '초안 시도 미기록'(NA) | 엔진 로그 · 소스 · 프로브 6건 |
+| 11-18 | 원장 이행: `max_tokens` `finish_reason` `answer_reached` `tests_passed` `tt_reasoning_ms` `experts_vram` `drafts_offered` `drafts_accepted` 추가. 기존 63행은 열 이동만, 새 열 NA | 사용자 지시 1·2·3·5 |
+| 11-18 | 코딩 실사용 성능은 같은 프롬프트에서 최종 답변 + 테스트 통과가 확인된 행만. X1 은 처리량 시험으로만 부른다. 입력+예산 ≤ ctx 를 러너가 강제 | 사용자 지시 4·6 |
 | 11-18 | **E0 확정 (Q6 종결)**: `setup.py --build` 가 같은 커밋 `c775728` 로 만든 `engine\engine\strata.exe` (sha256 `dac0229467a62eb6d18b8f54ecfc21b15421978201a8bed1388cc37af8cfc777`, llama.cpp `3cf0325` 포함). 직접 빌드 `build-e0`(`907008da…`)는 참고용. 서버는 `serve/server.py` + `strata-qwen36-ctx<N>.json`(setup 설정에서 `--max-context` 만 바꾼 사본) | setup 이 쓰는 빌드 경로가 운영 경로 |
 | 11-18 | 측정 샘플링은 서버의 qwen35moe thinking 권장값(temperature 1.0, top_p 0.95, top_k 20, presence_penalty 1.5, seed 42)으로 고정. X0 8K 3행만 0.6/0.95/20 이라 비교에 쓰지 않는다 | `serve/server.py` 권장 세트 |
 | 11-18 | SSD 의존도는 서버 `/metrics` 의 요청별 `file_mb`, MTP 는 `drafts_accepted/offered` 를 원장 `note` 에 남긴다. chat API 는 reasoning 토큰 수를 주지 않아 `reasoning_tokens=NA` (Responses API 로 X3·X4 에서 잰다) | `/metrics` requests 필드 |
@@ -84,7 +88,7 @@
 | Q2 | 탐색·최종 평가 데이터 출처(공개·합성) | 공개 벤치 일부 + 합성, 출처·버전 기록 | B0 품질 측정 | 기획서 8절 |
 | Q3 | qwen36 경로에서 `--kv int8\|q4_0\|k8v4\|fp16` 이 실제로 적용되는지 (launcher 에는 옵션이 있고 기본 int8, QWEN36.md 는 fp32 라고 적음) | M0 로딩 뒤 KV 메모리로 확인, 적용되면 B1 후보 | B1 탐색 목록 | `env/strata-plan-20261118.md` |
 | Q9 | RAM 여유가 약 0.7GB 뿐이다 (엔진 private 35.6GB, 페이지 파일 자동 증가 최대 8GB). 32K 긴 입력에서 페이징이 늘면 `--resident-budget-gib` · `--low-ram` 조정이 필요할 수 있다 | X1·X2 에서 페이지 파일·`file_mb`·지연을 같이 보고 판단 | X2, B1 | X0 관측 |
-| Q10 | MTP 가 짧은 요청에서 초안을 하나도 내지 않는다 (`draft_n 0`) | 긴 출력(512)에서 `drafts_*` 확인, 계속 0 이면 엔진 로그 확인 | B1 MTP 실험 | X0 관측 |
+| Q11 | MTP 를 쓰려면 greedy 가 필요한데, thinking 모델은 greedy 에서 반복 위험이 있다. 운영 샘플링을 greedy 로 바꿀지, `STRATA_SPEC_PROB` 가 qwen36 경로에서 통하는지 | B1 에서 같은 코딩 과제로 greedy vs 권장 샘플링 품질·속도 비교 | B1 | Q10 진단 |
 | Q8 | X3 코딩 품질 탐색 세트의 출처 (긴 문맥 코드 수정·테스트) | 공개 저장소 일부로 합성한 과제 + 고정 단위 테스트, 최종 50문항과 분리 | X3 | 변경안 6절 |
 | Q4 | 맞춤 양자화 원본(BF16 약 70GB) 확보·변환 방식 | 샤드 스트리밍 변환 가능성 먼저 소형 검사 | Q1 단계 | 기획서 6.3 |
 | Q5 | API 사용량·비용 예산 상한 | 착수 시 사람이 정함 | 탐색 예산 | 기획서 5.2, 11절 |
@@ -97,6 +101,7 @@
 
 ## 최근 변경
 
+- 2026-11-18 · Claude Code · X1 완료(54행, 처리량 시험으로 명명), MTP 진단(greedy 전용 경로, /metrics 계측 누락), 원장 열 8개 이행, 러너에 reasoning/답변 지연 분리·예산 가드·expert 상태·엔진 로그 drafts. 탐색 코딩 과제 4개(참고 해답으로 테스트 33개 검증) + XB 러너. XB 진행 중.
 - 2026-11-18 · Claude Code · X0 완료: setup 빌드(E0 확정), 8K·16K·32K 기동·짧은 요청 각 3회 기록(원장 9행). 32K 에서 VRAM expert 63/256, TG 약 8% 하락. RAM 여유 약 0.7GB. 측정 러너·서버 전환 스크립트 추가.
 - 2026-11-18 · Claude Code · 계획 v2.1 변경: 32K 운영 목표, X0~X4 실험 추가, RULES 7 교체, 원장 열 8개 추가(원장은 비어 있어 이행 대상 없음), 클라이언트 예산 8,192/20,000. M0 다운로드 완료(12.4분, sha256 일치). 그동안 측정값은 없어 다시 할 실험 없음.
 - 2026-11-18 · Claude Code · 노트북 → Tailscale → 본체 호출 준비: `scripts/client/`(연결 확인, Claude Code·Codex 실행 스크립트), 방화벽 명령 문서화. 노트북에서 `strata-remote.ps1` 은 TCP 8080 실패까지 확인(서버 없음, 예상대로). 실제 호출은 M0 다운로드·서버 기동 뒤.
