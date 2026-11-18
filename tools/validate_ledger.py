@@ -15,12 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from tools import repo  # noqa: E402
 
-COLUMNS = (
-    "ts_utc", "run_id", "config_id", "phase", "status", "model_id", "model_sha256",
-    "engine_commit", "settings_id", "ctx", "parallel", "input_tokens", "output_tokens",
-    "pp_tps", "tg_tps", "ttft_ms", "tt_answer_ms", "total_ms", "peak_vram_mb",
-    "peak_ram_mb", "git_commit", "git_dirty", "config_sha256", "env_sha256", "note",
-)
+COLUMNS = ("ts_utc", "run_id", "config_id", "phase", "status", "origin", "workload", "model_id", "model_sha256", "engine_commit", "settings_id", "ctx", "parallel", "kv", "mtp", "thinking", "cache_state", "input_tokens", "output_tokens", "reasoning_tokens", "pp_tps", "tg_tps", "ttft_ms", "tt_answer_ms", "total_ms", "peak_vram_mb", "peak_ram_mb", "ssd_read_mb", "git_commit", "git_dirty", "config_sha256", "env_sha256", "note", )
 STATUSES = ("start", "ok", "fail")
 
 
