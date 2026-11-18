@@ -4,7 +4,7 @@ Codex와 Claude Code가 함께 읽는 작업 지침입니다(Claude Code는 `CLA
 
 ## 프로젝트
 
-RTX 5070 Ti 16GB · RAM 32GB 본체(`desktop-5070`) 한 대에서 [Niko1221/Strata](https://github.com/Niko1221/Strata)로 MoE 모델을 돌리고, 한국어·코딩 품질을 지키면서 실행 설정 → 레이어별 맞춤 양자화 → 엔진 코드 순으로 최적화한다. 1인 + AI 에이전트 작업이다. 설계는 기획서 `docs/plan-v2.0.md`가 기준이고, 실행 전 보완점은 `docs/prep-plan-20261118.md`에 있다. 지금은 착수 게이트(환경 준비) 단계이고 측정한 수치는 없다.
+RTX 5070 Ti 16GB · RAM 32GB 본체(`desktop-5070`) 한 대에서 [Niko1221/Strata](https://github.com/Niko1221/Strata)로 MoE 모델을 돌리고, 한국어·코딩 품질을 지키면서 실행 설정 → 레이어별 맞춤 양자화 → 엔진 코드 순으로 최적화한다. 1인 + AI 에이전트 작업이다. 최종 사용 형태는 본체 STRATA 서버를 노트북 코딩 클라이언트(Claude Code · Codex)가 Tailscale 로 부르는 것이고, 운영 목표 컨텍스트는 32K 다. 설계는 기획서 `docs/plan-v2.0.md` + 변경안 `docs/plan-v2.1-amendment-20261118.md`(변경안이 이긴다), 실행 전 보완점은 `docs/prep-plan-20261118.md`. 진행 상태는 `STATE.md`.
 
 ## 작업 시작 순서
 
@@ -30,6 +30,7 @@ tail -n 15 experiments/LEDGER.tsv
 | --- | --- | --- |
 | 하드룰 | `docs/RULES.md` | 규칙은 여기에만 쓴다. 다른 파일에 복사하지 않는다 |
 | 목표·범위·단계·채택 기준 | `docs/plan-v2.0.md` | 원본. 고치지 않는다 |
+| 컨텍스트 목표(32K)·예산·X0~X4 실험 | `docs/plan-v2.1-amendment-20261118.md` | v2.0 과 다르면 이 문서가 이긴다 |
 | 실행 전 보완점, M0 후보, 툴체인 조합 | `docs/prep-plan-20261118.md` | 기획서와 다르면 이 문서가 최신 판단 |
 | 커밋·브랜치·태그 | `docs/COMMIT_CONVENTION.md`, `CONTRIBUTING.md` | 훅이 집행한다 |
 | 원장 열 | `docs/LEDGER_SCHEMA.md` + `tools/validate_ledger.py` | 둘이 다르면 코드가 맞다 |
@@ -49,7 +50,7 @@ tail -n 15 experiments/LEDGER.tsv
 | 2 | 최종 평가 50문항(`final_eval/`)은 후보 고정 전까지 열지 않는다 |
 | 3 | 평가 정답·측정 시계·채점기·기준선을 바꿔서 수치를 올리지 않는다 |
 | 4 · 5 | `record` 커밋에 코드를 섞지 않는다. 원장은 append-only, 코드가 쓴다 |
-| 6 · 7 | 같은 PC 교차 측정, 8K · parallel 1 이 목표 조건 |
+| 6 · 7 | 같은 PC 교차 측정. 32K 운영 목표는 실측으로만 달성, 설정 효과와 입력 길이 효과를 섞지 않음 |
 | 8 · 9 | 원본 모델·엔진·원시 결과 덮어쓰기 금지, 바이너리·비밀값 커밋 금지 |
 | 10 · 11 | 훅 우회 금지, 탐색 예산 지키기 |
 
@@ -58,7 +59,8 @@ tail -n 15 experiments/LEDGER.tsv
 - **측정은 정리 후에:** 측정 전 `scripts/cleanup.ps1`, 전원 구성표 고성능, 워밍업. 다른 GPU 작업을 동시에 띄우지 않는다.
 - **tok/s 는 엔진 보고값으로만.** SSE 조각·문자 수로 계산하지 않는다. MTP draft 토큰과 채택 토큰을 구분한다.
 - **reasoning 을 끄거나 답을 짧게 만드는 변경은 처리량 개선이 아니다.** 따로 표시한다.
-- **8K 를 못 채운 결과를 8K 달성으로 적지 않는다.** 축소 조건은 진단용.
+- **32K 를 못 채운 결과를 32K 달성으로 적지 않는다.** 원인과 16K 운영안을 낸다. 본체 로컬 측정과 노트북 경유 측정을 섞지 않는다.
+- **코드 읽기·수정·테스트는 노트북 클라이언트가 실행한다.** 모델 API 는 파일에 접근하지 않는다.
 - **STRATA 옵션은 고정 커밋에 실제로 있는 것만 쓴다.** llama.cpp 옵션을 그대로 대입하지 않는다.
 - **정해지지 않은 것은 고르지 않는다:** `STATE.md` 열린 질문. 정해지기 전에 필요하면 묻는다.
 - 새 conda 패키지는 conda-forge 에서만, 더하면 `env/strata_local_llm.yml` 도 고친다.

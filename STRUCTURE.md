@@ -29,6 +29,7 @@ strata-lab/                     C:\strata-lab (desktop-5070)
 ├─ docs/                        설계·규칙 문서 (docs/README.md)
 │  ├─ plan-v2.0.md               기획서 원본 (고치지 않음)
 │  ├─ prep-plan-20261118.md      착수 준비 계획, 기획서 검토 결과
+│  ├─ plan-v2.1-amendment-20261118.md  32K 운영 목표·실험 매트릭스 (v2.0 일부 대체)
 │  ├─ RULES.md                   하드룰 — 규칙의 단일 출처
 │  ├─ COMMIT_CONVENTION.md       커밋 type·scope·트레일러·브랜치·태그
 │  ├─ WORKFLOW.md                실험 1건의 수명, 두 에이전트 교대

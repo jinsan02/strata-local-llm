@@ -5,33 +5,44 @@
 ## 지금
 
 - 마지막 갱신: 2026-11-18
-- 단계: **착수 게이트 1~3 (호환성·자원 조사, 환경 준비)**. 모델 다운로드·측정 없음
+- 단계: **착수 게이트 4 (M0 로딩 확인)**. M0 다운로드·해시 확인 완료, 측정 없음
+- 목표: **32K 운영** (입력 24,576 · 출력+reasoning 8,192), 8K 기준선 · 16K 중간 · 64K 선택 — [`docs/plan-v2.1-amendment-20261118.md`](docs/plan-v2.1-amendment-20261118.md)
+- 사용 형태: 본체 STRATA 서버를 노트북 코딩 클라이언트(Claude Code · Codex)가 Tailscale 로 부른다. 코드 읽기·수정·테스트는 노트북에서
 - 대상 PC: `desktop-5070` (Tailscale 100.121.174.83), 저장소 `C:\strata-lab`
 - 실행 환경: conda `strata_local_llm` (Python 3.12, conda-forge), 빌드는 VS 2022 Build Tools + CUDA 13.2.2
 - 주 실행자: Claude Code (노트북에서 SSH). Codex 로 비교할 때는 브랜치를 나눈다
 
 ## 단계 진행표
 
-기획서 10절·6.1절 기준. 상태: 완료 · 진행 중 · 대기 · 미착수 · 미달
+기획서 v2.0 6.1·10절 + 변경안 v2.1 6절 기준. 상태: 완료 · 진행 중 · 대기 · 미착수 · 미달
 
-| 단계 | 구성 ID | 상태 | 완료 조건 | 근거 |
-| --- | --- | --- | --- | --- |
-| 호환성·자원 조사 | — | 완료 | 엔진·모델 지원, 메모리·디스크·CPU·PCIe 정보 | `docs/prep-plan-20261118.md`, `env/hw-20261118.md` |
-| 환경 준비 | — | 진행 중 | conda · 툴체인 · STRATA 빌드 · `--plan` 결과 | 이 파일 '다음 할 일' |
-| 기준선 | B0 | 미착수 | M0 · E0 고정(태그 `m0-e0-freeze`), 성능·품질·자원 로그 | 원장 |
-| 실행 설정 튜닝 | B1 | 미착수 | S1, 병목 프로파일, 후보 순위 | 원장 |
-| 맞춤 양자화 | Q1 | 미착수 | M1 레시피·형식 표·호환성·품질 | 원장 |
-| 엔진 최적화 | E1 | 미착수 | 패치·수치 검사·E1 비교 | 원장 |
-| 결합 | C1 | 미착수 | 단독 효과와 상호작용 | 원장 |
-| 최종 검증 | F1 | 미착수 | 독립 50문항, 재시작 재현, 혼합 50회 · 60분 | 원장 |
+| 단계 | 구성 ID | 컨텍스트 | 상태 | 완료 조건 | 근거 |
+| --- | --- | --- | --- | --- | --- |
+| 호환성·자원 조사 | — | — | 완료 | 엔진·모델 지원, 메모리·디스크·CPU·PCIe 정보 | `docs/prep-plan-20261118.md`, `env/hw-20261118.md` |
+| 환경 준비 | — | — | 완료 | conda · 툴체인 · E0 빌드 · `--plan` · M0 다운로드(해시 일치) | `env/strata-plan-20261118.md`, `env/download-m0.log` |
+| 컨텍스트 지원 확인 | X0 | 8K→16K→32K | 진행 중 | 단계마다 로딩·짧은 요청·OOM 없음, 실패는 원장 `fail` | 변경안 6절 |
+| 기준선 | B0 | 8K | 미착수 | M0 · E0 고정(태그 `m0-e0-freeze`), 성능·품질·자원 로그 | 원장 |
+| 설정 효과 (입력 고정) | X1 | 8K·16K·32K | 미착수 | 같은 고정 문항으로 메모리 할당·PP·TG·지연 비교 | 원장 |
+| 입력 길이 효과 | X2 | 32K | 미착수 | 2K·8K·16K·24K 코딩 입력 | 원장 |
+| 긴 문맥 코딩 품질 | X3 | 32K | 미착수 | 지시 준수·코드 찾기·수정·테스트 통과·도구 호출 | 원장 |
+| 노트북 경유 | X4 | 32K | 미착수 | 체감 지연(별도 행), tool calling·템플릿 호환 | 원장 `origin=laptop` |
+| 실행 설정 튜닝 | B1 | 32K | 미착수 | S1, 병목 프로파일(KV·expert 캐시·버퍼 경쟁), 후보 순위 | 원장 |
+| 맞춤 양자화 | Q1 | 32K | 미착수 | M1 레시피·형식 표·호환성·품질 | 원장 |
+| 엔진 최적화 | E1 | 32K | 미착수 | 패치·수치 검사·E1 비교 | 원장 |
+| 결합 | C1 | 32K | 미착수 | 단독 효과와 상호작용 | 원장 |
+| 최종 검증 | F1 | 32K | 미착수 | 독립 50문항, 재시작 재현, 혼합 50회 · 60분 | 원장 |
+| 확장 탐색 | — | 64K | 미착수 | F1 의 32K 통과 뒤에만 | 변경안 3절 |
 
 ## 다음 할 일
 
 1. ~~툴체인 검증~~ 완료 (11-18): `cl` 19.44.35230, `nvcc` 13.2.86, CMake 4.1.2, Ninja 1.13.1
 2. ~~STRATA E0 빌드~~ 완료 (11-18): v0.2.15 `c775728`, sm_120, `strata.exe` sha256 `907008da…` — `env/strata-plan-20261118.md`
 3. ~~`--plan` 결과 저장~~ 완료 (11-18): qwen36 계획기는 다운로드 크기를 모름(실제 22.9GB), coder IQ1_M 은 64.5GB
-4. launcher 가 릴리스 엔진 대신 소스 빌드 `engine\build-e0\strata.exe` 를 쓰게 하는 방법 확인 (`docs/SETTINGS.md`·`DETAILS.md`, `strata_cli/launch`)
-5. 사람 확인 후 M0 다운로드(약 23GB) → 8K · parallel 1 로딩·API 응답 확인 → 태그 `m0-e0-freeze`
+4. ~~소스 빌드 연결 경로 확인~~ (11-18): `strata launch`(터미널)는 서명된 설치 엔진만 쓴다. 소스 경로는 `setup.py --build`(엔진을 `engine\build` 에 빌드하고 `strata-<model>.json` · `run-<model>.bat` 을 쓴다) → `serve/server.py`
+5. ~~M0 다운로드~~ 완료 (11-18): `Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf` 22,853,663,008 B, sha256 일치, HF 리비전 `5bc3e23`
+6. **X0**: conda Python 으로 `setup.py --family qwen36 --model UD-Q4_K_XL --gguf-dir <M0> --context 8192 --parallel 1 --vision no --build --no-start` → 본체 로컬로 로딩·짧은 요청 → 16K → 32K
+7. 측정 러너(`scripts/bench/`) 작성: 스트리밍으로 첫 스트림·첫 답변 지연, 엔진 보고 토큰·속도, Peak VRAM·RAM, 디스크 읽기를 원장에 쓴다
+8. B0(8K) → X1 → X2 → X3 → X4 순서
 
 ## 사람에게 요청한 것
 
@@ -40,12 +51,15 @@
 | 11-18 | 전원 구성표를 고성능으로 변경 (측정 위생) | 대기 |
 | 11-18 | 양자화 단계 전 페이지 파일 확대 (예: 64GB) | 대기 |
 | 11-18 | 커밋 작성자 이메일을 kotokenlab 과 같게 할지 결정 (지금은 noreply) | 대기 |
-| 11-18 | 본체 방화벽에 Tailscale 대역만 허용하는 8080 규칙 추가 (명령은 `docs/ENVIRONMENT.md` '노트북에서 호출' 1) | 대기 |
+| 11-18 | 본체 방화벽에 Tailscale 대역만 허용하는 8080 규칙 추가 (명령은 `docs/ENVIRONMENT.md` '노트북에서 호출' 1) | 완료 (본체 규칙 1개, 100.64.0.0/10 · TCP 8080 확인. 노트북에 잘못 만든 규칙은 삭제됨) |
 
 ## 결정 기록
 
 | 날짜 | 결정 | 근거 |
 | --- | --- | --- |
+| 11-18 | **컨텍스트 목표 변경 (Q7 종결)**: 8K 기준선 · 16K 중간 · **32K 운영 목표**(입력 24,576 · 출력+reasoning 8,192, 초기안) · 64K 는 32K 통과 뒤 선택. 설정 효과(X1)와 입력 길이 효과(X2)를 나눠 잰다. 32K 부적합 시 원인과 16K 운영안을 낸다. M0 는 학습 범위 262,144 라 RoPE 확장 불필요 | 사용자 지시, `docs/plan-v2.1-amendment-20261118.md` |
+| 11-18 | 클라이언트 출력+reasoning 예산을 STRATA 권장 4,096 대신 창의 1/4(32K → 8,192)로, Codex 요약 기준은 20,000 으로 둔다 | 변경안 4절 예산. reasoning 이 예산을 자주 다 쓰면 재조정 |
+| 11-18 | 측정은 본체 로컬 API(`origin=local`)가 먼저, 노트북 경유(`origin=laptop`)는 별도 행. 원장에 origin · workload · kv · mtp · thinking · cache_state · reasoning_tokens · ssd_read_mb 열 추가 | 변경안 6·7절, RULES 7 |
 | 11-18 | 최종 사용 목표: 완성된 로컬 LLM 을 노트북의 코딩 도구(Claude Code · Codex · OpenCode)가 Tailscale(`--access tailscale`, 8080, API 키)로 부른다. 노트북 설정은 평소 도구 설정을 건드리지 않는 실행 스크립트(`scripts/client/`)로 한다 | 사용자 요청, `strata connect` 공식 지원 목록 |
 | 11-18 | E0 = Niko1221/Strata v0.2.15 `c77572806996349b49995e4f98d41b5294d36a21` 소스 빌드(`build-e0`, sm_120, Ninja). 엔진의 Python 런타임은 `.venv` 대신 conda `strata_local_llm` 에 pip 고정 버전으로 설치하고 `scripts/strata.cmd` 로 부른다 | RULES 1번, 사용자 conda 관리 요청 |
 | 11-18 | AI 작업 문서는 team4 형식(AGENTS · STATE · STRUCTURE · 폴더별 README/AGENTS · PR/이슈 템플릿)으로 둔다. `CLAUDE.md` 는 `@AGENTS.md` 한 줄로 불러오기만 한다 | 사용자 요청, encore-ai-campus/mlo-03-p1-team4 |
@@ -66,8 +80,8 @@
 | Q1 | 주 실행자 Codex/Claude Code 중 하나로 고정할지, 비교 실험을 할지 | Claude Code 고정, 비교는 B1 이후 별도 브랜치 | 5절 예산 | 기획서 5절 |
 | Q2 | 탐색·최종 평가 데이터 출처(공개·합성) | 공개 벤치 일부 + 합성, 출처·버전 기록 | B0 품질 측정 | 기획서 8절 |
 | Q3 | qwen36 경로에서 `--kv int8\|q4_0\|k8v4\|fp16` 이 실제로 적용되는지 (launcher 에는 옵션이 있고 기본 int8, QWEN36.md 는 fp32 라고 적음) | M0 로딩 뒤 KV 메모리로 확인, 적용되면 B1 후보 | B1 탐색 목록 | `env/strata-plan-20261118.md` |
-| Q7 | 운영 컨텍스트: 코딩 도구는 32K 창을 요구한다(Claude Code 15.6K/단순 모드 1.25K, Codex 8.6K 토큰 프롬프트). 기획서 목표 8K 측정과 별도로 32K 운영 구성을 둘지, 측정 목표 자체를 32K 로 올릴지 | 측정은 8K·32K 둘 다, 운영은 32K. 기획서 9절 채택 기준에 32K 조건 추가 | B0 조건, 채택 기준 | `strata connect claude-code/codex` 출력 |
-| Q6 | launcher 가 소스 빌드 E0 를 쓰게 할지, 엔진을 직접 실행할지 | 소스 빌드 연결 방법을 먼저 찾고, 없으면 직접 실행 | B0 | RULES 1번 |
+| Q6 | `setup.py --build` 가 만드는 엔진(`engine\build`)을 E0 로 볼지, 먼저 만든 `build-e0` 와 같은지 | 같은 커밋·같은 플래그면 산출물 해시와 CMake 캐시를 비교해 기록하고, setup 빌드를 운영 경로로 쓴다 | X0 | RULES 1번 |
+| Q8 | X3 코딩 품질 탐색 세트의 출처 (긴 문맥 코드 수정·테스트) | 공개 저장소 일부로 합성한 과제 + 고정 단위 테스트, 최종 50문항과 분리 | X3 | 변경안 6절 |
 | Q4 | 맞춤 양자화 원본(BF16 약 70GB) 확보·변환 방식 | 샤드 스트리밍 변환 가능성 먼저 소형 검사 | Q1 단계 | 기획서 6.3 |
 | Q5 | API 사용량·비용 예산 상한 | 착수 시 사람이 정함 | 탐색 예산 | 기획서 5.2, 11절 |
 
@@ -79,6 +93,7 @@
 
 ## 최근 변경
 
+- 2026-11-18 · Claude Code · 계획 v2.1 변경: 32K 운영 목표, X0~X4 실험 추가, RULES 7 교체, 원장 열 8개 추가(원장은 비어 있어 이행 대상 없음), 클라이언트 예산 8,192/20,000. M0 다운로드 완료(12.4분, sha256 일치). 그동안 측정값은 없어 다시 할 실험 없음.
 - 2026-11-18 · Claude Code · 노트북 → Tailscale → 본체 호출 준비: `scripts/client/`(연결 확인, Claude Code·Codex 실행 스크립트), 방화벽 명령 문서화. 노트북에서 `strata-remote.ps1` 은 TCP 8080 실패까지 확인(서버 없음, 예상대로). 실제 호출은 M0 다운로드·서버 기동 뒤.
 - 2026-11-18 · Claude Code · STRATA v0.2.15 clone·고정, E0 소스 빌드 성공(2.8분), 엔진 Python 런타임을 conda 환경에 설치, `--plan` 2건 기록. 모델 다운로드 없음. 엔진 실행(GPU 인식) 검증은 모델이 없어 미실행.
 - 2026-11-18 · Claude Code · 빌드 툴체인 설치·검증 완료. VS Build Tools 1차 설치가 `--installPath` 공백 분리로 `C:\Program` 에 들어가 제거 후 기본 경로로 재설치(`scripts/fix-vs-buildtools.ps1`), `install-buildtools.ps1` 도 고침. `verify.ps1` 통과.

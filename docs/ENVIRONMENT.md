@@ -91,7 +91,7 @@ scripts\strata.cmd launch --family qwen36 --model ud-q4_k_xl --data-dir C:\strat
 scripts\strata.cmd launch --show-key
 ```
 
-코딩 도구는 프롬프트가 커서 **32K 창**이 필요하다 (Claude Code 전체 15.6K · 단순 모드 1.25K, Codex 8.6K 토큰). 측정 조건 8K 와 운영 32K 는 별개다 (STATE 열린 질문 Q7).
+코딩 도구는 프롬프트가 커서 **32K 창**이 필요하다 (Claude Code 전체 15.6K · 단순 모드 1.25K, Codex 8.6K 토큰). 측정 단계는 8K 기준선 · 16K 중간 · 32K 운영 목표다 (`docs/plan-v2.1-amendment-20261118.md`). 클라이언트 예산(출력+reasoning 8,192, 요약 기준 20,000)은 서버 `--context` 와 같은 커밋에서 맞춘다.
 
 ### 3. 노트북
 
