@@ -62,3 +62,49 @@ C:\ProgramData\anaconda3\Scripts\conda.exe env export -n strata_local_llm --no-b
 | `env/install-*.log` | 설치 기록 (해시·종료 코드) | 커밋 |
 | `env/startup-backup*.reg` | 시작 프로그램 해제 전 값 (`reg import` 로 복원) | 커밋 |
 | `C:\ProgramData\anaconda3` | 실제 바이너리 | **제외** |
+
+## 노트북에서 호출 (Tailscale)
+
+목표: 로컬 LLM 이 완성되면 노트북의 코딩 도구(Claude Code · Codex · OpenCode)가 본체 STRATA 를 부른다.
+STRATA v0.2.15 의 `strata connect` 가 이 셋을 공식 지원한다(`strata connect <app>` 로 설정 안내 출력).
+
+```
+노트북 (Tailscale 100.104.230.60)  ──tailnet──▶  desktop-5070 (100.121.174.83):8080  STRATA 서버
+  scripts/client/*.ps1                                --access tailscale, API 키
+```
+
+### 1. 본체 방화벽 — 사람이 한다 (보안 설정)
+
+STRATA 는 방화벽을 바꾸지 않는다(`strata_cli/launch/access.py`). Windows 의 허용 팝업은 SSH 세션에서는 뜨지 않으므로,
+본체에서 **관리자 PowerShell** 로 한 번 실행한다. Tailscale 주소 대역(100.64.0.0/10)에서 오는 8080 만 연다.
+
+```powershell
+New-NetFirewallRule -DisplayName "STRATA 8080 (Tailscale only)" -Direction Inbound -Protocol TCP -LocalPort 8080 -RemoteAddress 100.64.0.0/10 -Action Allow -Profile Any
+```
+
+되돌리기: `Remove-NetFirewallRule -DisplayName "STRATA 8080 (Tailscale only)"`
+
+### 2. 본체 서버
+
+```bat
+scripts\strata.cmd launch --family qwen36 --model ud-q4_k_xl --data-dir C:\strata-lab\data --context 32k --parallel 1 --vision off --access tailscale --port 8080 --no-tui
+scripts\strata.cmd launch --show-key
+```
+
+코딩 도구는 프롬프트가 커서 **32K 창**이 필요하다 (Claude Code 전체 15.6K · 단순 모드 1.25K, Codex 8.6K 토큰). 측정 조건 8K 와 운영 32K 는 별개다 (STATE 열린 질문 Q7).
+
+### 3. 노트북
+
+API 키는 사용자 환경 변수에만 둔다 (파일·커밋 금지):
+
+```powershell
+[Environment]::SetEnvironmentVariable('STRATA_API_KEY', '<--show-key 로 본 키>', 'User')
+```
+
+| 스크립트 | 하는 일 |
+| --- | --- |
+| `scripts/client/strata-remote.ps1` | 연결 확인: TCP → `/v1/models` → 짧은 질문 |
+| `scripts/client/claude-local.ps1` | Claude Code 를 STRATA 에 붙여 실행. 환경 변수는 그 프로세스에만 — 평소 `~/.claude/settings.json` 은 그대로 |
+| `scripts/client/codex-local.ps1` | Codex 를 별도 `CODEX_HOME`(`~/.codex-strata`)으로 실행 — 평소 `~/.codex` 는 그대로 |
+
+노트북에서 잰 시간에는 Tailscale 왕복이 섞이므로 원장 측정에 쓰지 않는다.

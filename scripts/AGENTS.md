@@ -7,4 +7,4 @@
 - `Start-Process -ArgumentList` 에 공백이 있는 경로를 넘길 때는 **인자 전체를 한 문자열로 쓰고 경로를 따옴표로 감싼다.** 배열로 넘기면 공백에서 쪼개진다 (VS 가 `C:\Program` 에 설치된 원인).
 - 출력은 `env/*.log` 로 떨어뜨린다. 사람이 읽을 요약 줄(`[단계] exit N`)을 남긴다.
 - 시스템 설정(전원 구성표·페이지 파일·드라이버·레지스트리)을 바꾸는 스크립트는 사람에게 묻고 돌린다. 바꾸기 전 값을 `env/` 에 백업한다.
-- `.ps1` 은 CRLF (`.gitattributes`). 한국어 출력은 UTF-8.
+- `.ps1` 은 CRLF (`.gitattributes`). 한국어가 든 `.ps1` 은 **UTF-8 BOM** 으로 저장한다 — Windows PowerShell 5.1 은 BOM 없는 UTF-8 을 ANSI 로 읽는다. `.cmd` 는 ASCII 만.

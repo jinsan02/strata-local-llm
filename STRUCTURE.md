@@ -49,7 +49,8 @@ strata-lab/                     C:\strata-lab (desktop-5070)
 │  ├─ install-buildtools.ps1     VS Build Tools · CUDA · CMake · Ninja
 │  ├─ build-strata.ps1           고정 커밋 소스 빌드 (E0 → engine/build-e0)
 │  ├─ strata.cmd                 STRATA CLI 를 conda 환경으로 실행
-│  └─ bench/                     (예정) 측정 러너
+│  ├─ bench/                     (예정) 측정 러너
+│  └─ client/                    노트북에서 Tailscale 로 부르는 스크립트 (연결 확인 · Claude Code · Codex)
 │
 ├─ configs/                     실행 설정 · 양자화 레시피 (configs/README.md)
 │  ├─ settings/                  (예정) S0, S1 …
