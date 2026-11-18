@@ -104,6 +104,10 @@ def run_tests(task: str, code: str | None) -> tuple[str, str]:
         failed = int(m.group(1)) if (m := re.search(r"(\d+) failed", out)) else 0
         errors = int(m.group(1)) if (m := re.search(r"(\d+) errors?", out)) else 0
         total = passed + failed + errors
+        n = count_tests(tests)
+        if n and total < n:
+            # 답 코드에 문법 오류가 있으면 수집 오류 1건이 '전체 1개' 로 세어졌다 (xb2 merge_intervals b4k r2: 0/1, 실제 6개)
+            total = n
         tail = out.strip().splitlines()[-1] if out.strip() else ""
         return f"{passed}/{total if total else 'NA'}", tail[:160]
 
