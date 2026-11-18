@@ -51,11 +51,13 @@
 11. push: 사용자가 커밋·push 를 맡김(11-18). 단계 커밋 묶음마다 `git push`
 12. ~~밤 체인 1차 결과~~ 완료 (0f3e845): H0 · H1 30행, 1차 원장은 인덱스로만 커밋(2차가 쓰는 중)
 13. ~~밤 체인 2차~~ 완료 (4ae78a4): H0 r4~6 · H2a · H2b · S1T3 60행.
-    **11-19 시작점**: 본체에서 `powershell -File C:\strata-lab\scripts\bench\launch_night3.ps1` (H0 대조 `x3n3h0` vs H4 `x3h4`, 번갈아 3회, 약 1시간 40분, 끝 표시 `engine\night-chain3.log` 의 `[night3] done`) → 로그와 원장 1:1 대조 · 커밋 → 판정. 그다음 **H3** = H1 + H2a (H4 가 통과하면 함께), 그 뒤 `run_tests` 도구(Q15)
+    **11-19 시작점**: 본체에서 `powershell -ExecutionPolicy Bypass -File C:\strata-lab\scripts\bench\launch_night3.ps1` (H0 대조 `x3n3h0` vs H4 `x3h4`, 번갈아 3회, 약 1시간 40분, 끝 표시 `engine\night-chain3.log` 의 `[night3] done`) → 로그와 원장 1:1 대조 · 커밋 → 판정. 그다음 **H3** = H1 + H2a (H4 가 통과하면 함께), 그 뒤 `run_tests` 도구(Q15)
 14. X4 기준선: 노트북에서 Claude Code CLI · Codex CLI 로 같은 과제(파일 탐색 → 수정 → 테스트 → 실패 로그 재수정), 같은 STRATA 32K. 후보 하나 더면 OpenCode. Hermes 는 64K 뒤
 15. 그다음 B1(P-diag → 첫 A/B, Q11 greedy·MTP 포함)
 16. 남은 X3 과제 3개(D · E · F) 구현 — 채택 하네스 확인 전용
 17. ~~seed 42 반복 독립성~~ 확인 (11-18): 같은 seed 에서도 반복마다 답 · 호출 수가 달랐다(짧은 flask 일부만 같음) → 반복은 독립에 가깝다. 접두사는 체인마다 나눈다(LEDGER_SCHEMA 정정: 공유 폴더 config 덮어씀)
+18. **로컬 LLM 주 에이전트 · 워커 준비** (11-18 밤, `docs/WORKER.md`): 운영 서버 `scripts/launch_serve.ps1`(WMI), 워커 `scripts/worker/`(MCP `delegate_code_task` → diff). 자체 점검 5/5 · 실제 모델 1건 통과. 남은 것: 채택 하네스를 `configs/worker.json` 에 반영(H3 뒤), Codex 0.169 쓰기 샌드박스 · 출력 예산 키(X4), X5 워커 위임 A/B(클라우드 단독 vs 클라우드 지휘 + 로컬 워커). 지휘자 쪽 MCP 등록은 사람이 한다
+19. T-013 원인 가설 확인: 대화 캐시가 남은 RAM 4GiB 미만에서 자동으로 꺼짐 → `--conversation-cache-mib` 명시 A/B (T-013 '원인 가설')
 
 ## 사람에게 요청한 것
 
@@ -117,6 +119,7 @@
 | Q13 | 출력+reasoning 예산 8K 가 긴 답변(모듈 전체 · 긴 diff)에 충분한가 — 짧은 과제 96회 최대 6.6K · 잘림 0, kv_store 는 상한 6,144 에서 7.7~8.2K · 잘림 1 (11-18). 사용자: 32K 검증 뒤 예정대로 64K 까지 본다 | 32K: 8K+thinking 4.5K vs 10~12K(입력 20~22K)를 B1 · X3 결과로 결정. 64K 는 F1 32K 통과 뒤 — 출력 예산 확대 여지와 KV(FP32 약 2.5GiB) · expert 감소를 같이 잰다 | 클라이언트 설정, 64K 탐색 | B1-1 · XB · X2 |
 | Q5 | API 사용량·비용 예산 상한 | 착수 시 사람이 정함 | 탐색 예산 | 기획서 5.2, 11절 |
 | Q14 | 후속 턴 캐시 재사용이 0 이다(같은 세션 4요청 모두 cached 0, 2회 재현). 이전 답을 reasoning_content 와 함께 보낼 때만 재사용(직전 프롬프트 + 생성분 일부, 451 · 479). 도구 목록 빼기 · 작업 폴더 정보 변경은 차이 없음 | **11-18 A/B: H2a(전 턴 재전송)로 재읽기 −83% · 시간 −31%, 품질 같음 → 하네스 우회 확인.** H2b(직전 턴만)는 재사용 안 됨. X4 클라이언트가 thinking 을 전부 되돌려 보내는지 확인. 엔진 쪽(혼합 순환 레이어의 체크포인트 · 되감기) 원인 확인은 3차 | navigate 턴마다 전체 재읽기(1만~2만 토큰), X4 체감 지연 | `experiments/probes/probe_cache_20261118.json`, T-013 |
+| Q16 | 64K 가 메모리에 들어가는가 — 11-18 로그로 추정: 로딩 시 VRAM 여유 8K 7.67 · 16K 7.25 · 32K 6.50GiB(1K 칸당 약 0.047GiB), VRAM 상주 expert 79 · 74 · 63/256 → 64K 는 여유 약 5.0GiB · 상주 약 42/256 로 추정. KV 는 VRAM 에 있어 RAM 은 크게 늘지 않을 것으로 보이나 미확인. 엔진에 `--kv int8|q4_0|k8v4` · `--kv-grow` · `--kv-resident N` 이 있다(q36 경로 적용 여부 미확인, v2.2 는 q36 KV FP32 로 기록) | 64K 단계에서: 64K 기동 로그(VRAM 여유 · 상주 expert · RAM) → 같은 과제로 32K 대비 속도 · 품질, KV 옵션 A/B. 먼저 q36 경로가 `--kv` 를 받는지 소스 확인 | 64K 탐색, 클라이언트 예산 | 엔진 로그 `strata-qwen36-ctx*.log`, `strata.exe --help` |
 | Q15 | navigate 에 테스트 도구(`run_tests`, 기존 회귀 테스트만 · 숨은 테스트 제외)를 둘지. 지금 '실패 로그 보고 재수정' 은 preload 보완 턴에만 있다 | H1 · H2 다음 별도 후보 | 재수정 흐름 A/B | 하네스 지시 4절 |
 
 ## 에이전트 사용
@@ -127,6 +130,7 @@
 
 ## 최근 변경
 
+- 2026-11-18 · Claude Code · 로컬 LLM 을 주 에이전트 · 워커로 쓰는 준비(`docs/WORKER.md`): `launch_serve.ps1`(WMI 운영 서버, 63초 준비), `scripts/worker/`(X3 탐색 루프 재사용, 별도 작업 트리 · 테스트 · 1회 보완 · 측정 체인 감지 · 잠금, 표준 라이브러리 MCP 서버), 자체 점검 5/5, 노트북 → ssh → MCP → STRATA 실제 1건 `done` 43초. `run_x3.navigate_loop` 강제 턴 기준을 인자로(`force_at`, 32K 값 불변). Codex 0.169 연결 확인 · 쓰기 샌드박스 문제는 X4 로. T-015(실행 정책) · T-016(옛 .pyc), T-013 원인 가설(대화 캐시 자동 꺼짐), Q16(64K 메모리 추정).
 - 2026-11-18 · Claude Code · 마무리: 내일 안건 12건 권장대로 결정, Q2 종결(권장안 승인), API 키 생성 · 설정(git 제외, 401/200 확인), README · ENVIRONMENT · client README 최신화, 내일 계획 `docs/plan-20261119.md`.
 - 2026-11-18 · Claude Code · H4 코드(`--final-turn edit`) · 밤 체인 3차 스크립트 커밋(6d18918), 가짜 응답 점검 통과(H0 동작 불변). 3차는 22:04 시작 직후 사용자 결정으로 중단(원장 행 없음, 빈 run 폴더 1개 삭제), 서버 종료 · 밤 모드. 11-19 에 `launch_night3.ps1` 로 시작.
 - 2026-11-18 · Claude Code · 하네스 A/B 1 · 2차 완료 · 커밋(0f3e845 · 4ae78a4, 90행, 로그와 1:1 대조 · 중복 0). H1 품질 +2/15, H2a 품질 같음 · 시간 −31% · 재읽기 −83%, H2b(설계상 재사용 안 됨) · S1T3(품질 −2) 제외. 최다 실패는 강제 마지막 턴의 텍스트 편집 블록 불일치 → 다음 H4. LEDGER_SCHEMA 정정 2건(2차 커밋 혼재, 공유 폴더 config 덮어씀). Q14 하네스 우회 확인.

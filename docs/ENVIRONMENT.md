@@ -90,10 +90,12 @@ New-NetFirewallRule -DisplayName "STRATA 8080 (Tailscale only)" -Direction Inbou
 `scripts\serve-ctx.ps1` → `engine\serve\server.py --engine strata --config engine\strata-qwen36-ctx<N>.json` → `engine\engine\strata.exe --serve --native`.
 
 ```powershell
-powershell -File C:\strata-lab\scripts\serve-ctx.ps1 -Context 32768                         # 본체 측정용, 127.0.0.1
-powershell -File C:\strata-lab\scripts\serve-ctx.ps1 -Context 32768 -Host_ 100.121.174.83   # X4: 노트북에서 부를 때
-powershell -File C:\strata-lab\scripts\serve-ctx.ps1 -Stop
+powershell -ExecutionPolicy Bypass -File C:\strata-lab\scripts\serve-ctx.ps1 -Context 32768                         # 본체 측정용, 127.0.0.1
+powershell -ExecutionPolicy Bypass -File C:\strata-lab\scripts\serve-ctx.ps1 -Context 32768 -Host_ 100.121.174.83   # X4: 노트북에서 부를 때
+powershell -ExecutionPolicy Bypass -File C:\strata-lab\scripts\serve-ctx.ps1 -Stop
 ```
+
+이 PC 의 실행 정책은 기본값(Restricted)이라 `.ps1` 은 `-ExecutionPolicy Bypass` 를 붙여 실행한다(T-015). ssh 에서 띄운 서버는 ssh 가 끝나면 같이 꺼지므로(T-012), 노트북 클라이언트 · 워커용 운영 서버는 `scripts\launch_serve.ps1`(WMI, 기본 32K · Tailscale)로 띄운다 — [`WORKER.md`](WORKER.md).
 
 **API 키 (2026-11-18 설정)**: 서버는 `STRATA_API_KEY` 를 키로 쓴다(`/v1/*` 에 `Authorization: Bearer` 또는 `x-api-key`).
 

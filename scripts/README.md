@@ -12,5 +12,7 @@
 | `strata.cmd` | STRATA CLI 를 conda 환경으로 실행 (`STRATA_PYTHON`). ASCII 만 (cmd 코드 페이지) | — |
 | `setup-m0.ps1` | STRATA 소스 setup 으로 M0 실행 구성 생성 (`--build --no-start`, conda Python) | `env/setup-m0-ctx<N>.log` |
 | `serve-ctx.ps1` | `--max-context` 만 바꾼 설정 사본으로 서버 전환 (`-Stop` 은 내리기) | `engine/serve-*.log` (git 밖) |
+| `launch_serve.ps1` | 운영용 서버를 WMI 로 띄움 — ssh 를 끊어도 산다(T-012). 기본 32K · Tailscale, `-LlmMode` 로 측정급 | `engine/serve-detached.log` |
+| `worker/` | 로컬 LLM 워커: `strata_worker.py`(작업 하나 → diff) · `mcp_server.py`(지휘자용 MCP) · `selftest_worker.py` — [`docs/WORKER.md`](../docs/WORKER.md) | `work/worker/logs/` (git 밖) |
 | `bench/run_bench.py` | 측정 러너: 스트리밍 지연·엔진 보고 속도·Peak VRAM/RAM·`/metrics` 의 file_mb·drafts 를 원장에 | 원장 |
 | `client/` | **노트북에서** Tailscale 로 서버를 부르는 스크립트 (`client/README.md`) | — |

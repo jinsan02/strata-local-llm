@@ -13,4 +13,8 @@
 - API 키는 노트북 사용자 환경 변수 `STRATA_API_KEY` 에 있다(11-18 설정, 원본은 본체 `.secrets\` — git 제외). 커밋하지 않는다. 환경 변수가 없으면 스크립트가 `strata-local` 을 쓰는데, 키가 걸린 서버는 이를 401 로 거부한다
 - 여기서 잰 시간에는 Tailscale 왕복이 섞인다. 원장 측정은 본체에서 한다 (`docs/RULES.md` 6번)
 
+- 서버는 본체에서 `launch_serve.ps1` 로 띄운다(ssh 를 끊어도 산다). 주 에이전트 · 워커 사용법은 [`docs/WORKER.md`](../../docs/WORKER.md)
+- Codex 0.169 (11-18 확인): 연결 · 응답은 된다. `model_max_output_tokens` 를 무시하고, `exec -s workspace-write` 에서도 파일을 못 쓴다(권한 프로필이 루트 읽기 전용) — X4 에서 정리
+- 노트북에는 Claude Code CLI 가 없다(데스크톱 앱만). `claude-local.ps1` 을 쓰려면 CLI 를 먼저 설치한다
+
 설정 순서는 `docs/ENVIRONMENT.md` '노트북에서 호출'.

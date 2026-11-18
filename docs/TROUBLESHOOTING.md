@@ -9,6 +9,8 @@
 
 | # | 날짜 | 제목 | 영역 | 상태 |
 | --- | --- | --- | --- | --- |
+| T-016 | 11-18 | 워커 보완 시도에서 옛 `.pyc` 가 고친 소스를 가림 | eval | 해결 (`PYTHONDONTWRITEBYTECODE=1`) |
+| T-015 | 11-18 | `powershell -File` 로 적어 둔 스크립트가 실행 정책에 막힘 | infra | 해결 (문서 명령 수정) |
 | T-014 | 11-19 | X3 preload 보완 요청에 비공개 테스트 실패 로그가 들어감 | eval | 해결 (공개 로그만, 7행 정정 기록) |
 | T-013 | 11-18 | 같은 세션 후속 턴의 캐시 재사용이 0 (매 턴 전체 다시 읽음) | engine · eval | 하네스 우회 확인 (H2a: 재읽기 −83%, 품질 같음). 엔진 원인은 3차 |
 | T-012 | 11-18 | ssh 세션이 끝나면 그 세션에서 띄운 서버 · 측정이 같이 꺼짐 | infra | 해결 (WMI 밤 체인) |
@@ -42,6 +44,38 @@
 ```
 
 ---
+
+## T-015 `powershell -File` 로 적어 둔 스크립트가 실행 정책에 막힘
+
+- 날짜 11-18 · 분류 infra · 상태 해결 (문서 명령 수정)
+
+### 발생 로그
+`File ...\chk.ps1 cannot be loaded because running scripts is disabled on this system` — 본체 실행 정책이 모든 범위 `Undefined`(= Restricted).
+
+### 상황 분석
+그동안 스크립트는 `-ExecutionPolicy Bypass` 를 붙여 돌려 문제가 없었다. 문서 일부(STATE 의 11-19 시작 명령, ENVIRONMENT 의 서버 명령)는 `powershell -File` 만 적혀 있어 그대로 치면 실패한다.
+
+### 개선·조치
+문서의 명령을 `powershell -ExecutionPolicy Bypass -File` 로 바꿨다. 실행 정책 자체는 보안 설정이라 바꾸지 않는다.
+
+### 재발 방지
+새 `.ps1` 사용법은 항상 `-ExecutionPolicy Bypass` 를 붙여 쓴다(`scripts/README.md` 머리말과 같게).
+
+## T-016 워커 보완 시도에서 옛 `.pyc` 가 고친 소스를 가림
+
+- 날짜 11-18 · 분류 eval · 상태 해결 (`PYTHONDONTWRITEBYTECODE=1`)
+
+### 발생 로그
+`selftest_worker.py` 2번(테스트 실패 → 보완 → 통과 기대)이 `tests_failed`. 보완 편집은 적용됐는데 테스트가 1차 코드로 돌았다. 같은 시험의 diff 에 `__pycache__/calc.cpython-312.pyc` 가 섞임.
+
+### 상황 분석
+1차 테스트가 `.pyc` 를 만들었고, 보완 편집이 같은 초 안에 같은 크기로 소스를 바꿔(`a + b` ↔ `a - b`) Python 의 mtime · 크기 검사가 옛 `.pyc` 를 그대로 썼다. 실제 모델은 몇 초 이상 걸려 드물지만 같은 일이 생길 수 있다.
+
+### 개선·조치
+워커의 `test_cmd` 를 `PYTHONDONTWRITEBYTECODE=1` 로 돌리고, diff 에서 `__pycache__` · `*.pyc` · `.pytest_cache` 를 뺀다. 자체 점검 5/5.
+
+### 재발 방지
+X3 러너는 실행마다 새 작업 복사본에서 채점하고 보완 뒤 다시 채점하므로 같은 위험이 있는지 Q15(`run_tests`) 구현 때 같이 본다.
 
 ## T-014 X3 preload 보완 요청에 비공개 테스트 실패 로그가 들어감
 - 날짜 · 단계 · 영역: 11-19 토의(11-18 저녁) · X3 preload · eval
@@ -85,6 +119,12 @@ pytest 20회)는 대기 시간 대부분이 재읽기일 수 있다 [추정, H0 
 ### 결정 (11-19 사용자: 권장대로)
 H2a(모든 assistant 턴 reasoning 재전송) · H2b(직전 턴만) 를 H0 와 같은 조건으로 A/B. reasoning 재전송은 컨텍스트를 더 써서 턴 수를 줄일 수 있으니
 통과 · 회귀 → wall_ms · sum_new_read · model_calls 를 같이 본다. 엔진 쪽 원인(체크포인트 위치)은 3차 과제 후보.
+### 원인 가설 (11-18 22:40, 엔진 소스 읽기)
+엔진은 `--conversation-cache-mib` 를 주지 않으면 대화 캐시 예산을 **남은 RAM 으로 정하고, 약 4GiB 아래면 끈다**
+(`engine/src/core/conversation_memory_test.cpp` #3493: 4GiB → 0, 8GiB → 2,048MiB, 상한 8,192MiB). 32K 에서 남은 RAM 은 약 0.7GB(T-003)라
+대화 캐시가 꺼져 후속 턴이 처음부터 다시 읽었을 가능성이 높다. 확인할 것: 서버 로그의 `conversation cache:` 줄 유무(32K 로그에는 없었음),
+`--conversation-cache-mib 1024`(또는 512) 를 명시했을 때 재사용 · RAM 여유 · 페이징. `--prompt-cache N`(기본 6, 약 118MB/개)도 같이 본다.
+
 ### A/B 결과 (11-18 18:54~21:27, 각 3회)
 H2a(전 턴 재전송): 15회 통과 11 vs H0 12(품질 같음 기준 안), X3 wall −31%, 새로 읽은 입력 −83%(누적 1.25M 중 0.29M 만 새로 읽음).
 H2b(직전 턴만): 재읽기 −12% 뿐, 통과 10. 직전 턴 reasoning 만 남기면 그 앞 턴들이 생성 때와 다르게 렌더링돼 다시 어긋난다 → 제외.

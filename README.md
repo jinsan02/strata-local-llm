@@ -71,7 +71,7 @@ Tailscale 로 불러 **파일 탐색 → 수정 → 테스트 → 실패 로그�
 | `docs/` | 기획서 · 규칙 · 작업 흐름 · 원장 스키마 · 트러블슈팅 · 일일 계획 | 커밋 |
 | `reports/` | 단계별 요약 (X1 · XB · X2 · B1-1 · X3 하네스) | 커밋 |
 | `env/` | 하드웨어 실측 · conda 선언 · 설치 로그 · 낮/밤 모드 기록 | 커밋 |
-| `scripts/` | 서버 기동(`serve-ctx.ps1`) · 낮/밤 모드 · 측정 러너(`bench/`) · 노트북 클라이언트(`client/`) | 커밋 |
+| `scripts/` | 서버 기동(`serve-ctx.ps1` · 운영용 `launch_serve.ps1`) · 낮/밤 모드 · 측정 러너(`bench/`) · 노트북 클라이언트(`client/`) · 로컬 LLM 워커(`worker/`) | 커밋 |
 | `configs/` | 실행 설정 · 평가 과제(`eval/`) | 커밋 |
 | `experiments/` | `LEDGER.tsv` 원장, run 별 config · 답 · 도구 · 턴 기록, 점검 원자료(`probes/`) | 커밋 (raw 제외) |
 | `tools/` · `tests/` | 훅 본체와 테스트 | 커밋 |
@@ -87,5 +87,6 @@ git config core.hooksPath .githooks
 
 - Python 은 conda 환경 `strata_local_llm` 을 절대경로로 쓴다 — [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md)
 - 서버: `scripts\serve-ctx.ps1 -Context 32768` (기본 127.0.0.1, 노트북용 Tailscale 주소는 16자 이상 `STRATA_API_KEY` 가 있어야 열린다)
-- 장시간 측정은 노트북 연결과 무관하게 WMI 로 띄운다: `scripts\bench\launch_night*.ps1` (T-012)
+- 장시간 측정은 노트북 연결과 무관하게 WMI 로 띄운다: `scripts\bench\launch_night*.ps1` (T-012). `.ps1` 은 `powershell -ExecutionPolicy Bypass -File` 로 실행한다 (T-015)
+- **로컬 LLM 을 주 에이전트나 워커로 쓰기**: `scripts\launch_serve.ps1` 로 서버를 띄우고 [`docs/WORKER.md`](docs/WORKER.md) — 노트북 Claude Code · Codex 를 STRATA 에 붙이거나, 지휘자(클라우드 모델)가 MCP 도구 `delegate_code_task` 로 작은 티켓을 넘기고 diff 를 받는다
 - 커밋 형식 [`docs/COMMIT_CONVENTION.md`](docs/COMMIT_CONVENTION.md), AI 에이전트 지침 [`AGENTS.md`](AGENTS.md) (`CLAUDE.md` 는 이것을 불러온다), GitHub 흐름 [`CONTRIBUTING.md`](CONTRIBUTING.md)
