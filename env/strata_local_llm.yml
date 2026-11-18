@@ -36,13 +36,20 @@ dependencies:
       - charset-normalizer==3.5.1
       - idna==3.20
       - jinja2==3.1.6
+      - linkify-it-py==2.2.0
+      - markdown-it-py==4.3.0
       - markupsafe==3.0.3
+      - mdit-py-plugins==0.7.0
+      - mdurl==0.1.2
       - numpy==2.5.3
       - pillow==13.0.0
+      - platformdirs==4.14.7
       - psutil==7.2.2
       - pyyaml==6.0.3
       - regex==2026.9.10
       - requests==2.34.2
+      - rich==15.0.0
+      - textual==8.2.8
       - tqdm==4.70.1
       - truststore==0.10.5
       - urllib3==2.8.0
