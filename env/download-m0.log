@@ -1,0 +1,6 @@
+[m0] https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/resolve/5bc3e238d916f48a861bac2f8a1990a0e9b7e98d/Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf -> C:\strata-lab\data\models\qwen36-ud-q4_k_xl\Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf  2026-11-18T10:05:35
+[m0] curl exit 0  12.4 min
+[m0] size 22853663008 bytes
+[m0] sha256 55983c5a75a1ab969824077b3bb3de4146e82a9234072b48ad4e8f92ad3fe9f1
+[m0] hash OK (revision 5bc3e238d916f48a861bac2f8a1990a0e9b7e98d)
+[m0] done 2026-11-18T10:18:16
