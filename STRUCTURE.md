@@ -37,6 +37,7 @@ strata-lab/                     C:\strata-lab (desktop-5070)
 │
 ├─ env/                         환경 기록 (env/README.md)
 │  ├─ hw-20261118.md             본체 실측 사양, 정리 효과
+│  ├─ strata-plan-20261118.md    E0 빌드 기록과 --plan 결과
 │  ├─ strata_local_llm.yml       conda 환경 선언
 │  ├─ install-*.log              설치 기록 (해시·종료 코드)
 │  ├─ cleanup.log                정리 전후 메모리
@@ -46,7 +47,8 @@ strata-lab/                     C:\strata-lab (desktop-5070)
 │  ├─ cleanup.ps1                측정 전 백그라운드 정리
 │  ├─ install-anaconda.ps1       Anaconda + 환경
 │  ├─ install-buildtools.ps1     VS Build Tools · CUDA · CMake · Ninja
-│  ├─ build-strata.ps1           (예정) 고정 커밋 소스 빌드
+│  ├─ build-strata.ps1           고정 커밋 소스 빌드 (E0 → engine/build-e0)
+│  ├─ strata.cmd                 STRATA CLI 를 conda 환경으로 실행
 │  └─ bench/                     (예정) 측정 러너
 │
 ├─ configs/                     실행 설정 · 양자화 레시피 (configs/README.md)
