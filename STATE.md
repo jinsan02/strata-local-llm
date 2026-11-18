@@ -95,7 +95,7 @@
 | Q11 | MTP 를 쓰려면 greedy 가 필요한데, thinking 모델은 greedy 에서 반복 위험이 있다. 운영 샘플링을 greedy 로 바꿀지, `STRATA_SPEC_PROB` 가 qwen36 경로에서 통하는지 | B1 에서 같은 코딩 과제로 greedy vs 권장 샘플링 품질·속도 비교 | B1 | Q10 진단 |
 | Q8 | X3 코딩 품질 탐색 세트의 출처 (긴 문맥 코드 수정·테스트) | 공개 저장소 일부로 합성한 과제 + 고정 단위 테스트, 최종 50문항과 분리 | X3 | 변경안 6절 |
 | Q4 | 맞춤 양자화 원본(BF16 약 70GB) 확보·변환 방식 | 샤드 스트리밍 변환 가능성 먼저 소형 검사 | Q1 단계 | 기획서 6.3 |
-| Q12 | `answer_room` 대신 요청별 `reasoning_budget_tokens` 를 명시할지, 끌지(`"answer_room": false`) — 4K 에서 thinking 을 닫는 방식이 품질을 낮추는지 | B1 에서 같은 과제로 4K+answer_room vs 4K+명시 예산 vs 8K 비교 | B1, 클라이언트 설정 | XB 2차 |
+| Q12 | thinking 상한을 서버 `reasoning_budget_tokens` 로 명시(b)할 때 값 — 11-18 토의로 (b) 방향, (c) 제외. 상세 `docs/TROUBLESHOOTING.md` T-007 | B1: max_tokens 8,192 고정, 상한 3K · 4.5K · 6K, 긴 답변 과제 추가 | B1, 클라이언트 설정 | XB 2차 |
 | Q5 | API 사용량·비용 예산 상한 | 착수 시 사람이 정함 | 탐색 예산 | 기획서 5.2, 11절 |
 
 ## 에이전트 사용

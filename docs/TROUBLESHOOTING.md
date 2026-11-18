@@ -9,7 +9,7 @@
 
 | # | 날짜 | 제목 | 영역 | 상태 |
 | --- | --- | --- | --- | --- |
-| T-007 | 11-18 | 출력 예산이 사실상 thinking 상한 (answer_room) | engine · eval | 토의 필요 (Q12) |
+| T-007 | 11-18 | 출력 예산이 사실상 thinking 상한 (answer_room) | engine · eval | 조치 중 — (b) 방향 (B1 검증) |
 | T-006 | 11-18 | 채점기가 테스트 전체 수를 1 로 셈 (2회) | eval | 해결 |
 | T-005 | 11-18 | 커밋 거부 뒤 staged 파일이 다음 커밋에 섞임 | infra | 해결 (재발 방지 적용) |
 | T-004 | 11-18 | MTP 초안 시도 0/0 | engine | 해결 (진단) · 운영 선택은 Q11 |
@@ -38,7 +38,7 @@
 
 ## T-007 출력 예산이 사실상 thinking 상한 (answer_room)
 - 날짜 · 단계 · 영역: 11-18 · XB 2차 · engine, eval
-- 상태: 토의 필요 (STATE Q12)
+- 상태: 조치 중 — 토의 결과 (b) 방향 (11-18)
 ### 발생 로그
 XB 2차(`xb2_*`)에서 4K 예산의 parse_duration 3회가 모두 `finish_reason=stop` 인데 10~13/16 통과. 2K·8K 는 대부분 16/16. 출력 토큰이 3,439~3,465 로 4,096 보다 조금 작은 곳에 몰림.
 ### 상황 분석
@@ -46,7 +46,11 @@ XB 2차(`xb2_*`)에서 4K 예산의 parse_duration 3회가 모두 `finish_reason
 ### 영향
 XB 는 '출력 예산 시험' 이 아니라 'thinking 상한 시험' 으로 읽어야 한다. 클라이언트 max_tokens 가 품질을 직접 바꾼다.
 ### 개선·조치
-현재: 운영 예산 8,192. 선택지: (a) 그대로 (b) 요청별 `reasoning_budget_tokens` 명시 (c) `"answer_room": false`. B1 에서 4K+answer_room · 4K+명시 예산 · 8K 비교 제안.
+현재: 운영 예산 8,192. 선택지: (a) 그대로 (b) `reasoning_budget_tokens` 명시 (c) `"answer_room": false`.
+
+**토의 결과 (11-18, 사용자 · Claude):** (b) 를 우선 고려한다. (c) 는 thinking 이 max_tokens 에 닿으면 답변 0 으로 끝날 수 있어 제외. (a) 는 답변 몫이 max_tokens/4(8K → 2,048)로 고정돼 파일 전체 쓰기 · 긴 diff 같은 실제 코딩 답변이 잘릴 수 있다. (b) 는 서버 설정(`runconfig.py` 의 `reasoning_budget_tokens`)으로 클라이언트(Claude Code 의 thinking budget, Codex 의 effort)와 무관하게 thinking 과 답변 몫을 따로 정할 수 있다. 전환 전까지 운영은 (a).
+
+**검증 계획 (B1):** max_tokens 8,192 고정, thinking 상한 3K · 4.5K · 6K(= 현재 a). 과제는 탐색 4개 + 답변이 긴 과제(여러 파일 수정 · 긴 코드) 추가. 기록: 통과, thinking 사용량, 답변 잘림, 첫 답변 지연. X2 에서 parse_duration 이 출력 6.6K 까지 써서 상한 6,144 근처였으므로 상한을 늘려야 하는 과제가 있는지도 본다.
 ### 재발 방지
 러너 config 에 서버의 thinking 상한을 같이 기록한다 (미적용).
 
