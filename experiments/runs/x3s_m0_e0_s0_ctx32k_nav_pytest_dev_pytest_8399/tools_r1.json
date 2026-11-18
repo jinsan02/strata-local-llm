@@ -1,0 +1,46 @@
+[
+ {
+  "step": 0,
+  "tool": "list_files",
+  "args": {
+   "pattern": "**/unittest.py"
+  },
+  "out_chars": 23
+ },
+ {
+  "step": 1,
+  "tool": "read_file",
+  "args": {
+   "path": "src/_pytest/unittest.py"
+  },
+  "out_chars": 16567
+ },
+ {
+  "step": 2,
+  "tool": "grep",
+  "args": {
+   "pattern": "unittest_.*fixture",
+   "path_glob": "src/**/*.py"
+  },
+  "out_chars": 94
+ },
+ {
+  "step": 3,
+  "tool": "read_file",
+  "args": {
+   "end_line": 180,
+   "path": "src/_pytest/unittest.py",
+   "start_line": 143
+  },
+  "out_chars": 1478
+ },
+ {
+  "step": 4,
+  "tool": "grep",
+  "args": {
+   "pattern": "__pytest_class_setup|__pytest_method_setup",
+   "path_glob": "src/**/*.py"
+  },
+  "out_chars": 225
+ }
+]
