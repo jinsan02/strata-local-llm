@@ -86,19 +86,36 @@ New-NetFirewallRule -DisplayName "STRATA 8080 (Tailscale only)" -Direction Inbou
 
 ### 2. 본체 서버
 
-```bat
-scripts\strata.cmd launch --family qwen36 --model ud-q4_k_xl --data-dir C:\strata-lab\data --context 32k --parallel 1 --vision off --access tailscale --port 8080 --no-tui
-scripts\strata.cmd launch --show-key
+측정과 운영은 `strata launch`(서명된 설치 엔진 전용)가 아니라 E0 소스 빌드 경로로 띄운다:
+`scripts\serve-ctx.ps1` → `engine\serve\server.py --engine strata --config engine\strata-qwen36-ctx<N>.json` → `engine\engine\strata.exe --serve --native`.
+
+```powershell
+powershell -File C:\strata-lab\scripts\serve-ctx.ps1 -Context 32768                         # 본체 측정용, 127.0.0.1
+powershell -File C:\strata-lab\scripts\serve-ctx.ps1 -Context 32768 -Host_ 100.121.174.83   # X4: 노트북에서 부를 때
+powershell -File C:\strata-lab\scripts\serve-ctx.ps1 -Stop
 ```
+
+**API 키 (2026-11-18 설정)**: 서버는 `STRATA_API_KEY` 를 키로 쓴다(`/v1/*` 에 `Authorization: Bearer` 또는 `x-api-key`).
+
+| 위치 | 내용 | git |
+| --- | --- | --- |
+| 본체 `C:\strata-lab\.secrets\strata-api-key.txt` | 키 원본(43자, `secrets.token_urlsafe(32)`) | **제외** (`.gitignore` 의 `.secrets/`) |
+| 본체 사용자 환경 변수 `STRATA_API_KEY` (jinsan) | 서버 · 러너가 읽는다. 새 ssh 세션부터 적용 | — |
+| 노트북 사용자 환경 변수 `STRATA_API_KEY` | `scripts/client/*.ps1` 가 읽는다 | — |
+
+- 키가 설정된 뒤로는 127.0.0.1 서버도 키를 요구한다(키 없음 · `strata-local` → 401, 실제 키 → 200, 11-18 확인). 러너는 같은 환경 변수를 읽으므로 그대로 동작한다.
+- `serve-ctx.ps1` 은 루프백이 아닌 주소로 열 때 키가 없거나 16자 미만 · `none` · `strata-local` 이면 서버를 내리기 전에 거부한다.
+- 키를 바꾸려면 `.secrets\strata-api-key.txt` 를 지우고 다시 만든 뒤 두 PC 의 사용자 환경 변수를 같이 바꾼다. 키 값은 로그 · 채팅 · 커밋에 쓰지 않는다.
 
 코딩 도구는 프롬프트가 커서 **32K 창**이 필요하다 (Claude Code 전체 15.6K · 단순 모드 1.25K, Codex 8.6K 토큰). 측정 단계는 8K 기준선 · 16K 중간 · 32K 운영 목표다 (`docs/plan-v2.1-amendment-20261118.md`). 클라이언트 예산(출력+reasoning 8,192, 요약 기준 20,000)은 서버 `--context` 와 같은 커밋에서 맞춘다.
 
 ### 3. 노트북
 
-API 키는 사용자 환경 변수에만 둔다 (파일·커밋 금지):
+API 키는 노트북 사용자 환경 변수 `STRATA_API_KEY` 에 있다(11-18 설정, 본체 `.secrets\strata-api-key.txt` 와 같은 값). 커밋 금지.
+다시 설정할 때(키 값을 화면에 띄우지 않고 본체에서 받아 온다):
 
 ```powershell
-[Environment]::SetEnvironmentVariable('STRATA_API_KEY', '<--show-key 로 본 키>', 'User')
+ssh desktop-5070 "type C:\strata-lab\.secrets\strata-api-key.txt" | powershell -NoProfile -Command '$k=[Console]::In.ReadToEnd().Trim(); [Environment]::SetEnvironmentVariable("STRATA_API_KEY",$k,"User")'
 ```
 
 | 스크립트 | 하는 일 |

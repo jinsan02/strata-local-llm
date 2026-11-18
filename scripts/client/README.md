@@ -10,7 +10,7 @@
 | `codex-local.ps1` | Codex 를 별도 `CODEX_HOME` 으로 실행 |
 
 - 주소 기본값 `http://100.121.174.83:8080` (`STRATA_BASE_URL`), 창 크기 기본 32768 (`STRATA_CONTEXT`, 서버 `--context` 와 같게)
-- API 키는 사용자 환경 변수 `STRATA_API_KEY` 에만 둔다. 파일·커밋에 쓰지 않는다
+- API 키는 노트북 사용자 환경 변수 `STRATA_API_KEY` 에 있다(11-18 설정, 원본은 본체 `.secrets\` — git 제외). 커밋하지 않는다. 환경 변수가 없으면 스크립트가 `strata-local` 을 쓰는데, 키가 걸린 서버는 이를 401 로 거부한다
 - 여기서 잰 시간에는 Tailscale 왕복이 섞인다. 원장 측정은 본체에서 한다 (`docs/RULES.md` 6번)
 
 설정 순서는 `docs/ENVIRONMENT.md` '노트북에서 호출'.
