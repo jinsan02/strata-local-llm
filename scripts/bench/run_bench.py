@@ -280,7 +280,7 @@ def main() -> int:
     ap.add_argument("--warmup", type=int, default=1)
     ap.add_argument("--ctx", type=int, required=True)
     ap.add_argument("--parallel", type=int, default=1)
-    ap.add_argument("--kv", default="int8")
+    ap.add_argument("--kv", default="fp32")  # q36 경로는 K·V FP32 (+prompt attention FP16 사본), --kv 미적용 (T-009)
     ap.add_argument("--mtp", default="on")
     ap.add_argument("--thinking", default="on")
     ap.add_argument("--model-id", default="M0")

@@ -177,7 +177,7 @@ def main() -> int:
                 base = {"run_id": rid, "config_id": a.config_id, "phase": "eval", "origin": "local",
                         "workload": a.workload or (f"code-files-{task}" if a.input_tokens else f"code-task-{task}"), "model_id": "M0", "model_sha256": "55983c5a75a1ab969824077b3bb3de4146e82a9234072b48ad4e8f92ad3fe9f1",
                         "engine_commit": env["engine_commit"], "settings_id": "S0", "ctx": a.ctx, "parallel": 1,
-                        "kv": "int8", "mtp": "on", "thinking": "on", "cache_state": "warm" if i > 1 else "cold",
+                        "kv": "fp32", "mtp": "on", "thinking": "on", "cache_state": "warm" if i > 1 else "cold",
                         "git_commit": commit, "git_dirty": dirty, "config_sha256": config_sha, "env_sha256": env_sha}
                 row, res = rb.measure(a.base_url, api_key, prompt, budget, a.timeout, server_cfg, base)
                 if row.get("status") == "ok":
