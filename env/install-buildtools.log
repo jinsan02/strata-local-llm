@@ -1,0 +1,28 @@
+vs_BuildTools.exe sha256 8aaf70d164808d313ee6226af5d1e3b2db43c60be551bfeb2b70ce139d792c37
+[vs] installing 2026-11-18T09:19:39
+[vs] exit 0 (0 or 3010 = ok)
+cuda_13.2.2_windows_network.exe sha256 6f68b637fc50a9591c848452f8fa0d88710fa681b064ba457fb21f84088b196f
+[cuda] installing 2026-11-18T09:21:55
+[cuda] exit 0
+cmake-4.1.2-windows-x86_64.msi sha256 a10fc2527ec0727a5913acd310cddafdba1e5b4ca765ca23cc6a53c55eebb7c1
+[cmake] exit 0
+ninja-win.zip sha256 26a40fa8595694dec2fad4911e62d29e10525d2133c9a4230b66397774ae25bf
+[ninja] 1.13.1
+== verify 2026-11-18T09:32:31
+vcvars64: False
+The system cannot find the path specified.
+
+Cuda compilation tools, release 13.2, V13.2.86
+cmake version 4.1.2
+616.92
+== done
+
+
+[vs-fix] uninstall C:\Program 2026-11-18T09:35:08
+[vs-fix] uninstall exit 0; C:\Program exists: False
+[vs-fix] install default path 2026-11-18T09:36:07
+[vs-fix] install exit 0 (0 or 3010 = ok)
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools
+vcvars64: True
+Microsoft (R) C/C++ 최적화 컴파일러 버전 19.44.35230(x64)
+[vs-fix] done 2026-11-18T09:38:09

@@ -27,7 +27,7 @@
 
 ## 다음 할 일
 
-1. 툴체인 검증: `cl`(vcvars64), `nvcc --version` 13.2, `cmake --version`, `ninja --version` → `env/install-buildtools.log` 커밋
+1. ~~툴체인 검증~~ 완료 (11-18): `cl` 19.44.35230, `nvcc` 13.2.86, CMake 4.1.2, Ninja 1.13.1
 2. `engine/` 에 STRATA clone → v0.2.15 태그 checkout → 커밋 해시 기록 → `-DCMAKE_CUDA_ARCHITECTURES=120` 빌드
 3. `strata launch --plan --family qwen36 --model UD-Q4_K_XL` 와 `--family coder --model IQ1_M` 결과 저장
 4. 사람 확인 후 M0 다운로드(약 23GB) → 8K · parallel 1 로딩·API 응답 확인 → 태그 `m0-e0-freeze`
@@ -73,6 +73,7 @@
 
 ## 최근 변경
 
+- 2026-11-18 · Claude Code · 빌드 툴체인 설치·검증 완료. VS Build Tools 1차 설치가 `--installPath` 공백 분리로 `C:\Program` 에 들어가 제거 후 기본 경로로 재설치(`scripts/fix-vs-buildtools.ps1`), `install-buildtools.ps1` 도 고침. `verify.ps1` 통과.
 - 2026-11-18 · Claude Code · team4 형식의 AI 작업 문서 추가: `AGENTS.md` 재작성, `STATE.md`·`STRUCTURE.md`·`CONTRIBUTING.md`, 폴더별 README/AGENTS, PR·이슈 템플릿, `verify.ps1`. `docs/HANDOFF.md` 는 이 파일로 합침.
 - 2026-11-18 · Claude Code · 빌드 툴체인 설치 시작(VS 2022 Build Tools 종료 코드 0, CUDA 13.2.2 진행 중). 검증 전.
 - 2026-11-18 · Claude Code · kotokenlab 형식의 커밋 규칙·훅·CI 도입, 첫 커밋을 형식에 맞는 4개로 다시 써서 force-push. 훅 테스트 11개 통과.
