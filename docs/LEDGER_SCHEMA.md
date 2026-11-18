@@ -57,3 +57,9 @@
 
 run 별 config·env JSON 과 요약은 `experiments/runs/<run_id>/` 에 커밋하고, 원시 스트림·
 로그(`raw/`, `*.log`, `*.jsonl`)는 커밋하지 않는다.
+
+## 정정 기록
+
+| 날짜 | 열 | 대상 행 | 원장 값 | 실제 | 근거 |
+| --- | --- | --- | --- | --- | --- |
+| 2026-11-18 | `kv` | X0 · X1 · XB · XB2 · X2 전 행 (`x0_*` `x1_*` `xb_*` `xb2_*` `x2_*`) | `int8` | `fp32` (+ prompt attention 용 FP16 사본) | 실행 인자에 `--kv` 없음, `q36_engine.cu` 1320~1394 · 1546~1562 행. 측정값은 유효하고 라벨만 틀렸다 (TROUBLESHOOTING T-009) |
