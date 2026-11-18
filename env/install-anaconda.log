@@ -1,0 +1,11 @@
+sha256 b545f4bd8ab3bf32d99002a0779a887668ebfe479ee32ecbf060375670d5ee09
+installing...
+installer exit 0
+conda 26.5.3
+conda.exe : 
+At C:\strata-lab\install-anaconda.ps1:16 char:1
++ & $conda create -y -n strata_local_llm python=3.12 2>&1 | Select-Obje ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
