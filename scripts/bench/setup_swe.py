@@ -20,7 +20,9 @@ ENVS = Path(r"C:\ProgramData\anaconda3\envs")
 
 SPEC = {
     "pallets__flask-5014": {"env": "swe_flask_5014", "python": "3.11", "url": "https://github.com/pallets/flask.git",
-                            "install": [["-m", "pip", "install", "-r", "requirements/tests.txt"], ["-m", "pip", "install", "-e", "."]],
+                            "install": [["-m", "pip", "install", "-r", "requirements/tests.txt"], ["-m", "pip", "install", "-e", "."],
+                                        # 공식 이미지와 같게: 3.x 는 werkzeug.__version__ 이 없어 이 커밋의 test client 가 깨진다
+                                        ["-m", "pip", "install", "Werkzeug==2.3.7"]],
                             "test_files": ["tests/test_blueprints.py"]},
     "pytest-dev__pytest-8399": {"env": "swe_pytest_8399", "python": "3.9", "url": "https://github.com/pytest-dev/pytest.git",
                                 "install": [["-m", "pip", "install", "-e", ".[testing]"]],

@@ -1,0 +1,27 @@
+{
+ "dataset": "SWE-bench/SWE-bench_Verified",
+ "revision": "78f471bf655a3137b2e8a75af1501690ec009ec3",
+ "harness": "local conda (no Docker)",
+ "instances": {
+  "pallets__flask-5014": {
+   "base_f2p_failing": 1,
+   "base_p2p_passing": 59,
+   "gold_f2p_passing": 1,
+   "gold_p2p_passing": 59,
+   "n_f2p": 1,
+   "n_p2p": 59,
+   "gold_p2p_not_passing": [],
+   "ok": true
+  },
+  "pytest-dev__pytest-8399": {
+   "base_f2p_failing": 1,
+   "base_p2p_passing": 59,
+   "gold_f2p_passing": 1,
+   "gold_p2p_passing": 59,
+   "n_f2p": 1,
+   "n_p2p": 59,
+   "gold_p2p_not_passing": [],
+   "ok": true
+  }
+ }
+}
