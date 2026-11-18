@@ -26,7 +26,7 @@
 | 설정 효과 (입력 고정) | X1 | 8K·16K·32K | 완료 | **"8K·16K·32K 설정에서 0.5K·2K·4K 입력 성능 측정"** — 처리량 시험, 32K 실사용 검증 아님. 32K 설정은 8K 대비 TG 약 10~15% 낮음, 최종 답변 0건 | `reports/x1-summary.md` |
 | 출력·reasoning 예산 단계 | XB | 32K | 완료 (탐색) | 짧은 입력(149~224) 과제 4개 × 2K·4K·8K × 3회: 전부 통과 2K 8/12 · 4K 8/12 · **8K 12/12**. 서버가 max_tokens 의 1/4 을 답변 몫으로 남기고 thinking 을 닫는다(결정 기록) | `reports/xb2-summary.md`, 원장 `xb2_*` |
 | 입력 길이 효과 | X2 | 32K | 완료 (탐색) | 입력 2K · 8K · 16K · 24K x 끝/중간 x 과제 4개 x 3회(84행). 전부 통과 2K 11/12 · 8K 23/24 · 16K 21/24 · 24K 20/24, length 0. TG 77→50, 첫 토큰 1.3→17초, 첫 답변 중앙 44→69~85초, SSD 0, RAM 25~26GB | `reports/x2-summary.md`, 원장 `x2_*` |
-| 긴 문맥 코딩 품질 | X3 | 32K | 미착수 | 지시 준수·코드 찾기·수정·테스트 통과·도구 호출 | 원장 |
+| 긴 문맥 코딩 품질 | X3 | 32K | 준비 완료 · 파일럿 대기 (B1-1 뒤 자동 시작) | 지시 준수·코드 찾기·수정·테스트 통과·도구 호출 | 원장 |
 | 노트북 경유 | X4 | 32K | 미착수 | 체감 지연(별도 행), tool calling·템플릿 호환 | 원장 `origin=laptop` |
 | 실행 설정 튜닝 | B1 | 32K | 진행 중 (B1-1 thinking 상한) | S1, 병목 프로파일(KV·expert 캐시·버퍼 경쟁), 후보 순위 | 원장 |
 | 맞춤 양자화 | Q1 | 32K | 미착수 | M1 레시피·형식 표·호환성·품질 | 원장 |
@@ -94,7 +94,7 @@
 | ~~Q3~~ | **종결 (11-18)**: q36 경로는 `--kv` 미적용, K·V FP32(+FP16 사본) → KV 형식 변경은 3차 엔진 과제 (T-009, 계획 v2.2 5절). 원 질문: qwen36 경로에서 `--kv int8\|q4_0\|k8v4\|fp16` 이 실제로 적용되는지 (launcher 에는 옵션이 있고 기본 int8, QWEN36.md 는 fp32 라고 적음) | M0 로딩 뒤 KV 메모리로 확인, 적용되면 B1 후보 | B1 탐색 목록 | `env/strata-plan-20261118.md` |
 | Q9 | RAM 여유가 약 0.7GB 뿐이다 (엔진 private 35.6GB, 페이지 파일 자동 증가 최대 8GB). 32K 긴 입력에서 페이징이 늘면 `--resident-budget-gib` · `--low-ram` 조정이 필요할 수 있다 | X1·X2 에서 페이지 파일·`file_mb`·지연을 같이 보고 판단 | X2, B1 | X0 관측 |
 | Q11 | MTP 를 쓰려면 greedy 가 필요한데, thinking 모델은 greedy 에서 반복 위험이 있다. 운영 샘플링을 greedy 로 바꿀지, `STRATA_SPEC_PROB` 가 qwen36 경로에서 통하는지 | B1 에서 같은 코딩 과제로 greedy vs 권장 샘플링 품질·속도 비교 | B1 | Q10 진단 |
-| Q8 | **사용자 결정 대기 (11-18: X3 평가 자료는 대기)**. X3 코딩 품질 탐색 세트의 출처 (긴 문맥 코드 수정·테스트) | 공개 저장소 일부로 합성한 과제 + 고정 단위 테스트, 최종 50문항과 분리 | X3 | 변경안 6절 |
+| ~~Q8~~ | **종결 (11-18 사용자 결정)**: pypa/packaging `6a69a83` 고정 신규 과제 6개(3개 구현 · 검증) + SWE-bench Verified 2건(`pallets__flask-5014`, `pytest-dev__pytest-8399`, 리비전 `78f471bf`, 로컬 conda 채점 — Docker 없음). `configs/eval/x3-packaging/TASKS.md`. 원 질문: X3 코딩 품질 탐색 세트의 출처 (긴 문맥 코드 수정·테스트) | 공개 저장소 일부로 합성한 과제 + 고정 단위 테스트, 최종 50문항과 분리 | X3 | 변경안 6절 |
 | Q4 | 맞춤 양자화 원본(BF16 약 70GB) 확보·변환 방식 | 샤드 스트리밍 변환 가능성 먼저 소형 검사 | Q1 단계 | 기획서 6.3 |
 | Q12 | thinking 상한을 서버 `reasoning_budget_tokens` 로 명시(b)할 때 값 — 11-18 토의로 (b) 방향, (c) 제외. 상세 `docs/TROUBLESHOOTING.md` T-007 | B1: max_tokens 8,192 고정, 상한 3K · 4.5K · 6K, 긴 답변 과제 추가 | B1, 클라이언트 설정 | XB 2차 |
 | Q5 | API 사용량·비용 예산 상한 | 착수 시 사람이 정함 | 탐색 예산 | 기획서 5.2, 11절 |
@@ -107,6 +107,7 @@
 
 ## 최근 변경
 
+- 2026-11-18 · Claude Code · X3 준비: packaging 고정 커밋 과제 A·B·C 구현(기준 커밋 새 테스트 실패 · 참조 패치 통과 확인), 러너 `run_x3.py`(preload 길이 · navigate 도구 탐색 · 실패 로그 1회 보완), SWE-bench Verified 2건 선정 · `setup_swe.py` · `run_swe.py`. 실행 체인: B1-1 끝 → `matrix-x3.ps1`(preload 9 + navigate 3) → `matrix-swe.ps1`(환경 준비 → 2건). 8K 조건은 marker · version 과제의 필수 파일만으로도 약 12K 라 불가.
 - 2026-11-18 · Claude Code · TurboQuant 자료 검토(v2.2 9.7: KV 양자화, STRATA 미지원 → E1 후보, 이 모델은 KV 비중이 작아 이득 상한 약 1.1GiB). 낮/밤 모드 스크립트 `scripts/llm-mode.ps1` · `user-mode.ps1` 추가(TCube · Claude Cowork 유지, 사용자 결정). X3 평가 자료는 대기.
 - 2026-11-18 · Claude Code · v2.2 9절(후속 전달문: 3차 P0 · HR · E1, KV 구성 분해표, Q9 RAM 지표 분리) 반영. B1-1 thinking 상한 시험 시작(S0 · S1T3 · S1T4 · S1T6 x 과제 5개 x 3회, 새 과제 kv_store).
 - 2026-11-18 · Claude Code · 계획 v2.2 반영(대응표 · 확인 상태 3분류 · KV 확인). q36 KV 는 FP32 로 확인, 원장 kv 라벨 정정(T-009), Q3 종결. 참고 링크는 도구 차단으로 미확인.
