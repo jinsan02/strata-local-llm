@@ -281,33 +281,111 @@ def edit_file(root: Path, args: dict, deny: tuple[str, ...]) -> tuple[bool, str]
     return True, f"{path} 를 고쳤다 (-{len(old.splitlines())}줄 +{len(new.splitlines())}줄)"
 
 
-def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...], chat=None) -> dict:
-    """도구 탐색 루프(X3 · SWE 공용). 편집은 edit_file 로 작업 트리에 바로 적용된다."""
+TOOL_OUT_LIMIT = 12000      # 기준선(H0): 글자 수로 끝을 자른다. 잘린 글자 수는 도구 로그에 남긴다.
+
+
+def to_anthropic(msgs: list, tools: list | None) -> dict:
+    """Chat Completions 메시지 -> Anthropic Messages 요청 (서버 count_tokens 로 '보낼 요청 전체' 를 세기 위해)."""
+    system, out = [], []
+    for m in msgs:
+        role = m["role"]
+        if role == "system":
+            system.append(m.get("content") or "")
+        elif role == "tool":
+            blk = {"type": "tool_result", "tool_use_id": m.get("tool_call_id", ""), "content": m.get("content") or ""}
+            if out and out[-1]["role"] == "user" and isinstance(out[-1]["content"], list) and \
+                    all(b.get("type") == "tool_result" for b in out[-1]["content"]):
+                out[-1]["content"].append(blk)
+            else:
+                out.append({"role": "user", "content": [blk]})
+        elif role == "assistant" and m.get("tool_calls"):
+            blocks = [{"type": "text", "text": m["content"]}] if m.get("content") else []
+            for c in m["tool_calls"]:
+                try:
+                    inp = json.loads(c["function"].get("arguments") or "{}")
+                except json.JSONDecodeError:
+                    inp = {}
+                blocks.append({"type": "tool_use", "id": c.get("id", ""), "name": c["function"]["name"], "input": inp})
+            out.append({"role": "assistant", "content": blocks})
+        else:
+            out.append({"role": role, "content": m.get("content") or ""})
+    req = {"model": "strata", "messages": out, "max_tokens": 1}
+    if system:
+        req["system"] = "\n\n".join(system)
+    if tools:
+        req["tools"] = [{"name": t["function"]["name"], "description": t["function"].get("description", ""),
+                         "input_schema": t["function"]["parameters"]} for t in tools]
+    return req
+
+
+def count_exact(base_url: str, api_key: str, msgs: list, tools: list | None, timeout: float = 60) -> int | None:
+    """서버 토크나이저 · 템플릿으로 센 입력 토큰 (/v1/messages/count_tokens, 모델은 돌지 않음). 실패하면 None."""
+    try:
+        req = urllib.request.Request(base_url.rstrip("/") + "/v1/messages/count_tokens", data=rb.canon(to_anthropic(msgs, tools)),
+                                     method="POST", headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}",
+                                                             "x-api-key": api_key, "anthropic-version": "2023-06-01"})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return int(json.loads(r.read().decode("utf-8"))["input_tokens"])
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _tool_ok(fn: str, out: str) -> bool:
+    return not out.startswith("오류")
+
+
+def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...], chat=None, counter=None) -> dict:
+    """도구 탐색 루프(X3 · SWE 공용). 편집은 edit_file 로 작업 트리에 바로 적용된다.
+
+    v3 (2026-11-18 하네스 점검): (1) 인자 JSON 이 깨지면 {} 로 실행하지 않고 오류를 돌려준다 (bad_json),
+    (2) 도구 결과마다 ok 를 남겨 오류 난 read_file 을 '읽음' 으로 세지 않는다, (3) 다음 요청의 입력은 이전 턴
+    prompt_tokens 가 아니라 보낼 요청 전체를 서버 count_tokens 로 센다(실패 시 추정, 출처를 남김), (4) 턴마다
+    prompt_tokens · cached_tokens · timings(cache_n · prompt_n · prompt_ms) 를 남긴다. 서버가 안 주면 None(NA).
+    """
     chat = chat or chat_once
-    r = {"tool_log": [], "model_ms": 0.0, "tool_ms": 0.0, "out_tok": 0, "last_in": 0, "final": "", "status": "ok",
-         "edit_ok": 0, "edit_fail": 0, "fake_calls": 0}
+    counter = counter or (lambda m, t: count_exact(a.base_url, api_key, m, t))
+    r = {"tool_log": [], "turns": [], "model_ms": 0.0, "tool_ms": 0.0, "out_tok": 0, "last_in": 0, "final": "", "status": "ok",
+         "edit_ok": 0, "edit_fail": 0, "fake_calls": 0, "bad_json": 0, "tool_errors": 0, "truncated_chars": 0, "budget_cuts": 0}
     fake_retry_left = 1
+    force_at = 24320 - 2048
     for step in range(a.max_steps):
-        force = step == a.max_steps - 1 or r["last_in"] > 24320 - 2048
+        exact = counter(msgs, NAV_TOOLS)
+        in_now, src = (exact, "count_tokens") if exact is not None else (r["last_in"], "prev_prompt_tokens")
+        force = step == a.max_steps - 1 or in_now > force_at
         if force:
             msgs.append({"role": "user", "content": "이제 도구를 더 쓸 수 없다. 남은 수정이 있으면 편집 블록 형식으로, 없으면 바꾼 내용을 짧게 답하라.\n\n" + FORMAT})
+            exact = counter(msgs, None)
+            in_now, src = (exact, "count_tokens") if exact is not None else (in_now, src)
+        tools = None if force else NAV_TOOLS
+        mt = max(1024, min(a.budget, a.ctx - in_now - 64)) if in_now else a.budget
+        if mt < a.budget:
+            r["budget_cuts"] += 1
+        t_w = time.perf_counter()
         try:
-            mt = max(1024, min(a.budget, a.ctx - r["last_in"] - 2048)) if r["last_in"] else a.budget
-            data, ms = chat(a.base_url, api_key, msgs, mt, a.timeout, None if force else NAV_TOOLS)
+            data, ms = chat(a.base_url, api_key, msgs, mt, a.timeout, tools)
         except Exception as ex:  # noqa: BLE001
             r["status"], r["final"] = "fail", f"요청 실패: {ex}"
+            r["turns"].append({"step": step, "in_count": exact, "in_src": src, "max_tokens": mt, "tools": bool(tools), "error": str(ex)[:200]})
             break
         r["model_ms"] += ms
         u = data.get("usage") or {}
+        tm = data.get("timings") or {}
         r["last_in"] = u.get("prompt_tokens") or r["last_in"]
         r["out_tok"] += u.get("completion_tokens") or 0
         msg = data["choices"][0]["message"]
         calls = msg.get("tool_calls") or []
         content = msg.get("content") or ""
+        r["turns"].append({"step": step, "in_count": exact, "in_src": src, "prompt_tokens": u.get("prompt_tokens"),
+                           "cached_tokens": (u.get("prompt_tokens_details") or {}).get("cached_tokens"),
+                           "cache_n": tm.get("cache_n"), "prompt_n": tm.get("prompt_n"), "prompt_ms": tm.get("prompt_ms"),
+                           "predicted_n": tm.get("predicted_n"), "predicted_ms": tm.get("predicted_ms"),
+                           "completion_tokens": u.get("completion_tokens"), "max_tokens": mt, "tools": bool(tools),
+                           "finish": data["choices"][0].get("finish_reason"), "n_calls": len(calls),
+                           "rejected": data.get("strata_rejected_tool_calls"), "wall_ms": round((time.perf_counter() - t_w) * 1000, 1)})
         if not calls:
             if FAKE_CALL_RE.search(content) and not force:
                 r["fake_calls"] += 1
-                r["tool_log"].append({"step": step, "tool": "(text_tool_call)", "args": {}, "out_chars": len(content)})
+                r["tool_log"].append({"step": step, "tool": "(text_tool_call)", "args": {}, "ok": False, "out_chars": len(content)})
                 if fake_retry_left:
                     fake_retry_left -= 1
                     msgs.append({"role": "assistant", "content": content})
@@ -319,22 +397,53 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
         msgs.append({"role": "assistant", "content": content, "tool_calls": calls})
         for c in calls:
             fn = c["function"]["name"]
-            try:
-                args = json.loads(c["function"].get("arguments") or "{}")
-            except json.JSONDecodeError:
-                args = {}
+            raw = c["function"].get("arguments") or "{}"
             t0 = time.perf_counter()
-            if fn == "edit_file":
-                ok, out = edit_file(root, args, deny)
-                r["edit_ok" if ok else "edit_fail"] += 1
-                logged = {"path": args.get("path"), "ok": ok, "old_chars": len(args.get("old_string") or ""),
-                          "new_chars": len(args.get("new_string") or "")}
+            try:
+                args = json.loads(raw)
+                if not isinstance(args, dict):
+                    raise json.JSONDecodeError("not an object", raw, 0)
+            except json.JSONDecodeError as ex:
+                r["bad_json"] += 1
+                out, ok, logged = (f"오류: 도구 인자가 올바른 JSON 객체가 아니다 ({ex.msg}). 같은 도구를 올바른 JSON 인자로 다시 호출하라.",
+                                   False, {"raw_head": raw[:200]})
             else:
-                out, logged = run_tool(root, fn, args), args
+                if fn == "edit_file":
+                    ok, out = edit_file(root, args, deny)
+                    r["edit_ok" if ok else "edit_fail"] += 1
+                    logged = {"path": args.get("path"), "old_chars": len(args.get("old_string") or ""),
+                              "new_chars": len(args.get("new_string") or "")}
+                else:
+                    out = run_tool(root, fn, args)
+                    ok, logged = _tool_ok(fn, out), args
             r["tool_ms"] += (time.perf_counter() - t0) * 1000
-            r["tool_log"].append({"step": step, "tool": fn, "args": logged, "out_chars": len(out)})
-            msgs.append({"role": "tool", "tool_call_id": c.get("id", ""), "content": out[:12000]})
+            if not ok:
+                r["tool_errors"] += 1
+            cut = max(0, len(out) - TOOL_OUT_LIMIT)
+            r["truncated_chars"] += cut
+            r["tool_log"].append({"step": step, "tool": fn, "args": logged, "ok": ok, "out_chars": len(out), "truncated": cut})
+            msgs.append({"role": "tool", "tool_call_id": c.get("id", ""), "content": out[:TOOL_OUT_LIMIT]})
     return r
+
+
+def nav_read_ok(tool_log: list) -> set:
+    """실제로 내용을 돌려받은 read_file 경로만 (오류 난 읽기는 탐색 성공으로 세지 않는다)."""
+    return {t["args"].get("path") for t in tool_log if t["tool"] == "read_file" and t.get("ok", True) and isinstance(t["args"], dict)}
+
+
+def nav_summary(nr: dict, wall_ms: float, grade_ms: float) -> str:
+    """원장 note 용: 호출 수 · 턴별 최대 입력 · 누적 입력 · 새로 읽은 입력 · 캐시 · 시간."""
+    ts = [t for t in nr["turns"] if "prompt_tokens" in t]
+    pt = [t["prompt_tokens"] for t in ts if t.get("prompt_tokens") is not None]
+    new = [t["prompt_n"] for t in ts if t.get("prompt_n") is not None]
+    cached = [t["cached_tokens"] for t in ts if t.get("cached_tokens") is not None]
+    cnt = [(t["in_count"], t["prompt_tokens"]) for t in ts if t.get("in_count") is not None and t.get("prompt_tokens") is not None]
+    na = lambda v: "NA" if v is None else v  # noqa: E731
+    return (f"model_calls {len(nr['turns'])}; max_in {na(max(pt) if pt else None)}; sum_in {na(sum(pt) if pt else None)}; "
+            f"sum_new_read {na(sum(new) if new else None)}; sum_cached {na(sum(cached) if cached else None)}; "
+            f"count_vs_server_max_diff {na(max(abs(c - p) for c, p in cnt) if cnt else None)}; budget_cuts {nr['budget_cuts']}; "
+            f"bad_json {nr['bad_json']}; tool_errors {nr['tool_errors']}; truncated_chars {nr['truncated_chars']}; "
+            f"wall_ms {wall_ms:.0f}; grade_ms {grade_ms:.0f}")
 
 
 def nav_apply_final(root: Path, r: dict, candidates: list[str], deny: tuple[str, ...]) -> tuple[int, list[str], str]:
@@ -415,6 +524,7 @@ def main() -> int:
     ap.add_argument("--repeat", type=int, default=1)
     ap.add_argument("--prefix", default="x3")
     ap.add_argument("--max-steps", type=int, default=20)
+    ap.add_argument("--harness", default="H0", help="하네스 후보 ID (H0 = nav-v3 기준선: edit_file · 재요청 1회 · 글자 수 자르기 12,000)")
     ap.add_argument("--base-url", default="http://127.0.0.1:8080")
     ap.add_argument("--timeout", type=float, default=1800)
     ap.add_argument("--chars-per-token", type=float, default=3.2)
@@ -523,17 +633,20 @@ def main() -> int:
                     sys_txt = ("너는 pypa/packaging 저장소(고정 커밋)에서 작업하는 코딩 에이전트다. 파일은 미리 주어지지 않는다. "
                                "list_files · grep · read_file 도구로 필요한 코드를 찾아 읽고, edit_file 도구로 직접 고쳐라.")
                     msgs = [{"role": "system", "content": sys_txt}, {"role": "user", "content": "### 과제\n" + task_txt + "\n\n" + NAV_FORMAT}]
-                    cfg = {"task": task, "mode": "navigate", "harness": "nav-v2: edit_file + text-tool-call retry x1 (T-011)", "commit": COMMIT,
+                    cfg = {"task": task, "mode": "navigate", "harness": a.harness, "commit": COMMIT, "tool_out_limit": TOOL_OUT_LIMIT,
                            "tools": NAV_TOOLS, "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, "server_config": server_cfg}
                     cfg_sha = rb.sha256_bytes(rb.canon(cfg))
                     (run_dir / "config.json").write_bytes(rb.canon(cfg))
                     (run_dir / "env.json").write_bytes(rb.canon(env))
+                    t_wall = time.perf_counter()
                     nr = navigate_loop(root, msgs, a, api_key, deny=("tests",))
                     tool_log, final, last_in = nr["tool_log"], nr["final"], nr["last_in"]
-                    read = {t["args"].get("path") for t in tool_log if t["tool"] == "read_file"}
+                    read = nav_read_ok(tool_log)
                     found = [f for f in tcfg["required_files"] if f in read]
                     applied, errs, fmtn = nav_apply_final(root, nr, sorted(p for p in read if p), ("tests",))
                     gr = grade(root, tcfg, hidden_total) if applied else None
+                    wall_ms = (time.perf_counter() - t_wall) * 1000
+                    (run_dir / f"turns_r{i}.json").write_text(json.dumps(nr["turns"], ensure_ascii=False, indent=1), encoding="utf-8")
                     et = error_type(applied, errs, gr)
                     rid = f"{run_name}_r{i}"
                     row = base_row(a, rid, f"x3-navigate-{task}", env_sha, commit, dirty, cfg_sha, engine_commit)
@@ -545,7 +658,8 @@ def main() -> int:
                                 f"{len(found)}/{len(tcfg['required_files'])} ({', '.join(found)}); edit_file ok {nr['edit_ok']} fail {nr['edit_fail']}; "
                                 f"text_tool_calls {nr['fake_calls']}; edits {applied} ({'; '.join(errs) or 'ok'}); "
                                 f"regress {gr['regress'] if gr else 'NA'}; error_type {et}; {fmtn}; model_ms {nr['model_ms']:.0f}; "
-                                f"tool_exec_ms {nr['tool_ms']:.0f}; tests_ms {gr['tools_ms'] if gr else 0:.0f}; usage summed over turns")})
+                                f"tool_exec_ms {nr['tool_ms']:.0f}; tests_ms {gr['tools_ms'] if gr else 0:.0f}; harness {a.harness}; "
+                                + nav_summary(nr, wall_ms, gr["tools_ms"] if gr else 0) + "; total_ms = model calls only")})
                     for col in rb.load_columns() if hasattr(rb, "load_columns") else []:
                         row.setdefault(col, "NA")
                     rb.write_row(row)
@@ -553,6 +667,7 @@ def main() -> int:
                     (run_dir / f"tools_r{i}.json").write_text(json.dumps(tool_log, ensure_ascii=False, indent=1), encoding="utf-8")
                     print(json.dumps({"run": rid, "tool_calls": len(tool_log), "required_read": f"{len(found)}/{len(tcfg['required_files'])}",
                                       "edit_ok": nr["edit_ok"], "edit_fail": nr["edit_fail"], "text_calls": nr["fake_calls"],
+                                      "bad_json": nr["bad_json"], "tool_errors": nr["tool_errors"], "wall_s": round(wall_ms / 1000),
                                       "error_type": et, "hidden": row["tests_passed"], "last_input": last_in}, ensure_ascii=False), flush=True)
     return 0
 

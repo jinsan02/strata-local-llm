@@ -89,6 +89,7 @@ def main() -> int:
     ap.add_argument("--ctx", type=int, default=32768)
     ap.add_argument("--budget", type=int, default=8192)
     ap.add_argument("--max-steps", type=int, default=20)
+    ap.add_argument("--harness", default="H0")
     ap.add_argument("--repeat", type=int, default=1)
     ap.add_argument("--prefix", default="x3s")
     ap.add_argument("--base-url", default="http://127.0.0.1:8080")
@@ -116,20 +117,23 @@ def main() -> int:
                     {"role": "user", "content": "### 이슈\n" + case["problem_statement"] + "\n\n" + x3.NAV_FORMAT}]
             cfg = {"instance": iid, "dataset_revision": case["dataset_revision"], "base_commit": case["base_commit"], "mode": "navigate",
                    "tools": x3.NAV_TOOLS, "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, "server_config": server_cfg,
-                   "harness": "local conda, not official Docker; nav-v2: edit_file + text-tool-call retry x1 (T-011)"}
+                   "harness": "local conda, not official Docker", "nav_harness": a.harness, "tool_out_limit": x3.TOOL_OUT_LIMIT}
             cfg_sha = rb.sha256_bytes(rb.canon(cfg))
             (run_dir / "config.json").write_bytes(rb.canon(cfg))
             (run_dir / "env.json").write_bytes(rb.canon(env))
             deny = ("tests", "testing")
+            t_wall = time.perf_counter()
             nr = x3.navigate_loop(root, msgs, a, api_key, deny=deny)
             tool_log, model_ms, tool_ms, out_tok, last_in, final, status = (nr["tool_log"], nr["model_ms"], nr["tool_ms"], nr["out_tok"],
                                                                              nr["last_in"], nr["final"], nr["status"])
             gold_files = [l.split(" b/")[-1] for l in (CASES / iid / "private" / "gold.patch").read_text(encoding="utf-8").splitlines()
                           if l.startswith("diff --git")]
-            read = {t["args"].get("path") for t in tool_log if t["tool"] == "read_file"}
+            read = x3.nav_read_ok(tool_log)
             found = [f for f in gold_files if f in read]
             applied, errs, fmt = x3.nav_apply_final(root, nr, sorted(p for p in read if p), deny)
             gr = grade(root, case, py) if applied else None
+            wall_ms = (time.perf_counter() - t_wall) * 1000
+            (run_dir / f"turns_r{i}.json").write_text(json.dumps(nr["turns"], ensure_ascii=False, indent=1), encoding="utf-8")
             et = ("no_edit" if any("편집 블록 없음" in e for e in errs) else "apply_fail" if not applied else
                   "pass" if gr["resolved"] else "test_fail")
             row = {"run_id": f"{name}_r{i}", "config_id": "X3", "phase": "eval", "origin": "local", "workload": f"swe-verified-{iid}",
@@ -145,12 +149,14 @@ def main() -> int:
                             f"edit_file ok {nr['edit_ok']} fail {nr['edit_fail']}; text_tool_calls {nr['fake_calls']}; edits {applied} "
                             f"({'; '.join(errs) or 'ok'}); F2P {gr['f2p'] if gr else 'NA'}; P2P {gr['p2p'] if gr else 'NA'}; "
                             f"resolved {gr['resolved'] if gr else False}; error_type {et}; {fmt}; model_ms {model_ms:.0f}; tool_exec_ms {tool_ms:.0f}; "
-                            f"tests_ms {gr['tests_ms'] if gr else 0:.0f}; usage summed over turns")}
+                            f"tests_ms {gr['tests_ms'] if gr else 0:.0f}; harness {a.harness}; "
+                            + x3.nav_summary(nr, wall_ms, gr["tests_ms"] if gr else 0) + "; total_ms = model calls only")}
             rb.write_row(row)
             (run_dir / f"answer_r{i}.md").write_text(final, encoding="utf-8")
             (run_dir / f"tools_r{i}.json").write_text(json.dumps(tool_log, ensure_ascii=False, indent=1), encoding="utf-8")
             print(json.dumps({"run": row["run_id"], "tool_calls": len(tool_log), "gold_files_read": f"{len(found)}/{len(gold_files)}",
                               "edit_ok": nr["edit_ok"], "edit_fail": nr["edit_fail"], "text_calls": nr["fake_calls"],
+                              "bad_json": nr["bad_json"], "tool_errors": nr["tool_errors"], "wall_s": round(wall_ms / 1000),
                               "error_type": et, "f2p": gr["f2p"] if gr else None, "p2p": gr["p2p"] if gr else None}, ensure_ascii=False), flush=True)
     return 0
 
