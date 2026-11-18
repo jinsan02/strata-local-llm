@@ -9,7 +9,7 @@
 
 | # | 날짜 | 제목 | 영역 | 상태 |
 | --- | --- | --- | --- | --- |
-| T-011 | 11-18 | 탐색(navigate) 모드 5건 중 4건이 없는 'SEARCH' 도구를 텍스트로 호출하고 끝남 | eval | 토의 중 |
+| T-011 | 11-18 | 탐색(navigate) 모드 5건 중 4건이 없는 'SEARCH' 도구를 텍스트로 호출하고 끝남 | eval | C안 적용 · 재측정 |
 | T-010 | 11-18 | X3 파일럿 1차: 채점 파서가 정답을 0점 처리 + 원장 6행 유실 | eval · infra | 해결 (재측정) |
 | T-009 | 11-18 | 원장 kv 열이 실제(FP32)와 다른 int8 로 기록됨 | bench | 해결 (정정 기록) |
 | T-008 | 11-18 | 긴 입력에서 코드에 `]]` 문법 오류 | eval · quant | 토의 필요 |
@@ -42,7 +42,7 @@
 
 ## T-011 탐색(navigate) 모드: 모델이 없는 'SEARCH' 도구를 텍스트로 호출하고 끝남
 - 날짜 · 단계 · 영역: 11-18 16:02~16:25 · X3 파일럿 2차 · SWE 교차 확인 · eval
-- 상태: 토의 중 (재측정 전 하니스 방식 결정 필요)
+- 상태: C안 결정(11-18 사용자) · 적용 · 재측정 (x3n · x3sn)
 ### 발생 로그
 navigate 5건 결과: X3 dg `no_edit` · marker `apply_fail` · version_bump `no_edit`, SWE flask `no_edit` · pytest `no_edit`.
 `no_edit` 4건의 마지막 답(`experiments/runs/x3q_*_nav_*`, `x3s_*`) 끝이 `<tool_call><function=SEARCH><parameter=path>…<parameter=pattern>…`
@@ -60,8 +60,12 @@ navigate 5행은 '형식 실패' 로 집계하고 수정 능력 판단에는 쓰
 A. `edit_file(path, search, replace)` 도구를 추가해 쓰기도 도구로 한다 (실사용과 같음, 채점은 작업 트리 상태로).
 B. 도구 목록에 없는 텍스트 도구 호출을 감지하면 "그 도구는 없다, 최종 답을 편집 블록으로" 를 1회 돌려준다.
 C. 둘 다: A 를 기본, B 는 안전망. navigate 만 다시 잰다(약 15분).
+### 결정 · 조치
+C안: `edit_file(path, old_string, new_string)` 도구 추가(테스트 경로 · 저장소 밖 · 기존 파일 덮어쓰기 거부, 일치 0회 · 여러 회면 이유를 돌려줌),
+텍스트 도구 호출(`<tool_call>` · `<function=`) 감지 시 1회 재요청, 마지막 답의 편집 블록도 계속 적용. 최대 단계 14 · 16 -> 20.
+원장 note 에 `edit_file ok/fail`, `text_tool_calls`, `format tool` 을 남긴다. 이전 navigate 5행은 fix 커밋 Invalidates.
 ### 재발 방지
-(정해지면 기록)
+새 하니스 방식은 실제 모델 응답 전에 가짜 응답 순서(텍스트 호출 · 편집 성공 · 실패 · 거부)로 점검한다.
 
 ## T-010 X3 파일럿 1차: 채점 파서가 정답을 0점 처리 + 원장 6행 유실
 - 날짜 · 단계 · 영역: 11-18 15:09~15:22 · X3 파일럿 · eval, infra
