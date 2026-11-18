@@ -1,0 +1,10 @@
+F.............                                                           [100%]
+================================== FAILURES ===================================
+____________________________ test_public_exception ____________________________
+tests\test_x3_hidden.py:9: in test_public_exception
+    assert "InvalidGroupName" in dg.__all__
+E   AssertionError: assert 'InvalidGroupName' in ['CyclicDependencyGroup', 'DependencyGroupInclude', 'DependencyGroupResolver', 'DuplicateGroupNames', 'InvalidDependencyGroupObject', 'resolve_dependency_groups']
+E    +  where ['CyclicDependencyGroup', 'DependencyGroupInclude', 'DependencyGroupResolver', 'DuplicateGroupNames', 'InvalidDependencyGroupObject', 'resolve_dependency_groups'] = dg.__all__
+=========================== short test summary info ===========================
+FAILED tests/test_x3_hidden.py::test_public_exception - AssertionError: asser...
+1 failed, 13 passed in 0.25s
