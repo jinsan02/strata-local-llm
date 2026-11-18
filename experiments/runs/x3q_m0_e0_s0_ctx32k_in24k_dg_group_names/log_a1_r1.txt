@@ -1,0 +1,69 @@
+일부 편집은 적용하지 못했다:
+- 경로 없음(후보 3개): SEARCH 가 파일 내용과 정확히 한 번 일치하지 않음
+
+테스트 결과:
+dden.py:16: in test_invalid_key_reported
+    DependencyGroupResolver({name: ["requests"]})
+src\packaging\dependency_groups.py:134: in __init__
+    errors.error(InvalidGroupName(f"Invalid group name: {group_name!r}"))
+                 ^^^^^^^^^^^^^^^^
+E   NameError: name 'InvalidGroupName' is not defined
+________________________ test_invalid_key_reported[.x] ________________________
+tests\test_x3_hidden.py:16: in test_invalid_key_reported
+    DependencyGroupResolver({name: ["requests"]})
+src\packaging\dependency_groups.py:134: in __init__
+    errors.error(InvalidGroupName(f"Invalid group name: {group_name!r}"))
+                 ^^^^^^^^^^^^^^^^
+E   NameError: name 'InvalidGroupName' is not defined
+_______________________ test_invalid_key_reported[a b] ________________________
+tests\test_x3_hidden.py:16: in test_invalid_key_reported
+    DependencyGroupResolver({name: ["requests"]})
+src\packaging\dependency_groups.py:134: in __init__
+    errors.error(InvalidGroupName(f"Invalid group name: {group_name!r}"))
+                 ^^^^^^^^^^^^^^^^
+E   NameError: name 'InvalidGroupName' is not defined
+_________________________ test_invalid_key_reported[] _________________________
+tests\test_x3_hidden.py:16: in test_invalid_key_reported
+    DependencyGroupResolver({name: ["requests"]})
+src\packaging\dependency_groups.py:134: in __init__
+    errors.error(InvalidGroupName(f"Invalid group name: {group_name!r}"))
+                 ^^^^^^^^^^^^^^^^
+E   NameError: name 'InvalidGroupName' is not defined
+_____________________ test_invalid_key_reported[t\xe9st] ______________________
+tests\test_x3_hidden.py:16: in test_invalid_key_reported
+    DependencyGroupResolver({name: ["requests"]})
+src\packaging\dependency_groups.py:134: in __init__
+    errors.error(InvalidGroupName(f"Invalid group name: {group_name!r}"))
+                 ^^^^^^^^^^^^^^^^
+E   NameError: name 'InvalidGroupName' is not defined
+_______________________ test_collected_with_duplicates ________________________
+tests\test_x3_hidden.py:23: in test_collected_with_duplicates
+    DependencyGroupResolver({"Foo": [], "foo": [], "bad name": []})
+src\packaging\dependency_groups.py:134: in __init__
+    errors.error(InvalidGroupName(f"Invalid group name: {group_name!r}"))
+                 ^^^^^^^^^^^^^^^^
+E   NameError: name 'InvalidGroupName' is not defined
+_______________________ test_each_invalid_name_reported _______________________
+tests\test_x3_hidden.py:31: in test_each_invalid_name_reported
+    DependencyGroupResolver({"-a": [], "b-": [], "ok": []})
+src\packaging\dependency_groups.py:134: in __init__
+    errors.error(InvalidGroupName(f"Invalid group name: {group_name!r}"))
+                 ^^^^^^^^^^^^^^^^
+E   NameError: name 'InvalidGroupName' is not defined
+___________________ test_lookup_and_resolve_reject_invalid ____________________
+tests\test_x3_hidden.py:43: in test_lookup_and_resolve_reject_invalid
+    with pytest.raises(dg.InvalidGroupName):
+                       ^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'packaging.dependency_groups' has no attribute 'InvalidGroupName'
+=========================== short test summary info ===========================
+FAILED tests/test_x3_hidden.py::test_public_exception - AttributeError: modul...
+FAILED tests/test_x3_hidden.py::test_invalid_key_reported[-dev] - NameError: ...
+FAILED tests/test_x3_hidden.py::test_invalid_key_reported[dev-] - NameError: ...
+FAILED tests/test_x3_hidden.py::test_invalid_key_reported[.x] - NameError: na...
+FAILED tests/test_x3_hidden.py::test_invalid_key_reported[a b] - NameError: n...
+FAILED tests/test_x3_hidden.py::test_invalid_key_reported[] - NameError: name...
+FAILED tests/test_x3_hidden.py::test_invalid_key_reported[t\xe9st] - NameErro...
+FAILED tests/test_x3_hidden.py::test_collected_with_duplicates - NameError: n...
+FAILED tests/test_x3_hidden.py::test_each_invalid_name_reported - NameError: ...
+FAILED tests/test_x3_hidden.py::test_lookup_and_resolve_reject_invalid - Attr...
+10 failed, 4 passed in 0.27s

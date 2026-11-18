@@ -1,0 +1,65 @@
+일부 편집은 적용하지 못했다:
+- src/packaging/markers.py: SEARCH 가 파일 내용과 정확히 한 번 일치하지 않음
+
+테스트 결과:
+renced_extras[extra != "a.b"-expected2] _______________
+tests\test_x3_hidden.py:22: in test_referenced_extras
+    result = Marker(marker).referenced_extras()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Marker' object has no attribute 'referenced_extras'
+_ test_referenced_extras[python_version >= "3.8" and (extra == "x" or extra == "Y")-expected3] _
+tests\test_x3_hidden.py:22: in test_referenced_extras
+    result = Marker(marker).referenced_extras()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Marker' object has no attribute 'referenced_extras'
+______________ test_referenced_extras["Foo" in extras-expected4] ______________
+tests\test_x3_hidden.py:22: in test_referenced_extras
+    result = Marker(marker).referenced_extras()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Marker' object has no attribute 'referenced_extras'
+__ test_referenced_extras["bar" not in extras and os_name == "nt"-expected5] __
+tests\test_x3_hidden.py:22: in test_referenced_extras
+    result = Marker(marker).referenced_extras()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Marker' object has no attribute 'referenced_extras'
+______________ test_referenced_extras[os_name == "nt"-expected6] ______________
+tests\test_x3_hidden.py:22: in test_referenced_extras
+    result = Marker(marker).referenced_extras()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Marker' object has no attribute 'referenced_extras'
+________ test_referenced_extras["dev" in dependency_groups-expected7] _________
+tests\test_x3_hidden.py:22: in test_referenced_extras
+    result = Marker(marker).referenced_extras()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Marker' object has no attribute 'referenced_extras'
+_ test_referenced_extras[(extra == "a" and (extra == "b" or "c" in extras))-expected8] _
+tests\test_x3_hidden.py:22: in test_referenced_extras
+    result = Marker(marker).referenced_extras()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Marker' object has no attribute 'referenced_extras'
+____________________________ test_combined_markers ____________________________
+tests\test_x3_hidden.py:29: in test_combined_markers
+    assert m.referenced_extras() == {"a", "b"}
+           ^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Marker' object has no attribute 'referenced_extras'
+_______________________ test_requirement_marker_extras ________________________
+tests\test_x3_hidden.py:33: in test_requirement_marker_extras
+    assert Requirement('foo[bar]; extra == "Baz"').marker_extras == {"baz"}
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\packaging\requirements.py:319: in marker_extras
+    return self.marker.referenced_extras()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'Marker' object has no attribute 'referenced_extras'
+=========================== short test summary info ===========================
+FAILED tests/test_x3_hidden.py::test_referenced_extras[extra == "Test_Foo"-expected0]
+FAILED tests/test_x3_hidden.py::test_referenced_extras["Docs" == extra-expected1]
+FAILED tests/test_x3_hidden.py::test_referenced_extras[extra != "a.b"-expected2]
+FAILED tests/test_x3_hidden.py::test_referenced_extras[python_version >= "3.8" and (extra == "x" or extra == "Y")-expected3]
+FAILED tests/test_x3_hidden.py::test_referenced_extras["Foo" in extras-expected4]
+FAILED tests/test_x3_hidden.py::test_referenced_extras["bar" not in extras and os_name == "nt"-expected5]
+FAILED tests/test_x3_hidden.py::test_referenced_extras[os_name == "nt"-expected6]
+FAILED tests/test_x3_hidden.py::test_referenced_extras["dev" in dependency_groups-expected7]
+FAILED tests/test_x3_hidden.py::test_referenced_extras[(extra == "a" and (extra == "b" or "c" in extras))-expected8]
+FAILED tests/test_x3_hidden.py::test_combined_markers - AttributeError: 'Mark...
+FAILED tests/test_x3_hidden.py::test_requirement_marker_extras - AttributeErr...
+11 failed in 0.26s

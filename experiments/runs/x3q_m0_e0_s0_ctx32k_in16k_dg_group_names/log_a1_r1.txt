@@ -1,0 +1,69 @@
+일부 편집은 적용하지 못했다:
+- 경로 없음(후보 3개): SEARCH 가 파일 내용과 정확히 한 번 일치하지 않음
+- 경로 없음(후보 3개): SEARCH 가 파일 내용과 정확히 한 번 일치하지 않음
+- 경로 없음(후보 3개): SEARCH 가 파일 내용과 정확히 한 번 일치하지 않음
+
+테스트 결과:
+____________________
+tests\test_x3_hidden.py:15: in test_invalid_key_reported
+    with pytest.raises(ExceptionGroup) as ei:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE ExceptionGroup
+________________________ test_invalid_key_reported[.x] ________________________
+tests\test_x3_hidden.py:15: in test_invalid_key_reported
+    with pytest.raises(ExceptionGroup) as ei:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE ExceptionGroup
+_______________________ test_invalid_key_reported[a b] ________________________
+tests\test_x3_hidden.py:15: in test_invalid_key_reported
+    with pytest.raises(ExceptionGroup) as ei:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE ExceptionGroup
+_________________________ test_invalid_key_reported[] _________________________
+tests\test_x3_hidden.py:15: in test_invalid_key_reported
+    with pytest.raises(ExceptionGroup) as ei:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE ExceptionGroup
+_____________________ test_invalid_key_reported[t\xe9st] ______________________
+tests\test_x3_hidden.py:15: in test_invalid_key_reported
+    with pytest.raises(ExceptionGroup) as ei:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE ExceptionGroup
+_______________________ test_collected_with_duplicates ________________________
+tests\test_x3_hidden.py:25: in test_collected_with_duplicates
+    assert dg.InvalidGroupName in kinds
+E   AssertionError: assert <class 'packaging.dependency_groups.InvalidGroupName'> in {<class 'packaging.dependency_groups.DuplicateGroupNames'>}
+E    +  where <class 'packaging.dependency_groups.InvalidGroupName'> = dg.InvalidGroupName
+_______________________ test_each_invalid_name_reported _______________________
+tests\test_x3_hidden.py:30: in test_each_invalid_name_reported
+    with pytest.raises(ExceptionGroup) as ei:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE ExceptionGroup
+___________________ test_lookup_and_resolve_reject_invalid ____________________
+  + Exception Group Traceback (most recent call last):
+  |   File "C:\strata-lab\work\x3-runs\x3q_m0_e0_s0_ctx32k_in16k_dg_group_names_r1\tests\test_x3_hidden.py", line 44, in test_lookup_and_resolve_reject_invalid
+  |     r.lookup("-test")
+  |   File "C:\strata-lab\work\x3-runs\x3q_m0_e0_s0_ctx32k_in16k_dg_group_names_r1\src\packaging\dependency_groups.py", line 159, in lookup
+  |     with _ErrorCollector().on_exit(
+  |          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "C:\ProgramData\anaconda3\envs\x3_packaging\Lib\contextlib.py", line 144, in __exit__
+  |     next(self.gen)
+  |   File "C:\strata-lab\work\x3-runs\x3q_m0_e0_s0_ctx32k_in16k_dg_group_names_r1\src\packaging\errors.py", line 74, in on_exit
+  |     self.finalize(msg)
+  |   File "C:\strata-lab\work\x3-runs\x3q_m0_e0_s0_ctx32k_in16k_dg_group_names_r1\src\packaging\errors.py", line 64, in finalize
+  |     raise ExceptionGroup(msg, self.errors)
+  | ExceptionGroup: [dependency-groups] data for '-test' was malformed (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | LookupError: Dependency group '-test' not found
+    +------------------------------------
+=========================== short test summary info ===========================
+FAILED tests/test_x3_hidden.py::test_invalid_key_reported[-dev] - Failed: DID...
+FAILED tests/test_x3_hidden.py::test_invalid_key_reported[dev-] - Failed: DID...
+FAILED tests/test_x3_hidden.py::test_invalid_key_reported[.x] - Failed: DID N...
+FAILED tests/test_x3_hidden.py::test_invalid_key_reported[a b] - Failed: DID ...
+FAILED tests/test_x3_hidden.py::test_invalid_key_reported[] - Failed: DID NOT...
+FAILED tests/test_x3_hidden.py::test_invalid_key_reported[t\xe9st] - Failed: ...
+FAILED tests/test_x3_hidden.py::test_collected_with_duplicates - AssertionErr...
+FAILED tests/test_x3_hidden.py::test_each_invalid_name_reported - Failed: DID...
+FAILED tests/test_x3_hidden.py::test_lookup_and_resolve_reject_invalid - Look...
+9 failed, 5 passed in 0.26s
