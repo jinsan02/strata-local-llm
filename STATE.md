@@ -44,7 +44,7 @@
 6. ~~X0~~ 완료 (11-18): setup 빌드 → `scripts/serve-ctx.ps1` 로 8K·16K·32K 기동, `scripts/bench/run_bench.py` 로 기록
 7. **B0 + X1** (같은 실행으로 겸한다): 고정 문항 입력 512·2,048·4,096 × 출력 128·512 × 컨텍스트 8K·16K·32K, 반복 3회, 같은 샘플링. thinking 이 출력 예산을 다 쓰면 첫 답변 지연이 NA 가 되므로 출력 512 행으로 첫 답변 지연을 본다
 8. ~~XB 2차~~ 완료 (11-18 11:09~11:32): 36행. 출력 예산 8K(= thinking 상한 6,144 + 답변 2,048)만 12/12 통과 → X2 는 `--budgets 8192`. 4K 의 parse_duration 실패(10~13/16)는 thinking 이 3,072 에서 강제로 닫힌 탓으로 본다(Q12 에서 확인)
-9. **X2**: `run_coding.py --ctx 32768 --input-tokens <N> [--position middle] --budgets <XB 결과> --prefix x2` — 저장소 파일(`engine/strata_cli`, `strata_control`)을 붙여 입력 약 2K·8K·16K·한도 근처(32,768 − 예산 − 256)로, 같은 과제·테스트. 러너가 입력+예산 > ctx 를 거부
+9. **X2 진행 중**: `scripts/bench/matrix-x2.ps1` (입력 2K · 8K · 16K · 24,320 × 끝/중간, 예산 8,192, 3회, 로그 `engine\matrix-x2.log`). 러너: `run_coding.py --ctx 32768 --input-tokens <N> [--position middle] --budgets <XB 결과> --prefix x2` — 저장소 파일(`engine/strata_cli`, `strata_control`)을 붙여 입력 약 2K·8K·16K·한도 근처(32,768 − 예산 − 256)로, 같은 과제·테스트. 러너가 입력+예산 > ctx 를 거부
 10. 그다음 X3(긴 문맥 품질, Q8) → X4(노트북 경유, `origin=laptop`) → B1(Q11 greedy·MTP 포함)
 11. push: 사용자가 커밋·push 를 맡김(11-18). 단계 커밋 묶음마다 `git push`
 
@@ -52,7 +52,7 @@
 
 | 날짜 | 요청 | 상태 |
 | --- | --- | --- |
-| 11-18 | 전원 구성표를 고성능으로 변경 (측정 위생) | 대기 |
+| 11-18 | 전원 구성표를 고성능으로 변경 (측정 위생) | 완료 (11-18 12시경): 고성능 + `scripts/power-max.ps1`(최소 CPU 100% · 코어 파킹 끔 · 부스트 적극 · 디스크·USB 절전 끔 · 최대 절전 끔), 기록 `env/power-*`. **X0 · X1 · XB 는 '균형 조정'에서, X2 부터 고성능에서 쟀다** |
 | 11-18 | 양자화 단계 전 페이지 파일 확대 (예: 64GB) | 대기 |
 | 11-18 | 커밋 작성자 이메일을 kotokenlab 과 같게 할지 결정 (지금은 noreply) | 완료: 사용자 계정 이메일로 (저장소 로컬 `user.email`, d818a2b 이후 커밋부터). 이전 커밋은 noreply 그대로 |
 | 11-18 | 본체 방화벽에 Tailscale 대역만 허용하는 8080 규칙 추가 (명령은 `docs/ENVIRONMENT.md` '노트북에서 호출' 1) | 완료 (본체 규칙 1개, 100.64.0.0/10 · TCP 8080 확인. 노트북에 잘못 만든 규칙은 삭제됨) |
@@ -106,6 +106,7 @@
 
 ## 최근 변경
 
+- 2026-11-18 · Claude Code · 측정용 전원 설정 고정(고성능 + power-max.ps1, 사용자 실행). 커밋 작성자 이메일 변경. X2 매트릭스 추가·시작.
 - 2026-11-18 · Claude Code · XB 2차 완료(32K, 과제 4개 × 2K·4K·8K × 3회, 36행): 8K 만 12/12, 2K·4K 각 8/12. 서버 `answer_room` 이 max_tokens 의 1/4 을 답변 몫으로 남기고 thinking 을 닫는 것을 확인(Q12). 채점기가 문법 오류 답을 0/1 로 세던 것 고침. 커밋 16개 push.
 - 2026-11-18 · Claude Code · X1 완료(54행, 처리량 시험으로 명명), MTP 진단(greedy 전용 경로, /metrics 계측 누락), 원장 열 8개 이행, 러너에 reasoning/답변 지연 분리·예산 가드·expert 상태·엔진 로그 drafts. 탐색 코딩 과제 4개(참고 해답으로 테스트 33개 검증) + XB 러너. XB 진행 중.
 - 2026-11-18 · Claude Code · X0 완료: setup 빌드(E0 확정), 8K·16K·32K 기동·짧은 요청 각 3회 기록(원장 9행). 32K 에서 VRAM expert 63/256, TG 약 8% 하락. RAM 여유 약 0.7GB. 측정 러너·서버 전환 스크립트 추가.
