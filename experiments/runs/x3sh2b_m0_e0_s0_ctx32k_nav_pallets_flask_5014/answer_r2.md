@@ -1,0 +1,1 @@
+`src/flask/blueprints.py`에서 `Blueprint.__init__` 메소드에 빈 이름(empty name) 체크를 추가했다. 이제 빈 문자열이름으로 Blueprint를 생성하면 `ValueError: 'name' must be a non-empty string.` 예외가 발생한다.

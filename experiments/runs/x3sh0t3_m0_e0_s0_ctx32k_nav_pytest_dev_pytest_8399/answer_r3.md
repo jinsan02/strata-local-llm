@@ -1,0 +1,16 @@
+### EDIT: src/_pytest/unittest.py
+<<<<<<< SEARCH
+      @pytest.fixture(
+          scope=scope,
+          autouse=True,
+          # Use a unique name to speed up lookup.
+          name=f"unittest_{setup_name}_fixture_{obj.__qualname__}",
+      )
+=======
+      @pytest.fixture(
+          scope=scope,
+          autouse=True,
+          # Use a unique name to speed up lookup.
+          name=f"_pytest_unittest_{setup_name}_fixture_{obj.__qualname__}",
+      )
+>>>>>>> REPLACE

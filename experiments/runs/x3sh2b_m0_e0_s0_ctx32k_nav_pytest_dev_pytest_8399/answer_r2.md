@@ -1,0 +1,1 @@
+수정 내용: `src/_pytest/unittest.py` 147 줄에서 fixture 이름 앞에 `_` 를 추가하여 `"unittest_..."` → `"_unittest_..."` 로 변경했습니다. pytest 는 `_` 로 시작하는 fixture 이름을 hidden fixture 로 처리하여 `--fixtures` 명령 시 `-v` 플래그 없이 숨깁니다.

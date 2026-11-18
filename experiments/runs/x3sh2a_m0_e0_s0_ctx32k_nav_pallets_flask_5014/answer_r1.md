@@ -1,0 +1,1 @@
+`src/flask/blueprints.py` 파일의 `Blueprint.__init__` 메서드에서 이름이 비어있는 경우 `ValueError`를 발생시키는 검사를 추가했습니다.

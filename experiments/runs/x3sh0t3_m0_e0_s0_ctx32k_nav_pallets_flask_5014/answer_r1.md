@@ -1,0 +1,1 @@
+`src/flask/blueprints.py`의 `Blueprint.__init__` 메서드에 빈 이름(`""`)을 전달할 때 `ValueError`를 발생시키는 검증 로직을 추가했습니다.

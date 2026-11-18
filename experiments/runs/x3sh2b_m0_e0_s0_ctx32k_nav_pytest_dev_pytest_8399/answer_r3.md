@@ -1,0 +1,1 @@
+`src/_pytest/unittest.py` 의 147 번째 줄에서 unittest fixture 이름 앞에 언더스코어를 추가했습니다: `"unittest_"` → `"_unittest_"`. 이로 인해 생성된 fixture 이름이 `_unittest_setUpClass_fixture_Tests` 와 같이 바뀌어 pytest --fixtures 에서 기본적으로 숨겨집니다.

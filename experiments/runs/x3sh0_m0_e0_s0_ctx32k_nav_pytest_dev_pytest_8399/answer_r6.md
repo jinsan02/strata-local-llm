@@ -1,0 +1,3 @@
+No test file references the fixture name directly, so no test files need updating. The change is complete.
+
+수정 내용: `src/_pytest/unittest.py` 파일의 `_make_xunit_fixture` 함수에서 생성되는 pytest fixture 이름에 언더스코어(_) 접두사를 추가했습니다. 기존 `unittest_{setup_name}_fixture_{obj.__qualname__}` → `_unittest_{setup_name}_fixture_{obj.__qualname__}`로 변경함으로써 이 fixture가 "private"으로 분류되어 `pytest --fixtures` 실행 시 기본적으로 표시되지 않게 되었습니다.
