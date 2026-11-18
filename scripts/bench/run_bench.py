@@ -51,6 +51,15 @@ def git(*args) -> str:
     return out.stdout.strip()
 
 
+# 2026-11-19 부터 원장 git_dirty 의 뜻: 측정 결과에 영향을 주는 경로(코드 · 설정 · 과제)만 본다.
+# 그전에는 작업 트리 전체였고, 측정 중 원장 · env 로그가 늘 바뀌어 거의 모든 행이 1 이었다 (LEDGER_SCHEMA 정정 기록).
+DIRTY_PATHS = ("scripts", "configs", "tools", "pyproject.toml", "AGENTS.md")
+
+
+def code_dirty() -> str:
+    return "1" if git("status", "--porcelain", "--", *DIRTY_PATHS) else "0"
+
+
 # ── 관측 ──────────────────────────────────────────────────────────────────
 class Sampler(threading.Thread):
     """500ms 마다 GPU 사용 메모리와 엔진 프로세스 RAM 을 본다. 최대값은 관측 피크다."""
@@ -312,7 +321,7 @@ def main() -> int:
                                     capture_output=True, text=True).stdout.strip(),
            "python": sys.version.split()[0]}
     config_sha, env_sha = sha256_bytes(canon(cfg)), sha256_bytes(canon(env))
-    commit, dirty = git("rev-parse", "HEAD"), "1" if git("status", "--porcelain") else "0"
+    commit, dirty = git("rev-parse", "HEAD"), code_dirty()
 
     # 문항 길이 보정: 한 번 max_tokens=1 로 보내 실제 prompt_tokens 를 보고 문자/토큰 비를 맞춘다
     probe = build_prompt(a.target_tokens, a.chars_per_token)

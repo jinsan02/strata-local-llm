@@ -143,7 +143,7 @@ def main() -> int:
            "driver": subprocess.run(["nvidia-smi", "--query-gpu=driver_version,name", "--format=csv,noheader"],
                                     capture_output=True, text=True).stdout.strip()}
     env_sha = rb.sha256_bytes(rb.canon(env))
-    commit, dirty = rb.git("rev-parse", "HEAD"), "1" if rb.git("status", "--porcelain") else "0"
+    commit, dirty = rb.git("rev-parse", "HEAD"), rb.code_dirty()
     k = a.ctx // 1024
 
     for task in a.tasks:

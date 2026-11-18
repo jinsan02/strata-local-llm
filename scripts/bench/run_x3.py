@@ -183,11 +183,14 @@ def grade(root: Path, task_cfg: dict, hidden_total: int) -> dict:
     g = run_pytest(root, task_cfg["regress"])
     (root / "tests" / "test_x3_hidden.py").unlink()
     ok = h["rc"] == 0 and g["rc"] == 0
-    # 로그는 실패한 쪽만, 비공개 테스트 소스 줄은 그대로 보여준다(일반 CI 로그와 같음)
-    log = (h["log"] if h["rc"] else "") + ("\n--- 기존 테스트 ---\n" + g["log"] if g["rc"] else "")
+    # 2026-11-19 T-014: 비공개 테스트의 로그(소스 줄 · assert 값)는 모델에 주지 않는다. 보완 요청에는 공개 회귀 테스트 로그와
+    # 비공개 테스트 통과 수만 준다. 전체 로그는 채점 기록(log_full)으로만 남긴다.
+    summary = f"새 기능 테스트(비공개, 내용 미공개): {h['passed']}/{hidden_total} 통과, 종료 코드 {h['rc']}"
+    public = summary + ("\n--- 기존 테스트 (공개) ---\n" + g["log"][-LOG_LIMIT:] if g["rc"] else "\n기존 테스트(공개): 모두 통과")
+    full = (h["log"] if h["rc"] else "") + ("\n--- 기존 테스트 ---\n" + g["log"] if g["rc"] else "")
     return {"ok": ok, "hidden": f"{h['passed']}/{hidden_total}", "regress_ok": g["rc"] == 0,
             "regress": f"{g['passed']} passed, {g['failed']} failed, {g['errors']} errors",
-            "tools_ms": h["ms"] + g["ms"], "log": log[-LOG_LIMIT:]}
+            "tools_ms": h["ms"] + g["ms"], "log": public, "log_full": full[-LOG_LIMIT:]}
 
 
 def error_type(applied: int, errs: list[str], gr: dict | None) -> str:
@@ -199,7 +202,7 @@ def error_type(applied: int, errs: list[str], gr: dict | None) -> str:
         return "apply_fail"
     if gr["ok"]:
         return "pass" if not errs else "pass_partial_apply"
-    if "error" in gr["log"].lower() and gr["hidden"].startswith("0/"):
+    if "error" in gr.get("log_full", gr["log"]).lower() and gr["hidden"].startswith("0/"):
         return "import_or_syntax"
     return "regress_fail" if not gr["regress_ok"] and gr["hidden"].split("/")[0] == gr["hidden"].split("/")[1] else "test_fail"
 
@@ -298,9 +301,11 @@ def to_anthropic(msgs: list, tools: list | None) -> dict:
                 out[-1]["content"].append(blk)
             else:
                 out.append({"role": "user", "content": [blk]})
-        elif role == "assistant" and m.get("tool_calls"):
-            blocks = [{"type": "text", "text": m["content"]}] if m.get("content") else []
-            for c in m["tool_calls"]:
+        elif role == "assistant" and (m.get("tool_calls") or m.get("reasoning_content")):
+            # H2: reasoning_content 는 thinking 블록으로 센다 (서버 count_tokens 가 렌더링함을 11-18 확인: +482 토큰 / 482 기대)
+            blocks = [{"type": "thinking", "thinking": m["reasoning_content"], "signature": ""}] if m.get("reasoning_content") else []
+            blocks += [{"type": "text", "text": m["content"]}] if m.get("content") else []
+            for c in m.get("tool_calls") or []:
                 try:
                     inp = json.loads(c["function"].get("arguments") or "{}")
                 except json.JSONDecodeError:
@@ -344,8 +349,20 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
     """
     chat = chat or chat_once
     counter = counter or (lambda m, t: count_exact(a.base_url, api_key, m, t))
+    echo = getattr(a, "reasoning_echo", "none")     # H2 (T-013): none = H0 / all = 모든 assistant 턴 / last = 직전 턴만
     r = {"tool_log": [], "turns": [], "model_ms": 0.0, "tool_ms": 0.0, "out_tok": 0, "last_in": 0, "final": "", "status": "ok",
-         "edit_ok": 0, "edit_fail": 0, "fake_calls": 0, "bad_json": 0, "tool_errors": 0, "truncated_chars": 0, "budget_cuts": 0}
+         "edit_ok": 0, "edit_fail": 0, "fake_calls": 0, "bad_json": 0, "tool_errors": 0, "truncated_chars": 0, "budget_cuts": 0,
+         "echo_chars": 0}
+
+    def add_assistant(m_out: dict, reasoning: str):
+        if echo != "none" and reasoning:
+            if echo == "last":
+                for old in msgs:
+                    if old["role"] == "assistant":
+                        old.pop("reasoning_content", None)
+            m_out["reasoning_content"] = reasoning
+            r["echo_chars"] += len(reasoning)
+        msgs.append(m_out)
     fake_retry_left = 1
     force_at = 24320 - 2048
     for step in range(a.max_steps):
@@ -388,13 +405,13 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
                 r["tool_log"].append({"step": step, "tool": "(text_tool_call)", "args": {}, "ok": False, "out_chars": len(content)})
                 if fake_retry_left:
                     fake_retry_left -= 1
-                    msgs.append({"role": "assistant", "content": content})
+                    add_assistant({"role": "assistant", "content": content}, msg.get("reasoning_content") or "")
                     msgs.append({"role": "user", "content": "방금 답은 도구 호출이 아니라 텍스트로 처리됐다(없는 도구 이름이거나 형식 오류). "
                                  "사용할 수 있는 도구는 list_files · grep · read_file · edit_file 뿐이다. 파일 수정은 edit_file 로 하라."})
                     continue
             r["final"] = content
             break
-        msgs.append({"role": "assistant", "content": content, "tool_calls": calls})
+        add_assistant({"role": "assistant", "content": content, "tool_calls": calls}, msg.get("reasoning_content") or "")
         for c in calls:
             fn = c["function"]["name"]
             raw = c["function"].get("arguments") or "{}"
@@ -443,6 +460,7 @@ def nav_summary(nr: dict, wall_ms: float, grade_ms: float) -> str:
             f"sum_new_read {na(sum(new) if new else None)}; sum_cached {na(sum(cached) if cached else None)}; "
             f"count_vs_server_max_diff {na(max(abs(c - p) for c, p in cnt) if cnt else None)}; budget_cuts {nr['budget_cuts']}; "
             f"bad_json {nr['bad_json']}; tool_errors {nr['tool_errors']}; truncated_chars {nr['truncated_chars']}; "
+            f"echo_chars {nr.get('echo_chars', 0)}; "
             f"wall_ms {wall_ms:.0f}; grade_ms {grade_ms:.0f}")
 
 
@@ -566,7 +584,7 @@ def chat_once(base_url: str, api_key: str, messages: list, max_tokens: int, time
 # ── 메인 ───────────────────────────────────────────────────────────────────
 def base_row(a, rid: str, workload: str, env_sha: str, commit: str, dirty: str, cfg_sha: str, engine_commit: str) -> dict:
     return {"run_id": rid, "config_id": "X3", "phase": "eval", "origin": "local", "workload": workload, "model_id": "M0",
-            "model_sha256": M0_SHA, "engine_commit": engine_commit, "settings_id": "S0", "ctx": a.ctx, "parallel": 1,
+            "model_sha256": M0_SHA, "engine_commit": engine_commit, "settings_id": a.settings_id, "ctx": a.ctx, "parallel": 1,
             "kv": "fp32", "mtp": "on", "thinking": "on", "cache_state": "cold", "git_commit": commit, "git_dirty": dirty,
             "config_sha256": cfg_sha, "env_sha256": env_sha}
 
@@ -584,10 +602,16 @@ def main() -> int:
     ap.add_argument("--max-steps", type=int, default=20)
     ap.add_argument("--harness", default="H0", help="하네스 후보 ID (H0 = nav-v3 기준선: edit_file · 재요청 1회 · 글자 수 자르기 12,000)")
     ap.add_argument("--tool-out", choices=["chars", "paged"], default="chars", help="H0 chars(글자 수 자르기) / H1 paged(토큰 예산 범위 · 다음 범위 안내)")
+    ap.add_argument("--reasoning-echo", choices=["none", "all", "last"], default="none", help="H2: 이전 assistant 답의 reasoning_content 를 다시 보냄 (T-013)")
+    ap.add_argument("--reasoning-budget", type=int, default=0, help="요청 reasoning_budget_tokens (0 = 서버 answer_room, S0)")
+    ap.add_argument("--settings-id", default="S0", help="원장 settings_id (S0 = answer_room, S1T3 = thinking 3,072 등)")
     ap.add_argument("--base-url", default="http://127.0.0.1:8080")
     ap.add_argument("--timeout", type=float, default=1800)
     ap.add_argument("--chars-per-token", type=float, default=3.2)
     a = ap.parse_args()
+    if a.reasoning_budget:
+        rb.EXTRA_BODY["reasoning_budget_tokens"] = a.reasoning_budget
+    assert (a.settings_id == "S0") == (not a.reasoning_budget), "settings_id 와 reasoning_budget 이 맞지 않는다"
 
     api_key = os.environ.get("STRATA_API_KEY", "strata-local")
     engine_dir = Path(r"C:\strata-lab\engine")
@@ -596,7 +620,7 @@ def main() -> int:
     env = {"engine_commit": engine_commit, "engine_exe_sha256": rb.sha256_bytes(Path(server_cfg["exe"]).read_bytes()),
            "packaging_commit": COMMIT, "test_python": subprocess.run([PYX, "-V"], capture_output=True, text=True).stdout.strip()}
     env_sha = rb.sha256_bytes(rb.canon(env))
-    commit, dirty = rb.git("rev-parse", "HEAD"), "1" if rb.git("status", "--porcelain") else "0"
+    commit, dirty = rb.git("rev-parse", "HEAD"), rb.code_dirty()
     k = a.ctx // 1024
 
     for task in a.tasks:
@@ -633,7 +657,9 @@ def main() -> int:
                     cfg = {"task": task, "mode": "preload", "commit": COMMIT, "prompt_sha256": rb.sha256_bytes(prompt.encode()),
                            "input_target": target, "prompt_tokens_exact": exact, "required_files": tcfg["required_files"],
                            "pad_pool": PAD_POOL, "budget": a.budget, "sampling": rb.SAMPLING, "server_config": server_cfg,
-                           "thinking_cap": a.budget - min(max(512, a.budget // 4), a.budget // 2), "thinking_cap_source": "answer_room"}
+                           "thinking_cap": a.reasoning_budget or a.budget - min(max(512, a.budget // 4), a.budget // 2),
+                           "thinking_cap_source": "request" if a.reasoning_budget else "answer_room",
+                           "repair_feedback": "public regress log + hidden pass count only (T-014)"}
                     cfg_sha = rb.sha256_bytes(rb.canon(cfg))
                     (run_dir / "config.json").write_bytes(rb.canon(cfg))
                     (run_dir / "env.json").write_bytes(rb.canon(env))
@@ -681,7 +707,9 @@ def main() -> int:
                                         f"to_pass_ms {(time.perf_counter() - t_start) * 1000:.0f}" + ("" if et2 == "pass" else " (not passed)"))
                         rb.write_row(row2)
                         (run_dir / f"answer_a2_r{i}.md").write_text(ans2, encoding="utf-8")
-                        (run_dir / f"log_a1_r{i}.txt").write_text(log, encoding="utf-8")
+                        (run_dir / f"log_a1_r{i}.txt").write_text(log, encoding="utf-8")          # 모델에 준 그대로
+                        if gr:
+                            (run_dir / f"grade_full_a1_r{i}.txt").write_text(gr["log_full"], encoding="utf-8")   # 채점 기록 (모델 미전달)
                         summary.update({"a2": et2, "a2_hidden": row2["tests_passed"], "budget2": budget2})
                     else:
                         summary["to_pass_ms"] = round((time.perf_counter() - t_start) * 1000)
@@ -693,7 +721,7 @@ def main() -> int:
                                "list_files · grep · read_file 도구로 필요한 코드를 찾아 읽고, edit_file 도구로 직접 고쳐라.")
                     msgs = [{"role": "system", "content": sys_txt}, {"role": "user", "content": "### 과제\n" + task_txt + "\n\n" + NAV_FORMAT}]
                     cfg = {"task": task, "mode": "navigate", "harness": a.harness, "commit": COMMIT, "tool_out_limit": TOOL_OUT_LIMIT,
-                           "tool_out": a.tool_out, **({"page_tokens": PAGE_TOKENS, "chars_per_token": CHARS_PER_TOKEN, "grep_hits": GREP_HITS,
+                           "tool_out": a.tool_out, "reasoning_echo": a.reasoning_echo, "reasoning_budget": a.reasoning_budget or "answer_room", **({"page_tokens": PAGE_TOKENS, "chars_per_token": CHARS_PER_TOKEN, "grep_hits": GREP_HITS,
                                                        "list_files": LIST_FILES} if a.tool_out == "paged" else {}),
                            "tools": NAV_TOOLS, "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, "server_config": server_cfg}
                     cfg_sha = rb.sha256_bytes(rb.canon(cfg))

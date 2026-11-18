@@ -14,6 +14,15 @@ function Stop-Strata {
   Get-Process strata -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.Id -Force; "[serve] stopped strata.exe pid $($_.Id)" }
   Start-Sleep -Seconds 3
 }
+# 루프백이 아닌 주소(X4 의 Tailscale)로 열 때는 키 없이 열지 않는다 (2026-11-19 토의 7번). 떠 있는 서버를 내리기 전에 검사한다.
+# 서버는 $env:STRATA_API_KEY 를 키로 쓴다. 비었거나 'none' · 러너 기본값 'strata-local' · 16자 미만이면 거부.
+if (-not $Stop -and $Host_ -notin @('127.0.0.1', 'localhost', '::1')) {
+  $k = "$env:STRATA_API_KEY"
+  if (-not $k.Trim() -or $k -eq 'none' -or $k -eq 'strata-local' -or $k.Length -lt 16) {
+    "[serve] 거부: $Host_ 로 열려면 STRATA_API_KEY 에 16자 이상의 실제 키가 필요하다 (지금: $(if ($k) { '부적합' } else { '없음' }))"
+    exit 2
+  }
+}
 Stop-Strata
 if ($Stop) { return }
 

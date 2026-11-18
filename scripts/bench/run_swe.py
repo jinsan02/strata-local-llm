@@ -91,19 +91,25 @@ def main() -> int:
     ap.add_argument("--max-steps", type=int, default=20)
     ap.add_argument("--harness", default="H0")
     ap.add_argument("--tool-out", choices=["chars", "paged"], default="chars")
+    ap.add_argument("--reasoning-echo", choices=["none", "all", "last"], default="none", help="H2: 이전 assistant 답의 reasoning_content 를 다시 보냄 (T-013)")
+    ap.add_argument("--reasoning-budget", type=int, default=0, help="요청 reasoning_budget_tokens (0 = 서버 answer_room, S0)")
+    ap.add_argument("--settings-id", default="S0", help="원장 settings_id (S0 = answer_room, S1T3 = thinking 3,072 등)")
     ap.add_argument("--repeat", type=int, default=1)
     ap.add_argument("--rep-start", type=int, default=1, help="반복 번호 시작 (H0 · H1 을 번갈아 돌릴 때 _r<n> 이 겹치지 않게)")
     ap.add_argument("--prefix", default="x3s")
     ap.add_argument("--base-url", default="http://127.0.0.1:8080")
     ap.add_argument("--timeout", type=float, default=1800)
     a = ap.parse_args()
+    if a.reasoning_budget:
+        rb.EXTRA_BODY["reasoning_budget_tokens"] = a.reasoning_budget
+    assert (a.settings_id == "S0") == (not a.reasoning_budget), "settings_id 와 reasoning_budget 이 맞지 않는다"
     api_key = os.environ.get("STRATA_API_KEY", "strata-local")
     engine_dir = Path(r"C:\strata-lab\engine")
     server_cfg = json.loads((engine_dir / f"strata-qwen36-ctx{a.ctx}.json").read_text(encoding="utf-8"))
     engine_commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=engine_dir, capture_output=True, text=True).stdout.strip()
     env = {"engine_commit": engine_commit, "engine_exe_sha256": rb.sha256_bytes(Path(server_cfg["exe"]).read_bytes()), "harness": "local conda"}
     env_sha = rb.sha256_bytes(rb.canon(env))
-    commit, dirty = rb.git("rev-parse", "HEAD"), "1" if rb.git("status", "--porcelain") else "0"
+    commit, dirty = rb.git("rev-parse", "HEAD"), rb.code_dirty()
     k = a.ctx // 1024
     for iid in a.instances:
         case = json.loads((CASES / iid / "instance.json").read_text(encoding="utf-8"))
@@ -119,7 +125,7 @@ def main() -> int:
                     {"role": "user", "content": "### 이슈\n" + case["problem_statement"] + "\n\n" + x3.NAV_FORMAT}]
             cfg = {"instance": iid, "dataset_revision": case["dataset_revision"], "base_commit": case["base_commit"], "mode": "navigate",
                    "tools": x3.NAV_TOOLS, "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, "server_config": server_cfg,
-                   "harness": "local conda, not official Docker", "nav_harness": a.harness, "tool_out_limit": x3.TOOL_OUT_LIMIT, "tool_out": a.tool_out,
+                   "harness": "local conda, not official Docker", "nav_harness": a.harness, "tool_out_limit": x3.TOOL_OUT_LIMIT, "tool_out": a.tool_out, "reasoning_echo": a.reasoning_echo, "reasoning_budget": a.reasoning_budget or "answer_room",
                    **({"page_tokens": x3.PAGE_TOKENS, "chars_per_token": x3.CHARS_PER_TOKEN, "grep_hits": x3.GREP_HITS,
                        "list_files": x3.LIST_FILES} if a.tool_out == "paged" else {})}
             cfg_sha = rb.sha256_bytes(rb.canon(cfg))
@@ -141,7 +147,7 @@ def main() -> int:
             et = ("no_edit" if any("편집 블록 없음" in e for e in errs) else "apply_fail" if not applied else
                   "pass" if gr["resolved"] else "test_fail")
             row = {"run_id": f"{name}_r{i}", "config_id": "X3", "phase": "eval", "origin": "local", "workload": f"swe-verified-{iid}",
-                   "model_id": "M0", "model_sha256": x3.M0_SHA, "engine_commit": engine_commit, "settings_id": "S0", "ctx": a.ctx,
+                   "model_id": "M0", "model_sha256": x3.M0_SHA, "engine_commit": engine_commit, "settings_id": a.settings_id, "ctx": a.ctx,
                    "parallel": 1, "kv": "fp32", "mtp": "on", "thinking": "on", "cache_state": "cold", "git_commit": commit,
                    "git_dirty": dirty, "config_sha256": cfg_sha, "env_sha256": env_sha,
                    "ts_utc": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "status": status,
