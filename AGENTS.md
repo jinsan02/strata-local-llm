@@ -118,3 +118,5 @@ powershell -NoProfile -ExecutionPolicy Bypass -File verify.ps1
 2. `STATE.md` 의 단계 진행표, '다음 할 일', '최근 변경'을 고친다.
 3. 새로 정한 것이 있으면 `STATE.md` '결정 기록'에 한 줄 쓰고, 해당 기준 문서도 고친다.
 4. 측정 결과는 원장에 남기고 `record` 로 커밋한다. 커밋되지 않은 결과는 없는 결과다.
+
+- 문제가 생기면 `docs/TROUBLESHOOTING.md` 에 발생 로그 · 상황 분석 · 영향 · 개선 · 재발 방지를 한 건씩 남긴다. 해결 방향은 사용자와 토의해 정한다 (그전까지 상태 '토의 필요').
