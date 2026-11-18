@@ -51,7 +51,7 @@
 11. push: 사용자가 커밋·push 를 맡김(11-18). 단계 커밋 묶음마다 `git push`
 12. ~~밤 체인 1차 결과~~ 완료 (0f3e845): H0 · H1 30행, 1차 원장은 인덱스로만 커밋(2차가 쓰는 중)
 13. ~~밤 체인 2차~~ 완료 (4ae78a4): H0 r4~6 · H2a · H2b · S1T3 60행.
-    **11-19 시작점**: 본체에서 `powershell -ExecutionPolicy Bypass -File C:\strata-lab\scripts\bench\launch_night3.ps1` (H0 대조 `x3n3h0` vs H4 `x3h4`, 번갈아 3회, 약 1시간 40분, 끝 표시 `engine\night-chain3.log` 의 `[night3] done`) → 로그와 원장 1:1 대조 · 커밋 → 판정. 그다음 **H3** = H1 + H2a (H4 가 통과하면 함께), 그 뒤 `run_tests` 도구(Q15)
+    **11-19 시작점 (11-18 밤 사용자 결정: 캐시 먼저)**: 대화 캐시 A/B(`--conversation-cache-mib` 없음 · 512 · 1024, T-013 원인 가설) → 서버 설정 결정 → 본체에서 `powershell -ExecutionPolicy Bypass -File C:\strata-lab\scripts\bench\launch_night3.ps1` (H0 대조 `x3n3h0` vs H4 `x3h4`, 번갈아 3회, 약 1시간 40분, 끝 표시 `engine\night-chain3.log` 의 `[night3] done`) → 로그와 원장 1:1 대조 · 커밋 → 판정. 그다음 **H3** = H1 + H2a (H4 가 통과하면 함께), 그 뒤 `run_tests` 도구(Q15)
 14. X4 기준선: 노트북에서 Claude Code CLI · Codex CLI 로 같은 과제(파일 탐색 → 수정 → 테스트 → 실패 로그 재수정), 같은 STRATA 32K. 후보 하나 더면 OpenCode. Hermes 는 64K 뒤
 15. 그다음 B1(P-diag → 첫 A/B, Q11 greedy·MTP 포함)
 16. 남은 X3 과제 3개(D · E · F) 구현 — 채택 하네스 확인 전용
