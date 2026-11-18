@@ -101,4 +101,5 @@ GGUF·팩·설치 파일은 해시만 남긴다. API 키·토큰은 어떤 파�
 | [`LEDGER_SCHEMA.md`](LEDGER_SCHEMA.md) | TSV 원장 스키마 |
 | [`WORKFLOW.md`](WORKFLOW.md) | 실험 1건의 수명주기, 두 에이전트 교대 |
 | [`ENVIRONMENT.md`](ENVIRONMENT.md) | 하드웨어·툴체인·conda 환경 |
-| [`HANDOFF.md`](HANDOFF.md) | 지금까지 된 것과 다음 할 일 |
+| [`../STATE.md`](../STATE.md) | 진행 상태 · 결정 기록 · 열린 질문 |
+| [`../STRUCTURE.md`](../STRUCTURE.md) | 폴더 지도 · 단계별 기준 문서 · 이름 규칙 |

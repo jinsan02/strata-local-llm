@@ -1,0 +1,13 @@
+# docs — 설계·규칙 문서
+
+| 문서 | 내용 | 고쳐도 되나 |
+| --- | --- | --- |
+| `plan-v2.0.md` | 기획서 원본 | 고치지 않는다 |
+| `prep-plan-20261118.md` | 착수 준비 계획, 기획서 검토 결과 | 판단이 바뀌면 새 날짜 파일 |
+| `RULES.md` | 하드룰 — 규칙의 단일 출처 | `docs(docs):` 로만 |
+| `COMMIT_CONVENTION.md` | 커밋 type·scope·트레일러·브랜치·태그 | 훅 코드와 같은 커밋에서 |
+| `WORKFLOW.md` | 실험 1건의 수명, 두 에이전트 교대 | |
+| `LEDGER_SCHEMA.md` | 원장 열 정의 | `tools/validate_ledger.py` 와 같은 커밋에서 |
+| `ENVIRONMENT.md` | 하드웨어·conda·툴체인 | 환경을 바꾸면 |
+
+진행 상태는 루트 `STATE.md`, 폴더 지도는 `STRUCTURE.md`.

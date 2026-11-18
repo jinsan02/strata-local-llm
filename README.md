@@ -6,7 +6,7 @@
 
 > **착수 준비 중 (2026-11-18).** 하드웨어 실측과 기획서 검토를 마쳤고 툴체인을 설치하고 있다.
 > 기준 모델 후보는 `qwen36 UD-Q4_K_XL`(Qwen3.6-35B-A3B, 22.9GB, hybrid 모드)이다.
-> 아직 측정한 수치는 없다. 현재 위치는 [`docs/HANDOFF.md`](docs/HANDOFF.md).
+> 아직 측정한 수치는 없다. 현재 위치는 [`STATE.md`](STATE.md), 폴더 지도는 [`STRUCTURE.md`](STRUCTURE.md).
 
 | 단계 | 상태 |
 |---|---|
@@ -58,4 +58,4 @@ git config core.hooksPath .githooks
 
 Python 은 conda 환경 `strata_local_llm` 을 절대경로로 쓴다 — [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md).
 커밋 형식은 [`docs/COMMIT_CONVENTION.md`](docs/COMMIT_CONVENTION.md) (kotokenlab 과 같은 형식).
-에이전트 진입점은 [`CLAUDE.md`](CLAUDE.md) · [`AGENTS.md`](AGENTS.md).
+AI 에이전트 지침은 [`AGENTS.md`](AGENTS.md) (`CLAUDE.md` 는 이것을 불러온다). GitHub 흐름은 [`CONTRIBUTING.md`](CONTRIBUTING.md).

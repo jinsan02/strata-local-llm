@@ -40,7 +40,7 @@ nvidia-smi --query-gpu=memory.used --format=csv
 ### 세션을 끝낼 때
 
 - 돌린 측정은 원장에 남기고 커밋한다. **커밋되지 않은 결과는 없는 결과다**
-- 작업이 중간이면 그 사실을 커밋 메시지 본문과 [`HANDOFF.md`](HANDOFF.md) 에 적는다
+- 작업이 중간이면 그 사실을 커밋 메시지 본문과 [`STATE.md`](../STATE.md) 에 적는다
 - `git status` 를 깨끗하게 두거나, 남긴 이유를 커밋에 적는다
 
 ### 규칙을 고칠 때
