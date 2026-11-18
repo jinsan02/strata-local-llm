@@ -43,7 +43,10 @@
 5. ~~M0 다운로드~~ 완료 (11-18): `Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf` 22,853,663,008 B, sha256 일치, HF 리비전 `5bc3e23`
 6. ~~X0~~ 완료 (11-18): setup 빌드 → `scripts/serve-ctx.ps1` 로 8K·16K·32K 기동, `scripts/bench/run_bench.py` 로 기록
 7. **B0 + X1** (같은 실행으로 겸한다): 고정 문항 입력 512·2,048·4,096 × 출력 128·512 × 컨텍스트 8K·16K·32K, 반복 3회, 같은 샘플링. thinking 이 출력 예산을 다 쓰면 첫 답변 지연이 NA 가 되므로 출력 512 행으로 첫 답변 지연을 본다
-8. X2 → X3 → X4 순서. X3 은 탐색 세트 출처(Q8) 결정 필요
+8. **XB 2차 진행 중 (11-18 11:09~)**: `matrix-xb.ps1 -Repeat 3 -Prefix xb2`, 로그 `engine\matrix-xb2.log`. 끝나면 `summarize.py --prefix xb2_` 로 집계하고 가장 작은 충분한 출력 예산을 정한다 (8K 를 미리 결론 내지 않는다)
+9. **X2**: `run_coding.py --ctx 32768 --input-tokens <N> [--position middle] --budgets <XB 결과> --prefix x2` — 저장소 파일(`engine/strata_cli`, `strata_control`)을 붙여 입력 약 2K·8K·16K·한도 근처(32,768 − 예산 − 256)로, 같은 과제·테스트. 러너가 입력+예산 > ctx 를 거부
+10. 그다음 X3(긴 문맥 품질, Q8) → X4(노트북 경유, `origin=laptop`) → B1(Q11 greedy·MTP 포함)
+11. push 대기: 7d08379 이후 커밋들은 본체에만 있다. 사용자 승인 후 `git push`
 
 ## 사람에게 요청한 것
 
