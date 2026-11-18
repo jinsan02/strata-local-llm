@@ -105,15 +105,18 @@ def build_prompt(target_tokens: int, chars_per_token: float) -> str:
 
 
 # ── 요청 ──────────────────────────────────────────────────────────────────
-def stream_chat(base_url: str, api_key: str, prompt: str, max_tokens: int, timeout: float) -> dict:
+def stream_chat(base_url: str, api_key: str, prompt, max_tokens: int, timeout: float) -> dict:
+    """prompt: 문자열(사용자 메시지 하나) 또는 messages 리스트."""
+    messages = [{"role": "user", "content": prompt}] if isinstance(prompt, str) else prompt
     body = {"model": "strata", "stream": True, "stream_options": {"include_usage": True},
-            "max_tokens": max_tokens, "messages": [{"role": "user", "content": prompt}], **SAMPLING}
+            "max_tokens": max_tokens, "messages": messages, **SAMPLING}
     req = urllib.request.Request(base_url.rstrip("/") + "/v1/chat/completions", data=canon(body), method="POST",
                                  headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"})
     t0 = time.perf_counter()
-    first_stream = first_answer = None
+    first_stream = first_answer = first_reason = None
     usage = timings = finish = None
     extra = {}
+    answer, reasoning = [], []
     with urllib.request.urlopen(req, timeout=timeout) as r:
         for raw in r:
             line = raw.decode("utf-8", "replace").strip()
@@ -128,8 +131,14 @@ def stream_chat(base_url: str, api_key: str, prompt: str, max_tokens: int, timeo
                 d = ch.get("delta") or {}
                 if (d.get("reasoning_content") or d.get("content")) and first_stream is None:
                     first_stream = now
-                if d.get("content") and first_answer is None:
-                    first_answer = now
+                if d.get("reasoning_content"):
+                    reasoning.append(d["reasoning_content"])
+                    if first_reason is None:
+                        first_reason = now
+                if d.get("content"):
+                    answer.append(d["content"])
+                    if first_answer is None and "".join(answer).strip():
+                        first_answer = now
                 if ch.get("finish_reason"):
                     finish = ch["finish_reason"]
             usage = ev.get("usage") or usage
@@ -139,8 +148,57 @@ def stream_chat(base_url: str, api_key: str, prompt: str, max_tokens: int, timeo
                     extra[k] = ev[k]
     t1 = time.perf_counter()
     ms = lambda t: round((t - t0) * 1000, 1) if t is not None else None  # noqa: E731
-    return {"ttft_ms": ms(first_stream), "tt_answer_ms": ms(first_answer), "total_ms": ms(t1),
-            "usage": usage, "timings": timings, "finish": finish, "extra": extra}
+    return {"ttft_ms": ms(first_stream), "tt_reasoning_ms": ms(first_reason), "tt_answer_ms": ms(first_answer),
+            "total_ms": ms(t1), "usage": usage, "timings": timings, "finish": finish, "extra": extra,
+            "answer": "".join(answer), "reasoning": "".join(reasoning)}
+
+
+def experts_vram(server_cfg: dict) -> str | None:
+    """엔진 로그의 마지막 'hybrid experts: N of 256 per layer in VRAM' — 이 서버 기동 때의 expert 캐시 상태."""
+    log = server_cfg.get("log")
+    try:
+        text = Path(log).read_text(encoding="utf-8", errors="replace") if log else ""
+    except OSError:
+        return None
+    import re
+    hits = re.findall(r"hybrid experts: (\d+) of (\d+) per layer in VRAM", text)
+    return f"{hits[-1][0]}/{hits[-1][1]}" if hits else None
+
+
+def check_budget(input_tokens, max_tokens: int, ctx: int):
+    """입력(템플릿 포함) + 출력·reasoning 예산이 컨텍스트를 넘으면 실행하지 않는다 (사용자 지시 4)."""
+    if input_tokens is not None and input_tokens + max_tokens > ctx:
+        raise SystemExit(f"예산 초과: 입력 {input_tokens} + 출력 예산 {max_tokens} = {input_tokens + max_tokens} > ctx {ctx}")
+
+
+def engine_drafts(server_cfg: dict):
+    """엔진 로그의 마지막 요청 줄 'drafts accepted A of O' -> (A, O).
+
+    서버 /metrics 의 drafts_* 는 v0.2.15 qwen36 경로에서 엔진이 158/198 을 보고해도 0/0 으로 남는다
+    (2026-11-18 확인, STATE Q10). 그래서 엔진 로그를 출처로 쓴다.
+    """
+    import re
+    log = server_cfg.get("log")
+    try:
+        with open(log, "rb") as f:
+            f.seek(0, 2); f.seek(max(0, f.tell() - 65536))
+            tail = f.read().decode("utf-8", "replace")
+    except (OSError, TypeError):
+        return None
+    hits = re.findall(r"strata serve: session \d+: .*drafts accepted (\d+) of (\d+)", tail)
+    return (int(hits[-1][0]), int(hits[-1][1])) if hits else None
+
+
+def draft_cols(server_cfg: dict) -> dict:
+    """시도 0 은 '초안 시도 미기록' — NA 로 남기고 note 에 쓴다 (사용자 지시 3)."""
+    d = engine_drafts(server_cfg)
+    if d is None:
+        return {"drafts_offered": None, "drafts_accepted": None, "_draft_note": "MTP 초안: 엔진 로그 없음"}
+    acc, off = d
+    if off == 0:
+        return {"drafts_offered": None, "drafts_accepted": None,
+                "_draft_note": "MTP 초안 시도 미기록 (q36 경로는 logits 가 필요 없는 greedy 단독 요청만 초안)"}
+    return {"drafts_offered": off, "drafts_accepted": acc, "_draft_note": f"MTP 수락률 {acc / off:.0%}"}
 
 
 def reasoning_tokens(res: dict):
@@ -161,6 +219,46 @@ def last_request_metrics(base_url: str, api_key: str) -> dict:
         return reqs[-1] if reqs else {}
     except Exception:
         return {}
+
+
+def measure(base_url, api_key, prompt, max_tokens, timeout, server_cfg, base_row, note="", extra_cols=None):
+    """요청 하나를 재고 원장 행을 만든다. run_bench(고정 문항)와 run_coding(코딩 과제)이 같이 쓴다."""
+    sampler = Sampler()
+    rb0 = read_bytes(sampler.proc) if sampler.proc else None
+    sampler.start()
+    row = {"ts_utc": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "max_tokens": max_tokens,
+           "experts_vram": experts_vram(server_cfg), **base_row}
+    try:
+        res = stream_chat(base_url, api_key, prompt, max_tokens, timeout)
+        sampler.stop_ev.set(); sampler.join(2)
+        u, tm = res.get("usage") or {}, res.get("timings") or {}
+        rb1 = read_bytes(sampler.proc) if sampler.proc else None
+        mreq = last_request_metrics(base_url, api_key)
+        res["server_request"] = mreq
+        dc = draft_cols(server_cfg)
+        srv = (f"file_mb {mreq.get('file_mb')}; hit_rate {mreq.get('hit_rate')}; pcie_share {mreq.get('pcie_share')}; "
+               f"cached {((u.get('prompt_tokens_details') or {}).get('cached_tokens'))}") if mreq else "metrics 없음"
+        row.update(status="ok", input_tokens=u.get("prompt_tokens"), output_tokens=u.get("completion_tokens"),
+                   reasoning_tokens=reasoning_tokens(res), finish_reason=res["finish"],
+                   answer_reached=1 if res["answer"].strip() else 0,
+                   pp_tps=round(tm["prompt_per_second"], 2) if tm.get("prompt_per_second") else None,
+                   tg_tps=round(tm["predicted_per_second"], 2) if tm.get("predicted_per_second") else None,
+                   ttft_ms=res["ttft_ms"], tt_reasoning_ms=res["tt_reasoning_ms"], tt_answer_ms=res["tt_answer_ms"],
+                   total_ms=res["total_ms"], peak_vram_mb=sampler.peak_vram or None, peak_ram_mb=sampler.peak_ram or None,
+                   # SSD 의존도: 엔진이 보고한 file_mb(파일에서 읽은 expert), 없으면 프로세스 읽기량
+                   ssd_read_mb=mreq.get("file_mb") if mreq.get("file_mb") is not None else (
+                       round((rb1 - rb0) / 1048576, 1) if rb0 is not None and rb1 is not None else None),
+                   drafts_offered=dc["drafts_offered"], drafts_accepted=dc["drafts_accepted"],
+                   note="; ".join(x for x in (dc["_draft_note"], srv, "reasoning_tokens: chat API 미보고",
+                                              "vram=500ms 관측 피크", note) if x))
+        row.update(extra_cols or {})
+    except SystemExit:
+        raise
+    except Exception as e:  # noqa: BLE001 - 실패도 기록한다
+        sampler.stop_ev.set()
+        row.update(status="fail", note=f"{type(e).__name__}: {e}"[:300])
+        res = {"error": row["note"], "answer": "", "reasoning": ""}
+    return row, res
 
 
 def write_row(row: dict):
@@ -188,7 +286,8 @@ def main() -> int:
     ap.add_argument("--model-id", default="M0")
     ap.add_argument("--model-sha256", default="55983c5a75a1ab969824077b3bb3de4146e82a9234072b48ad4e8f92ad3fe9f1")
     ap.add_argument("--settings-id", default="S0")
-    ap.add_argument("--server-config", default=r"C:\strata-lab\engine\strata-qwen36-ud-q4_k_xl.json")
+    ap.add_argument("--server-config", default=None,
+                    help="기본: engine/strata-qwen36-ctx<ctx>.json (serve-ctx.ps1 이 만든 것), 없으면 setup 원본")
     ap.add_argument("--base-url", default="http://127.0.0.1:8080")
     ap.add_argument("--api-key-env", default="STRATA_API_KEY")
     ap.add_argument("--chars-per-token", type=float, default=2.2)
@@ -198,6 +297,9 @@ def main() -> int:
 
     api_key = os.environ.get(a.api_key_env, "strata-local")
     engine_dir = Path(r"C:\strata-lab\engine")
+    if a.server_config is None:
+        cand = engine_dir / f"strata-qwen36-ctx{a.ctx}.json"
+        a.server_config = str(cand if cand.exists() else engine_dir / "strata-qwen36-ud-q4_k_xl.json")
     server_cfg = json.loads(Path(a.server_config).read_text(encoding="utf-8")) if Path(a.server_config).exists() else {}
     cfg = {"args": {k: v for k, v in vars(a).items() if k not in ("note",)}, "sampling": SAMPLING,
            "server_config": server_cfg, "source_text": str(SOURCE_TEXT.relative_to(ROOT)),
@@ -216,7 +318,10 @@ def main() -> int:
     pt = (r0.get("usage") or {}).get("prompt_tokens")
     cpt = a.chars_per_token * (a.target_tokens / pt) if pt else a.chars_per_token
     prompt = build_prompt(a.target_tokens, cpt)
+    exact = (stream_chat(a.base_url, api_key, prompt, 1, a.timeout).get("usage") or {}).get("prompt_tokens")
+    check_budget(exact, a.max_tokens, a.ctx)
     cfg["prompt_sha256"] = sha256_bytes(prompt.encode("utf-8"))
+    cfg["prompt_tokens_exact"] = exact
     config_sha = sha256_bytes(canon(cfg))
 
     run_dir = ROOT / "experiments" / "runs" / a.run_id
@@ -227,44 +332,17 @@ def main() -> int:
     for _ in range(a.warmup):
         stream_chat(a.base_url, api_key, prompt, a.max_tokens, a.timeout)
 
+    base = {"config_id": a.config_id, "phase": a.phase, "origin": a.origin, "workload": a.workload,
+            "model_id": a.model_id, "model_sha256": a.model_sha256, "engine_commit": env["engine_commit"],
+            "settings_id": a.settings_id, "ctx": a.ctx, "parallel": a.parallel, "kv": a.kv, "mtp": a.mtp,
+            "thinking": a.thinking, "git_commit": commit, "git_dirty": dirty, "config_sha256": config_sha,
+            "env_sha256": env_sha}
     results = []
     for i in range(1, a.repeat + 1):
         rid = f"{a.run_id}_r{i}"
-        sampler = Sampler()
-        rb0 = read_bytes(sampler.proc) if sampler.proc else None
-        sampler.start()
-        row = {"ts_utc": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "run_id": rid,
-               "config_id": a.config_id, "phase": a.phase, "origin": a.origin, "workload": a.workload,
-               "model_id": a.model_id, "model_sha256": a.model_sha256, "engine_commit": env["engine_commit"],
-               "settings_id": a.settings_id, "ctx": a.ctx, "parallel": a.parallel, "kv": a.kv, "mtp": a.mtp,
-               "thinking": a.thinking, "cache_state": "warm" if (a.warmup or i > 1) else "cold",
-               "git_commit": commit, "git_dirty": dirty, "config_sha256": config_sha, "env_sha256": env_sha}
-        try:
-            res = stream_chat(a.base_url, api_key, prompt, a.max_tokens, a.timeout)
-            sampler.stop_ev.set(); sampler.join(2)
-            u, tm = res.get("usage") or {}, res.get("timings") or {}
-            rb1 = read_bytes(sampler.proc) if sampler.proc else None
-            mreq = last_request_metrics(a.base_url, api_key)
-            res["server_request"] = mreq
-            srv = (f"drafts {mreq.get('drafts_accepted')}/{mreq.get('drafts_offered')}; "
-                   f"file_mb {mreq.get('file_mb')}; hit_rate {mreq.get('hit_rate')}; pcie_share {mreq.get('pcie_share')}; "
-                   f"cached {((u.get('prompt_tokens_details') or {}).get('cached_tokens'))}") if mreq else "metrics 없음"
-            row.update(status="ok", input_tokens=u.get("prompt_tokens"), output_tokens=u.get("completion_tokens"),
-                       reasoning_tokens=reasoning_tokens(res),
-                       pp_tps=round(tm["prompt_per_second"], 2) if tm.get("prompt_per_second") else None,
-                       tg_tps=round(tm["predicted_per_second"], 2) if tm.get("predicted_per_second") else None,
-                       ttft_ms=res["ttft_ms"], tt_answer_ms=res["tt_answer_ms"], total_ms=res["total_ms"],
-                       peak_vram_mb=sampler.peak_vram or None, peak_ram_mb=sampler.peak_ram or None,
-                       # SSD 의존도: 엔진이 보고한 file_mb(파일에서 읽은 expert)를 쓰고, 없으면 프로세스 읽기량
-                       ssd_read_mb=mreq.get("file_mb") if mreq.get("file_mb") is not None else (
-                           round((rb1 - rb0) / 1048576, 1) if rb0 is not None and rb1 is not None else None),
-                       note=(f"finish={res['finish']}; {srv}; reasoning_tokens: chat API 미보고; "
-                             f"vram=500ms 관측 피크; {a.note}").strip("; "))
-            results.append({"run_id": rid, **res})
-        except Exception as e:  # noqa: BLE001 - 실패도 기록한다
-            sampler.stop_ev.set()
-            row.update(status="fail", note=f"{type(e).__name__}: {e}"[:300])
-            results.append({"run_id": rid, "error": row["note"]})
+        row, res = measure(a.base_url, api_key, prompt, a.max_tokens, a.timeout, server_cfg,
+                           {**base, "run_id": rid, "cache_state": "warm" if (a.warmup or i > 1) else "cold"}, a.note)
+        results.append({"run_id": rid, **res})
         write_row(row)
         print(json.dumps({k: row.get(k) for k in ("run_id", "status", "input_tokens", "output_tokens", "reasoning_tokens",
                                                   "pp_tps", "tg_tps", "ttft_ms", "tt_answer_ms", "total_ms",
