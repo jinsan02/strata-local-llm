@@ -155,7 +155,8 @@ def main() -> int:
                           if l.startswith("diff --git")]
             read = {t["args"].get("path") for t in tool_log if t["tool"] == "read_file"}
             found = [f for f in gold_files if f in read]
-            applied, errs = apply_edits(root, final)
+            applied, errs = x3.apply_edits(root, final, sorted(p for p in read if p), deny=("tests", "testing"))
+            fmt = x3.fmt_note()
             gr = grade(root, case, py) if applied else None
             et = ("no_edit" if any("편집 블록 없음" in e for e in errs) else "apply_fail" if not applied else
                   "pass" if gr["resolved"] else "test_fail")
@@ -169,7 +170,7 @@ def main() -> int:
                    "note": (f"SWE-bench Verified {iid} rev {case['dataset_revision'][:8]}; LOCAL harness (not official Docker); navigate "
                             f"{len(tool_log)} tool calls; gold-patch files read {len(found)}/{len(gold_files)}; edits {applied} "
                             f"({'; '.join(errs) or 'ok'}); F2P {gr['f2p'] if gr else 'NA'}; P2P {gr['p2p'] if gr else 'NA'}; "
-                            f"resolved {gr['resolved'] if gr else False}; error_type {et}; model_ms {model_ms:.0f}; tool_exec_ms {tool_ms:.0f}; "
+                            f"resolved {gr['resolved'] if gr else False}; error_type {et}; {fmt}; model_ms {model_ms:.0f}; tool_exec_ms {tool_ms:.0f}; "
                             f"tests_ms {gr['tests_ms'] if gr else 0:.0f}; usage summed over turns")}
             rb.write_row(row)
             (run_dir / f"answer_r{i}.md").write_text(final, encoding="utf-8")

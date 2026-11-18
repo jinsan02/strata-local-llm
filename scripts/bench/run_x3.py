@@ -65,33 +65,98 @@ def fresh_copy(name: str) -> Path:
     return d
 
 
-def apply_edits(root: Path, answer: str) -> tuple[int, list[str]]:
-    """(적용한 블록 수, 오류 목록)."""
-    blocks = EDIT_RE.findall(answer or "")
+LOOSE_RE = re.compile(r"<<<<<<< SEARCH\n(.*?)\n?=======\n(.*?)\n?>>>>>>> REPLACE", re.S)
+PATH_RE = re.compile(r"((?:src|tests?|testing)/[\w./-]+\.py|[\w-]+/[\w./-]+\.py)")
+LAST_FORMAT: dict = {}
+
+
+def _dedent_pair(search: str, replace: str) -> tuple[str, str] | None:
+    """SEARCH 의 모든 줄에 공통 들여쓰기가 있으면 둘 다 그만큼 뺀다 (모델이 블록 전체를 들여 쓴 경우)."""
+    lines = [ln for ln in search.splitlines() if ln.strip()]
+    if not lines:
+        return None
+    pad = min(len(ln) - len(ln.lstrip(" ")) for ln in lines)
+    if pad == 0:
+        return None
+    strip = lambda s: "\n".join(ln[pad:] if ln[:pad] == " " * pad else ln.lstrip(" ") for ln in s.splitlines())  # noqa: E731
+    return strip(search), strip(replace)
+
+
+def apply_edits(root: Path, answer: str, candidates: list[str] | None = None,
+                deny: tuple[str, ...] = ("tests",)) -> tuple[int, list[str]]:
+    """(적용한 블록 수, 오류 목록). 형식 판정은 LAST_FORMAT 에 남긴다.
+
+    엄격: `### EDIT: 경로` + SEARCH/REPLACE, SEARCH 가 파일과 정확히 일치.
+    관대(기록만 다르게): 경로 줄이 없으면 블록 앞 300자에서 경로를 찾거나, 후보 파일 중 SEARCH 가 한 번만 맞는 파일에 적용.
+    블록 전체를 들여 쓴 경우 공통 들여쓰기를 빼고 다시 맞춘다. (2026-11-18 X3 파일럿: 모델이 경로 줄을 빼고 4칸 들여 씀)
+    """
+    answer = answer or ""
+    strict = [(m.start(), m.group(1), m.group(2), m.group(3)) for m in EDIT_RE.finditer(answer)]
+    flags: set[str] = set()
+    if strict:
+        blocks = [(path, s, r) for _, path, s, r in strict]
+    else:
+        blocks = []
+        for m in LOOSE_RE.finditer(answer):
+            before = answer[max(0, m.start() - 300): m.start()]
+            paths = PATH_RE.findall(before)
+            blocks.append((paths[-1] if paths else None, m.group(1), m.group(2)))
+        if blocks:
+            flags.add("no_edit_header")
     errors, applied = [], 0
     for path, search, replace in blocks:
-        p = (root / path).resolve()
-        if root.resolve() not in p.parents or "tests" in Path(path).parts:
-            errors.append(f"{path}: 허용되지 않는 경로")
-            continue
-        if not search.strip():
-            p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text(replace + "\n", encoding="utf-8", newline="\n")
-            applied += 1
-            continue
-        if not p.exists():
-            errors.append(f"{path}: 파일 없음")
-            continue
-        text = p.read_text(encoding="utf-8")
-        n = text.count(search)
-        if n != 1:
-            errors.append(f"{path}: SEARCH 일치 {n}회")
-            continue
-        p.write_text(text.replace(search, replace, 1), encoding="utf-8", newline="\n")
-        applied += 1
+        targets = [path] if path else list(candidates or [])
+        if not path:
+            flags.add("path_inferred")
+        done = False
+        for tgt in targets:
+            p = (root / tgt).resolve()
+            if root.resolve() not in p.parents or any(d in Path(tgt).parts for d in deny):
+                continue
+            if not search.strip():
+                if path:
+                    p.parent.mkdir(parents=True, exist_ok=True)
+                    p.write_text(replace + "\n", encoding="utf-8", newline="\n")
+                    applied += 1
+                    done = True
+                break
+            if not p.exists():
+                continue
+            text = p.read_text(encoding="utf-8")
+            pairs = [(search, replace)]
+            if (dd := _dedent_pair(search, replace)) is not None:
+                pairs.append(dd)
+            for k, (s, r) in enumerate(pairs):
+                if text.count(s) == 1:
+                    p.write_text(text.replace(s, r, 1), encoding="utf-8", newline="\n")
+                    applied += 1
+                    done = True
+                    if k:
+                        flags.add("dedented")
+                    break
+            if done:
+                break
+        if not done:
+            where = path or f"경로 없음(후보 {len(targets)}개)"
+            errors.append(f"{where}: SEARCH 가 파일 내용과 정확히 한 번 일치하지 않음")
     if not blocks:
         errors.append("편집 블록 없음")
+    LAST_FORMAT.clear()
+    LAST_FORMAT.update({"strict": bool(strict) and not flags and not errors, "flags": sorted(flags)})
     return applied, errors
+
+
+def fmt_note() -> str:
+    return f"format {'strict' if LAST_FORMAT.get('strict') else 'lenient:' + ','.join(LAST_FORMAT.get('flags') or ['-'])}"
+
+
+def repair_feedback(errs: list[str], gr: dict | None) -> str:
+    """보완 요청에 줄 내용: 적용 실패면 그 이유와 형식, 테스트 실패면 로그."""
+    if gr is None:
+        return ("편집을 하나도 적용하지 못했다.\n- " + "\n- ".join(errs) +
+                "\n각 블록 위에 `### EDIT: <경로>` 줄을 쓰고, SEARCH 는 파일의 현재 내용을 들여쓰기까지 그대로 복사해야 한다.")
+    head = ("일부 편집은 적용하지 못했다:\n- " + "\n- ".join(errs) + "\n\n") if errs else ""
+    return head + "테스트 결과:\n" + gr["log"]
 
 
 def run_pytest(root: Path, files: list[str]) -> dict:
@@ -302,20 +367,21 @@ def main() -> int:
                     row, res = rb.measure(a.base_url, api_key, prompt, a.budget, a.timeout, server_cfg,
                                           base_row(a, rid1, f"x3-preload-{task}", env_sha, commit, dirty, cfg_sha, engine_commit))
                     ans1 = res.get("answer", "") if row.get("status") == "ok" else ""
-                    applied, errs = apply_edits(root, ans1)
+                    applied, errs = apply_edits(root, ans1, tcfg["required_files"])
+                    fmt1 = fmt_note()
                     gr = grade(root, tcfg, hidden_total) if applied else None
                     et = error_type(applied, errs, gr)
                     row["tests_passed"] = gr["hidden"] if gr else f"0/{hidden_total}"
                     t_model1 = float(row.get("total_ms") or 0)
                     t_tools1 = gr["tools_ms"] if gr else 0.0
                     row["note"] = (f"{row.get('note', '')}; x3 attempt 1; edits {applied} ({'; '.join(errs) or 'ok'}); "
-                                   f"regress {gr['regress'] if gr else 'NA'}; error_type {et}; model_ms {t_model1:.0f}; tools_ms {t_tools1:.0f}")
+                                   f"regress {gr['regress'] if gr else 'NA'}; error_type {et}; {fmt1}; model_ms {t_model1:.0f}; tools_ms {t_tools1:.0f}")
                     rb.write_row(row)
                     (run_dir / f"answer_a1_r{i}.md").write_text(ans1, encoding="utf-8")
                     summary = {"run": run_name, "r": i, "a1": et, "a1_hidden": row["tests_passed"], "input": row.get("input_tokens")}
                     # 보완 1회
                     if et not in ("pass",):
-                        log = gr["log"] if gr else "\n".join(errs)
+                        log = repair_feedback(errs, gr)
                         msgs = [{"role": "user", "content": prompt}, {"role": "assistant", "content": ans1 or "(답 없음)"},
                                 {"role": "user", "content": "위 편집을 적용하고 테스트를 돌린 결과다. 한 번만 고칠 기회가 있다. "
                                  "이미 적용된 상태의 파일을 기준으로 추가 편집 블록을 제시하라.\n\n```\n" + log + "\n```\n\n" + FORMAT}]
@@ -326,14 +392,15 @@ def main() -> int:
                                                 base_row(a, rid2, f"x3-preload-{task}", env_sha, commit, dirty, cfg_sha, engine_commit),
                                                 extra_cols=None)
                         ans2 = res2.get("answer", "") if row2.get("status") == "ok" else ""
-                        applied2, errs2 = apply_edits(root, ans2)
+                        applied2, errs2 = apply_edits(root, ans2, tcfg["required_files"])
+                        fmt2 = fmt_note()
                         gr2 = grade(root, tcfg, hidden_total) if (applied2 or applied) else None
                         et2 = error_type(applied2 or applied, errs2, gr2)
                         row2["tests_passed"] = gr2["hidden"] if gr2 else f"0/{hidden_total}"
                         t_model2 = float(row2.get("total_ms") or 0)
                         t_tools2 = gr2["tools_ms"] if gr2 else 0.0
                         row2["note"] = (f"{row2.get('note', '')}; x3 attempt 2 (repair, budget {budget2}); edits {applied2} "
-                                        f"({'; '.join(errs2) or 'ok'}); regress {gr2['regress'] if gr2 else 'NA'}; error_type {et2}; "
+                                        f"({'; '.join(errs2) or 'ok'}); regress {gr2['regress'] if gr2 else 'NA'}; error_type {et2}; {fmt2}; "
                                         f"model_ms {t_model1 + t_model2:.0f}; tools_ms {t_tools1 + t_tools2:.0f}; "
                                         f"to_pass_ms {(time.perf_counter() - t_start) * 1000:.0f}" + ("" if et2 == "pass" else " (not passed)"))
                         rb.write_row(row2)
@@ -390,7 +457,8 @@ def main() -> int:
                             msgs.append({"role": "tool", "tool_call_id": c.get("id", ""), "content": out[:12000]})
                     read = {t["args"].get("path") for t in tool_log if t["tool"] == "read_file"}
                     found = [f for f in tcfg["required_files"] if f in read]
-                    applied, errs = apply_edits(root, final)
+                    applied, errs = apply_edits(root, final, sorted(read))
+                    fmtn = fmt_note()
                     gr = grade(root, tcfg, hidden_total) if applied else None
                     et = error_type(applied, errs, gr)
                     rid = f"{run_name}_r{i}"
@@ -400,7 +468,7 @@ def main() -> int:
                                 "answer_reached": 1 if final.strip() else 0, "tests_passed": gr["hidden"] if gr else f"0/{hidden_total}",
                                 "total_ms": round(model_ms, 1), "note": (f"x3 navigate; steps {len(tool_log)} tool calls; required read "
                                 f"{len(found)}/{len(tcfg['required_files'])} ({', '.join(found)}); edits {applied} ({'; '.join(errs) or 'ok'}); "
-                                f"regress {gr['regress'] if gr else 'NA'}; error_type {et}; model_ms {model_ms:.0f}; "
+                                f"regress {gr['regress'] if gr else 'NA'}; error_type {et}; {fmtn}; model_ms {model_ms:.0f}; "
                                 f"tool_exec_ms {tool_ms:.0f}; tests_ms {gr['tools_ms'] if gr else 0:.0f}; usage summed over turns")})
                     for col in rb.load_columns() if hasattr(rb, "load_columns") else []:
                         row.setdefault(col, "NA")
