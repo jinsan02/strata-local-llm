@@ -4,6 +4,7 @@
 param(
   [int]$Context = 16384,
   [string]$Host_ = '127.0.0.1',     # X4 에서만 Tailscale 주소
+  [int]$CacheMib = -1,              # 0 이상이면 --conversation-cache-mib N (T-013). -1 = 엔진 자동(남은 RAM 4GiB 미만이면 꺼짐)
   [switch]$Stop
 )
 $ErrorActionPreference = 'Continue'
@@ -32,11 +33,12 @@ $cfg = Get-Content $src -Raw | ConvertFrom-Json
 foreach ($key in 'args','args_written') {
   $a = [System.Collections.ArrayList]@($cfg.$key)
   $i = $a.IndexOf('--max-context'); $a[$i + 1] = "$Context"
+  if ($CacheMib -ge 0) { [void]$a.Add('--conversation-cache-mib'); [void]$a.Add("$CacheMib") }
   $cfg.$key = @($a)
 }
-$cfg.log = Join-Path $eng "strata-qwen36-ctx$Context.log"
+$cfg.log = Join-Path $eng ("strata-qwen36-ctx$Context" + $(if ($CacheMib -ge 0) { "-cm$CacheMib" } else { '' }) + '.log')
 [IO.File]::WriteAllText($dst, ($cfg | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding($false)))
-"[serve] config $dst  (--max-context $Context, host $Host_)"
+"[serve] config $dst  (--max-context $Context, host $Host_, conversation-cache-mib $(if ($CacheMib -ge 0) { $CacheMib } else { 'auto' }))"
 $env:PYTHONUTF8 = '1'
 Set-Location $eng
 & C:\ProgramData\anaconda3\envs\strata_local_llm\python.exe serve\server.py --engine strata --config $dst --port 8080 --host $Host_ 2>&1
