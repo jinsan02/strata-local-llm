@@ -285,6 +285,7 @@ def edit_file(root: Path, args: dict, deny: tuple[str, ...]) -> tuple[bool, str]
 
 
 TOOL_OUT_LIMIT = 12000      # 기준선(H0): 글자 수로 끝을 자른다. 잘린 글자 수는 도구 로그에 남긴다.
+FORCE_EDIT_TURNS = 3        # H4: 강제 턴에서 edit_file 만으로 더 고칠 수 있는 횟수
 
 
 def to_anthropic(msgs: list, tools: list | None) -> dict:
@@ -365,15 +366,35 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
         msgs.append(m_out)
     fake_retry_left = 1
     force_at = 24320 - 2048
-    for step in range(a.max_steps):
-        exact = counter(msgs, NAV_TOOLS)
+    # H4 (11-18 A/B 의 최다 실패 = 강제 마지막 턴 텍스트 편집 블록 불일치): final_turn=edit 이면 강제 턴에 도구를 다 빼지 않고
+    # edit_file 만 남겨 최대 FORCE_EDIT_TURNS 번 더 고칠 수 있게 한다. 마지막 한 번은 도구 없이(텍스트 블록도 계속 받음).
+    final_turn = getattr(a, "final_turn", "none")
+    forced, forced_steps = False, 0
+    r["forced_turns"] = 0
+    for step in range(a.max_steps + FORCE_EDIT_TURNS):
+        if step >= a.max_steps and not forced:
+            break
+        exact = counter(msgs, [EDIT_TOOL] if forced and final_turn == "edit" else (None if forced else NAV_TOOLS))
         in_now, src = (exact, "count_tokens") if exact is not None else (r["last_in"], "prev_prompt_tokens")
-        force = step == a.max_steps - 1 or in_now > force_at
-        if force:
-            msgs.append({"role": "user", "content": "이제 도구를 더 쓸 수 없다. 남은 수정이 있으면 편집 블록 형식으로, 없으면 바꾼 내용을 짧게 답하라.\n\n" + FORMAT})
-            exact = counter(msgs, None)
+        if not forced and (step == a.max_steps - 1 or in_now > force_at):
+            forced = True
+            if final_turn == "edit":
+                msgs.append({"role": "user", "content": f"이제 읽기 도구(list_files · grep · read_file)는 쓸 수 없다. 남은 수정이 있으면 edit_file 로 하라"
+                             f"(최대 {FORCE_EDIT_TURNS}번). 수정을 마쳤으면 도구 없이 무엇을 바꿨는지 짧게 답하라."})
+            else:
+                msgs.append({"role": "user", "content": "이제 도구를 더 쓸 수 없다. 남은 수정이 있으면 편집 블록 형식으로, 없으면 바꾼 내용을 짧게 답하라.\n\n" + FORMAT})
+        if forced:
+            forced_steps += 1
+            r["forced_turns"] = forced_steps
+            last_forced = final_turn != "edit" or forced_steps > FORCE_EDIT_TURNS or a.ctx - (in_now or 0) - 64 < 1024
+            if last_forced and final_turn == "edit":
+                msgs.append({"role": "user", "content": "edit_file 도 더 쓸 수 없다. 남은 수정이 있으면 편집 블록 형식으로, 없으면 바꾼 내용을 짧게 답하라.\n\n" + FORMAT})
+            tools = None if last_forced else [EDIT_TOOL]
+            exact = counter(msgs, tools)
             in_now, src = (exact, "count_tokens") if exact is not None else (in_now, src)
-        tools = None if force else NAV_TOOLS
+        else:
+            tools = NAV_TOOLS
+        force = forced
         mt = max(1024, min(a.budget, a.ctx - in_now - 64)) if in_now else a.budget
         if mt < a.budget:
             r["budget_cuts"] += 1
@@ -460,7 +481,7 @@ def nav_summary(nr: dict, wall_ms: float, grade_ms: float) -> str:
             f"sum_new_read {na(sum(new) if new else None)}; sum_cached {na(sum(cached) if cached else None)}; "
             f"count_vs_server_max_diff {na(max(abs(c - p) for c, p in cnt) if cnt else None)}; budget_cuts {nr['budget_cuts']}; "
             f"bad_json {nr['bad_json']}; tool_errors {nr['tool_errors']}; truncated_chars {nr['truncated_chars']}; "
-            f"echo_chars {nr.get('echo_chars', 0)}; "
+            f"echo_chars {nr.get('echo_chars', 0)}; forced_turns {nr.get('forced_turns', 0)}; "
             f"wall_ms {wall_ms:.0f}; grade_ms {grade_ms:.0f}")
 
 
@@ -603,6 +624,7 @@ def main() -> int:
     ap.add_argument("--harness", default="H0", help="하네스 후보 ID (H0 = nav-v3 기준선: edit_file · 재요청 1회 · 글자 수 자르기 12,000)")
     ap.add_argument("--tool-out", choices=["chars", "paged"], default="chars", help="H0 chars(글자 수 자르기) / H1 paged(토큰 예산 범위 · 다음 범위 안내)")
     ap.add_argument("--reasoning-echo", choices=["none", "all", "last"], default="none", help="H2: 이전 assistant 답의 reasoning_content 를 다시 보냄 (T-013)")
+    ap.add_argument("--final-turn", choices=["none", "edit"], default="none", help="강제 마지막 턴: none = 도구 없이 텍스트 편집 블록(H0) / edit = edit_file 만 남김(H4)")
     ap.add_argument("--reasoning-budget", type=int, default=0, help="요청 reasoning_budget_tokens (0 = 서버 answer_room, S0)")
     ap.add_argument("--settings-id", default="S0", help="원장 settings_id (S0 = answer_room, S1T3 = thinking 3,072 등)")
     ap.add_argument("--base-url", default="http://127.0.0.1:8080")
@@ -721,7 +743,7 @@ def main() -> int:
                                "list_files · grep · read_file 도구로 필요한 코드를 찾아 읽고, edit_file 도구로 직접 고쳐라.")
                     msgs = [{"role": "system", "content": sys_txt}, {"role": "user", "content": "### 과제\n" + task_txt + "\n\n" + NAV_FORMAT}]
                     cfg = {"task": task, "mode": "navigate", "harness": a.harness, "commit": COMMIT, "tool_out_limit": TOOL_OUT_LIMIT,
-                           "tool_out": a.tool_out, "reasoning_echo": a.reasoning_echo, "reasoning_budget": a.reasoning_budget or "answer_room", **({"page_tokens": PAGE_TOKENS, "chars_per_token": CHARS_PER_TOKEN, "grep_hits": GREP_HITS,
+                           "tool_out": a.tool_out, "reasoning_echo": a.reasoning_echo, "reasoning_budget": a.reasoning_budget or "answer_room", "final_turn": a.final_turn, "force_edit_turns": FORCE_EDIT_TURNS, **({"page_tokens": PAGE_TOKENS, "chars_per_token": CHARS_PER_TOKEN, "grep_hits": GREP_HITS,
                                                        "list_files": LIST_FILES} if a.tool_out == "paged" else {}),
                            "tools": NAV_TOOLS, "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, "server_config": server_cfg}
                     cfg_sha = rb.sha256_bytes(rb.canon(cfg))

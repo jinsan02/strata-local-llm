@@ -92,6 +92,7 @@ def main() -> int:
     ap.add_argument("--harness", default="H0")
     ap.add_argument("--tool-out", choices=["chars", "paged"], default="chars")
     ap.add_argument("--reasoning-echo", choices=["none", "all", "last"], default="none", help="H2: 이전 assistant 답의 reasoning_content 를 다시 보냄 (T-013)")
+    ap.add_argument("--final-turn", choices=["none", "edit"], default="none", help="강제 마지막 턴: none = 도구 없이 텍스트 편집 블록(H0) / edit = edit_file 만 남김(H4)")
     ap.add_argument("--reasoning-budget", type=int, default=0, help="요청 reasoning_budget_tokens (0 = 서버 answer_room, S0)")
     ap.add_argument("--settings-id", default="S0", help="원장 settings_id (S0 = answer_room, S1T3 = thinking 3,072 등)")
     ap.add_argument("--repeat", type=int, default=1)
@@ -125,7 +126,7 @@ def main() -> int:
                     {"role": "user", "content": "### 이슈\n" + case["problem_statement"] + "\n\n" + x3.NAV_FORMAT}]
             cfg = {"instance": iid, "dataset_revision": case["dataset_revision"], "base_commit": case["base_commit"], "mode": "navigate",
                    "tools": x3.NAV_TOOLS, "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, "server_config": server_cfg,
-                   "harness": "local conda, not official Docker", "nav_harness": a.harness, "tool_out_limit": x3.TOOL_OUT_LIMIT, "tool_out": a.tool_out, "reasoning_echo": a.reasoning_echo, "reasoning_budget": a.reasoning_budget or "answer_room",
+                   "harness": "local conda, not official Docker", "nav_harness": a.harness, "tool_out_limit": x3.TOOL_OUT_LIMIT, "tool_out": a.tool_out, "reasoning_echo": a.reasoning_echo, "reasoning_budget": a.reasoning_budget or "answer_room", "final_turn": a.final_turn, "force_edit_turns": x3.FORCE_EDIT_TURNS,
                    **({"page_tokens": x3.PAGE_TOKENS, "chars_per_token": x3.CHARS_PER_TOKEN, "grep_hits": x3.GREP_HITS,
                        "list_files": x3.LIST_FILES} if a.tool_out == "paged" else {})}
             cfg_sha = rb.sha256_bytes(rb.canon(cfg))
