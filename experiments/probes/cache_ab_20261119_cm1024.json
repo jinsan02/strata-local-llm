@@ -1,0 +1,299 @@
+{
+ "cond": "cm1024",
+ "date": "2026-11-19 09:07:29",
+ "mem": {
+  "loaded": {
+   "ts": "09:07:30",
+   "free_ram_gb": 0.574,
+   "commit_free_gb": 0.822,
+   "pagefile_used_mb": 1251,
+   "strata_ws_gb": 25.955,
+   "strata_private_gb": 35.562,
+   "strata_page_faults": 15954792
+  },
+  "after_probe": {
+   "ts": "09:08:28",
+   "free_ram_gb": 0.572,
+   "commit_free_gb": 0.838,
+   "pagefile_used_mb": 1251,
+   "strata_ws_gb": 25.961,
+   "strata_private_gb": 35.565,
+   "strata_page_faults": 15956308
+  },
+  "after_tg": {
+   "ts": "09:08:32",
+   "free_ram_gb": 0.557,
+   "commit_free_gb": 0.834,
+   "pagefile_used_mb": 1251,
+   "strata_ws_gb": 25.963,
+   "strata_private_gb": 35.565,
+   "strata_page_faults": 15957030
+  }
+ },
+ "metrics": {
+  "loaded": [
+   "{\"engine\": {\"model\": \"qwen3.6-35b-a3b-ud-q4_k_xl\", \"max_context\": 32768, \"images\": false, \"version\": \"0.1.61\", \"drafting\": \"mtp\", \"drafting_note\": \"\"}, \"live\": {\"state\": \"idle\", \"queued\": 0, \"phase\": null, \"prompt_tokens\": null, \"prompt_read\": null, \"prompt_total\": null, \"generated\": null, \"max_tokens\": null, \"elapsed_s\": null, \"tok_s\": null, \"tok_s_mean\": null, \"prefill_tok_s_mean\": null, \"tok_s_window_s\": null}, \"requests\": [], \"conversation_cache\": {\"enabled\": false, \"budget_mib\": null, \"slots\": null, \"parked\": 0, \"bytes\": 0, \"evictions\": 0, \"parks\": 0, \"restores\": 0, \"last_event\": null, \"last_tokens\": null, \"last_at\": null, \"requests\": 0, \"requests_reused\": 0, \"reused_tokens\": 0, \"prompt_tokens\": 0, \"last_reused\": null, \"last_prompt\": null}, \"requests_kept\": 0, \"totals\": {\"since\": 1795046847.8075035, \"requests\": 0, \"prompt_tokens\": 0, \"reused\": 0, \"output_tokens\": 0, \"prompt_ms\": 0.0, \"decode_ms\": 0.0, \"drafts_offered\": 0, \"drafts_accepted\": 0}, \"hardware\": {\"gpu_util\": 0, \"gpu_mem_used\": 16260972544, \"gpu_mem_total\": 17094934528, \"gpu_temp\": 43, \"gpu_power\": 62.596, \"gpu_power_limit\": 300.0, \"gpu_pcie_gen\": 5, \"gpu_pcie_gen_max\": 5, \"gpu_pcie_width\": 16, \"gpu_pcie_rx_mb\": 1.6953125, \"gpu_pcie_tx_mb\": 0.166015625, \"cpu\": 2.0, \"ram_used\": 32872783872, \"ram_total\": 33488490496, \"disk_read_mb\": 27.812022567177582, \"disk_write_mb\": 0.2512517627134842, \"tok_s\": 0.0, \"tok_s_mean\": 0, \"prefill_tok_s_mean\": 0.0}, \"hardware_static\": {\"gpu_name\": \"NVIDIA GeForce RTX 5070 Ti\", \"gpu_vram_total_mib\": null, \"gpu_count\": 1, \"gpu_note\": null, \"cpu_name\": \"AMD Ryzen 9 9900X 12-Core Processor\", \"cores\": 12, \"threads\": 24, \"sockets\": 1, \"numa_nodes\": 1, \"psutil\": true}, \"history\": {\"gpu_util\": [43, 0, 0], \"gpu_mem_used\": [16260972544, 16260972544, 16260972544], \"gpu_temp\": [41, 43, 43], \"gpu_power\": [42.14, 65.84, 62.6], \"gpu_pcie_rx_mb\": [0.01, 0.01, 1.7], \"cpu\": [0.0, 3.6, 2.0], \"ram_used\": [32806612992, 32816078848, 32872783872], \"disk_read_mb\": [null, 3.3, 27.81], \"tok_s\": [0.0, 0.0, 0.0], \"prefill_tok_s_mean\": [0.0, 0.0, 0.0]}, \"time\": 1795046850.130654}"
+  ],
+  "end": [
+   "{\"engine\": {\"model\": \"qwen3.6-35b-a3b-ud-q4_k_xl\", \"max_context\": 32768, \"images\": false, \"version\": \"0.1.61\", \"drafting\": \"mtp\", \"drafting_note\": \"\"}, \"live\": {\"state\": \"idle\", \"queued\": 0, \"phase\": null, \"prompt_tokens\": null, \"prompt_read\": null, \"prompt_total\": null, \"generated\": null, \"max_tokens\": null, \"elapsed_s\": null, \"tok_s\": null, \"tok_s_mean\": null, \"prefill_tok_s_mean\": null, \"tok_s_window_s\": null}, \"requests\": [{\"id\": \"4ebab071722c\", \"projection\": null, \"time\": 1795046908.3646567, \"duration_s\": 3.6, \"finish\": \"length\", \"prompt_tokens\": 60, \"reused\": 0, \"output_tokens\": 256, \"first_engine_token_s\": 0.142, \"prompt_total\": 60, \"prompt_read\": 60, \"reasoning_recoveries\": 0, \"reasoning_repeat_coverage\": 0.0, \"engine_generated\": 256, \"prompt_ms\": 140.5, \"decode_ms\": 3481.4, \"decode_tok_s\": 73.5, \"hit_rate\": null, \"pcie_share\": null, \"ram_blobs\": 0, \"file_blobs\": 0, \"file_mb\": 0, \"drafts_offered\": 0, \"drafts_accepted\": 0}, {\"id\": \"bc20be904634\", \"projection\": null, \"time\": 1795046904.6843328, \"duration_s\": 3.4, \"finish\": \"length\", \"prompt_tokens\": 4808, \"reused\": 450, \"output_tokens\": 1, \"first_engine_token_s\": 3.377, \"prompt_total\": 4808, \"prompt_read\": 4358, \"reasoning_recoveries\": 0, \"reasoning_repeat_coverage\": 0.0, \"engine_generated\": 1, \"prompt_ms\": 3376.0, \"decode_ms\": 0.3, \"decode_tok_s\": null, \"hit_rate\": null, \"pcie_share\": null, \"ram_blobs\": 0, \"file_blobs\": 0, \"file_mb\": 0, \"drafts_offered\": 0, \"drafts_accepted\": 0}, {\"id\": \"0202d0ddd6b7\", \"projection\": null, \"time\": 1795046902.6906617, \"duration_s\": 2.0, \"finish\": \"stop\", \"prompt_tokens\": 367, \"reused\": 0, \"output_tokens\": 84, \"first_engine_token_s\": 1.002, \"prompt_total\": 367, \"prompt_read\": 367, \"reasoning_recoveries\": 0, \"reasoning_repeat_coverage\": 0.0, \"engine_generated\": 84, \"prompt_ms\": 1000.4, \"decode_ms\": 968.3, \"decode_tok_s\": 86.7, \"hit_rate\": null, \"pcie_share\": null, \"ram_blobs\": 0, \"file_blobs\": 0, \"file_mb\": 0, \"drafts_offered\": 0, \"drafts_accepted\": 0}, {\"id\": \"b277f566d185\", \"projection\": null, \"time\": 1795046899.2640688, \"duration_s\": 3.4, \"finish\": \"length\", \"prompt_tokens\": 4753, \"reused\": 0, \"output_tokens\": 1, \"first_engine_token_s\": 3.411, \"prompt_total\": 4753, \"prompt_read\": 4753, \"reasoning_recoveries\": 0, \"reasoning_repeat_coverage\": 0.0, \"engine_generated\": 1, \"prompt_ms\": 3410.1, \"decode_ms\": 0.3, \"decode_tok_s\": null, \"hit_rate\": null, \"pcie_share\": null, \"ram_blobs\": 0, \"file_blobs\": 0, \"file_mb\": 0, \"drafts_offered\": 0, \"drafts_accepted\": 0}, {\"id\": \"3d7d51d1a68d\", \"projection\": null, \"time\": 1795046897.0546637, \"duration_s\": 2.2, \"finish\": \"stop\", \"prompt_tokens\": 367, \"reused\": 0, \"output_tokens\": 86, \"first_engine_token_s\": 1.123, \"prompt_total\": 367, \"prompt_read\": 367, \"reasoning_recoveries\": 0, \"reasoning_repeat_coverage\": 0.0, \"engine_generated\": 86, \"prompt_ms\": 1122.2, \"decode_ms\": 1063.8, \"decode_tok_s\": 80.8, \"hit_rate\": null, \"pcie_share\": null, \"ram_blobs\": 0, \"file_blobs\": 0, \"file_mb\": 0, \"drafts_offered\": 0, \"drafts_accepted\": 0}, {\"id\": \"8f56276eb93f\", \"projection\": null, \"time\": 1795046890.6582615, \"duration_s\": 6.4, \"finish\": \"length\", \"prompt_tokens\": 8827, \"reused\": 0, \"output_tokens\": 1, \"first_engine_token_s\": 6.376, \"prompt_total\": 8827, \"prompt_read\": 8827, \"reasoning_recoveries\": 0, \"reasoning_repeat_coverage\": 0.0, \"engine_generated\": 1, \"prompt_ms\": 6374.1, \"decode_ms\": 0.3, \"decode_tok_s\": null, \"hit_rate\": null, \"pcie_share\": null, \"ram_blobs\": 0, \"file_blobs\": 0, \"file_mb\": 0, \"drafts_offered\": 0, \"drafts_accepted\": 0}, {\"id\": \"dac412787614\", \"projection\": null, \"time\": 1795046884.6836576, \"duration_s\": 5.9, \"finish\": \"length\", \"prompt_tokens\": 8813, \"reused\": 0, \"output_tokens\": 1, \"first_engine_token_s\": 5.948, \"prompt_total\": 8813, \"prompt_read\": 8813, \"reasoning_recoveries\": 0, \"reasoning_repeat_coverage\": 0.0, \"engine_generated\": 1, \"prompt_ms\": 5946.0, \"decode_ms\": 0.3, \"decode_tok_s\": null, \"hit_rate\": null, \"pcie_share\": null, \"ram_blobs\": 0, \"file_blobs\": 0, \"file_mb\": 0, \"drafts_offered\": 0, \"drafts_accepted\": 0}, {\"id\": \"3b0510f60189\", \"projection\": null, \"time\": 1795046881.0166607, \"duration_s\": 3.7, \"finish\": \"length\", \"prompt_tokens\": 4757, \"reused\": 0, \"output_tokens\": 1, \"first_engine_token_s\": 3.652, \"prompt_total\": 4757, \"prompt_read\": 4757, \"reasoning_recoveries\": 0, \"reasoning_repeat_coverage\": 0.0, \"engine_generated\": 1, \"prompt_ms\": 3650.2, \"decode_ms\": 0.3, \"decode_tok_s\": null, \"hit_rate\": null, \"pcie_share\": null, \"ram_blobs\": 0, \"file_blobs\": 0, \"file_mb\": 0, \"drafts_offered\": 0, \"drafts_accepted\": 0}, {\"id\": \"6d9e724cc096\", \"projection\": null, \"time\": 1795046879.9929717, \"duration_s\": 1.0, \"finish\": \"length\", \"prompt_tokens\": 368, \"reused\": 0, \"output_tokens\": 1, \"first_engine_token_s\": 1.003, \"prompt_total\": 368, \"prompt_read\": 368, \"reasoning_recoveries\": 0, \"reasoning_repeat_coverage\": 0.0, \"engine_generated\": 1, \"prompt_ms\": 1002.6, \"decode_ms\": 0.3, \"decode_tok_s\": null, \"hit_rate\": null, \"pcie_share\": null, \"ram_blobs\": 0, \"file_blobs\": 0, \"file_mb\": 0, \"drafts_offered\": 0, \"drafts_accepted\": 0}, {\"id\": \"d6ceb2f6439e\", \"projection\": null, \"time\": 1795046876.5475566, \"duration_s\": 3.4, \"finish\": \"length\", \"prompt_tokens\": 4807, \"reused\": 449, \"output_tokens\": 1, \"first_engine_token_s\": 3.421, \"prompt_total\": 4807, \"prompt_read\": 4358, \"reasoning_recoveries\": 0, \"reasoning_repeat_coverage\": 0.0, \"engine_generated\": 1, \"prompt_ms\": 3419.9, \"decode_ms\": 0.3, \"decode_tok_s\": null, \"hit_rate\": null, \"pcie_share\": null, \"ram_blobs\": 0, \"file_blobs\": 0, \"file_mb\": 0, \"drafts_offered\": 0, \"drafts_accepted\": 0}, {\"id\": \"451c06a3066d\", \"projection\": null, \"time\": 1795046874.3646684, \"duration_s\": 2.2, \"finish\": \"stop\", \"prompt_tokens\": 366, \"reused\": 0, \"output_tokens\": 84, \"first_engine_token_s\": 1.039, \"prompt_total\": 366, \"prompt_read\": 366, \"reasoning_recoveries\": 0, \"reasoning_repeat_coverage\": 0.0, \"engine_generated\": 84, \"prompt_ms\": 1037.8, \"decode_ms\": 1121.3, \"decode_tok_s\": 74.9, \"hit_rate\": null, \"pcie_share\": null, \"ram_blobs\": 0, \"file_blobs\": 0, \"file_mb\": 0, \"drafts_offered\": 0, \"drafts_accepted\": 0}, {\"id\": \"94d420c48617\", \"projection\": null, \"time\": 1795046870.4690166, \"duration_s\": 3.9, \"finish\": \"length\", \"prompt_tokens\": 4754, \"reused\": 0, \"output_tokens\": 1, \"first_engine_token_s\": 3.875, \"prompt_total\": 4754, \"prompt_read\": 4754, \"reasoning_recoveries\": 0, \"reasoning_repeat_coverage\": 0.0, \"engine_generated\": 1, \"prompt_ms\": 3872.6, \"decode_ms\": 0.3, \"decode_tok_s\": null, \"hit_rate\": null, \"pcie_share\": null, \"ram_blobs\": 0, \"file_blobs\": 0, \"file_mb\": 0, \"drafts_offered\": 0, \"drafts_accepted\": 0}], \"conversation_cache\": {\"enabled\": false, \"budget_mib\": null, \"slots\": null, \"parked\": 0, \"bytes\": 0, \"evictions\": 0, \"parks\": 0, \"restores\": 0, \"last_event\": null, \"last_tokens\": null, \"last_at\": null, \"requests\": 17, \"requests_reused\": 2, \"reused_tokens\": 899, \"prompt_tokens\": 66176, \"last_reused\": 0, \"last_prompt\": 60}, \"requests_kept\": 17, \"totals\": {\"since\": 1795046847.8075035, \"requests\": 17, \"prompt_tokens\": 66176, \"reused\": 899, \"output_tokens\": 654, \"prompt_ms\": 52963.19999999999, \"decode_ms\": 8232.000000000002, \"drafts_offered\": 0, \"drafts_accepted\": 0}, \"hardware\": {\"gpu_util\": 50, \"gpu_mem_used\": 16260972544, \"gpu_mem_total\": 17094934528, \"gpu_temp\": 47, \"gpu_power\": 120.01, \"gpu_power_limit\": 300.0, \"gpu_pcie_gen\": 5, \"gpu_pcie_gen_max\": 5, \"gpu_pcie_width\": 16, \"gpu_pcie_rx_mb\": 0.908203125, \"gpu_pcie_tx_mb\": 2.2265625, \"cpu\": 51.7, \"ram_used\": 32881340416, \"ram_total\": 33488490496, \"disk_read_mb\": 2.50827794258943, \"disk_write_mb\": 0.23106782728295977, \"tok_s\": 0.0, \"tok_s_mean\": 0, \"prefill_tok_s_mean\": 0.0}, \"hardware_static\": {\"gpu_name\": \"NVIDIA GeForce RTX 5070 Ti\", \"gpu_vram_total_mib\": null, \"gpu_count\": 1, \"gpu_note\": null, \"cpu_name\": \"AMD Ryzen 9 9900X 12-Core Processor\", \"cores\": 12, \"threads\": 24, \"sockets\": 1, \"numa_nodes\": 1, \"psutil\": true}, \"history\": {\"gpu_util\": [0, 0, 26, 66, 70, 69, 64, 52, 51, 51, 69, 70, 65, 61, 68, 71, 68, 65, 52, 57, 49, 68, 62, 49, 40, 64, 48, 70, 71, 62, 63, 56, 70, 64, 62, 68, 71, 71, 71, 65, 69, 55, 57, 69, 69, 57, 56, 52, 70, 69, 64, 62, 48, 69, 69, 63, 3, 43, 37, 50], \"gpu_mem_used\": [16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544, 16260972544], \"gpu_temp\": [43, 43, 42, 47, 48, 46, 47, 46, 47, 45, 48, 50, 47, 46, 48, 48, 48, 47, 46, 46, 47, 47, 49, 46, 46, 46, 48, 50, 50, 46, 46, 49, 51, 47, 47, 49, 51, 48, 48, 47, 47, 49, 47, 48, 49, 46, 46, 47, 51, 49, 46, 46, 47, 47, 48, 46, 45, 46, 46, 47], \"gpu_power\": [65.84, 62.6, 45.38, 66.18, 119.13, 120.94, 106.29, 97.74, 107.38, 109.5, 124.02, 128.14, 110.33, 104.61, 118.12, 123.31, 127.8, 126.46, 100.23, 91.31, 117.6, 117.98, 119.77, 105.17, 89.76, 88.43, 109.91, 120.1, 124.5, 111.42, 89.94, 104.77, 117.55, 118.75, 101.44, 118.32, 123.41, 128.55, 127.61, 108.8, 113.59, 114.55, 112.05, 117.1, 128.69, 103.99, 92.4, 104.4, 119.91, 121.15, 118.72, 97.94, 110.58, 120.65, 123.18, 115.85, 83.24, 108.7, 107.39, 120.01], \"gpu_pcie_rx_mb\": [0.01, 1.7, 33028.72, 28388.34, 25046.41, 30574.2, 8111.87, 21292.31, 21203.39, 21214.63, 24767.82, 27697.9, 29976.04, 26604.47, 25047.65, 28497.8, 28027.5, 30128.78, 34347.96, 492.29, 601.41, 25477.3, 26972.52, 24098.34, 25121.23, 427.35, 27895.4, 27909.39, 26894.38, 32345.86, 9162.08, 21323.39, 27478.64, 33352.89, 28832.79, 27418.02, 26946.09, 24879.27, 24169.54, 19035.73, 25045.87, 20461.21, 18358.71, 25045.14, 24133.78, 18796.64, 24719.21, 616.71, 28399.67, 25046.08, 33113.92, 31522.19, 639.39, 25694.09, 26614.27, 33110.46, 440.49, 918.1, 583.82, 0.91], \"cpu\": [3.6, 2.0, 6.1, 7.1, 7.2, 7.7, 7.9, 5.9, 6.3, 5.3, 7.1, 8.8, 10.5, 7.1, 8.7, 7.4, 7.7, 7.4, 9.7, 24.2, 54.5, 12.4, 7.6, 8.5, 6.1, 20.5, 45.7, 5.9, 8.2, 8.5, 6.0, 5.8, 7.2, 6.8, 7.4, 12.0, 6.9, 7.5, 6.6, 6.3, 7.6, 5.8, 5.1, 6.2, 6.8, 6.5, 12.4, 50.9, 9.2, 7.5, 7.6, 8.7, 44.9, 12.2, 6.6, 7.1, 25.1, 57.1, 57.9, 51.7], \"ram_used\": [32816078848, 32872783872, 32844152832, 32830615552, 32839217152, 32840151040, 32841453568, 32834928640, 32835231744, 32835588096, 32834068480, 32833863680, 32844603392, 32843833344, 32841969664, 32842211328, 32841515008, 32839286784, 32847777792, 32846450688, 32846675968, 32844922880, 32846139392, 32837144576, 32842285056, 32839651328, 32851595264, 32842223616, 32840732672, 32840986624, 32839168000, 32839294976, 32848658432, 32848244736, 32846823424, 32851341312, 32852021248, 32851095552, 32849211392, 32841822208, 32840663040, 32840282112, 32840429568, 32840601600, 32840474624, 32844861440, 32847306752, 32856064000, 32855760896, 32854691840, 32853569536, 32853323776, 32852938752, 32852795392, 32844726272, 32844718080, 32846077952, 32851132416, 32861855744, 32881340416], \"disk_read_mb\": [3.3, 27.81, 7.64, 25.8, 0.88, 0.9, 0.96, 1.21, 0.18, 0.56, 0.32, 3.26, 0.52, 0.05, 0.06, 0.7, 0.05, 0.71, 0.07, 0.18, 0.57, 0.12, 0.0, 2.07, 0.25, 0.0, 1.75, 0.34, 0.07, 0.06, 0.66, 0.0, 0.0, 0.05, 1.2, 4.31, 0.06, 0.12, 0.11, 0.2, 0.37, 0.0, 0.0, 0.0, 0.82, 0.18, 4.07, 0.36, 0.0, 0.29, 0.06, 0.06, 0.06, 0.32, 0.12, 0.51, 4.76, 7.6, 26.94, 2.51], \"tok_s\": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 78.85, 83.73, 0.0, 0.0, 0.0, 0.0, 73.27, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 87.57, 0.0, 0.0, 0.0, 0.0, 88.83, 0.0, 0.0, 0.0, 64.12, 73.62, 80.1, 0.0], \"prefill_tok_s_mean\": [0.0, 0.0, null, null, 1747.0, 1738.3, null, null, 1370.5, 1365.7, 1439.1, 1439.1, 1481.0, null, 1652.2, 1687.1, 1688.2, 1686.9, null, 0.0, 0.0, null, 1748.1, 1646.0, null, 0.0, null, 1715.7, 1715.7, 0.0, null, null, 1448.6, 1576.2, null, 1629.4, 1676.3, 1679.9, 1681.7, null, null, 1722.6, 1519.0, 1506.0, 1547.7, null, null, 0.0, null, 1749.2, 1739.1, null, 0.0, null, 1739.5, 1726.5, 0.0, 0.0, 0.0, 0.0]}, \"time\": 1795046912.2769237}"
+  ]
+ },
+ "probes": [
+  {
+   "variant": "tools_all",
+   "r": 1,
+   "requests": [
+    {
+     "req": 1,
+     "prompt_tokens": 367,
+     "cached_tokens": 0,
+     "cache_n": 0,
+     "prompt_n": 367,
+     "prompt_ms": 1605.2,
+     "first_stream_ms": 1612.8,
+     "wall_ms": 1613.1,
+     "completion_tokens": 1,
+     "tools": true
+    },
+    {
+     "req": 2,
+     "prompt_tokens": 4756,
+     "cached_tokens": 0,
+     "cache_n": 0,
+     "prompt_n": 4756,
+     "prompt_ms": 3514.7,
+     "first_stream_ms": 3547.6,
+     "wall_ms": 3547.9,
+     "completion_tokens": 1,
+     "tools": true
+    },
+    {
+     "req": 3,
+     "prompt_tokens": 8812,
+     "cached_tokens": 0,
+     "cache_n": 0,
+     "prompt_n": 8812,
+     "prompt_ms": 6593.0,
+     "first_stream_ms": 6625.3,
+     "wall_ms": 6625.6,
+     "completion_tokens": 1,
+     "tools": true
+    },
+    {
+     "req": 4,
+     "prompt_tokens": 8826,
+     "cached_tokens": 0,
+     "cache_n": 0,
+     "prompt_n": 8826,
+     "prompt_ms": 5904.9,
+     "first_stream_ms": 5929.5,
+     "wall_ms": 5929.7,
+     "completion_tokens": 1,
+     "tools": true
+    }
+   ]
+  },
+  {
+   "variant": "reencode",
+   "r": 1,
+   "requests": [
+    {
+     "req": 1,
+     "prompt_tokens": 368,
+     "cached_tokens": 0,
+     "cache_n": 0,
+     "prompt_n": 368,
+     "prompt_ms": 993.0,
+     "first_stream_ms": 1012.6,
+     "wall_ms": 2605.0,
+     "completion_tokens": 132,
+     "tools": true,
+     "generated": true
+    },
+    {
+     "req": 2,
+     "prompt_tokens": 4754,
+     "cached_tokens": 0,
+     "cache_n": 0,
+     "prompt_n": 4754,
+     "prompt_ms": 3872.6,
+     "first_stream_ms": 3889.0,
+     "wall_ms": 3889.3,
+     "completion_tokens": 1,
+     "tools": true,
+     "prev_prompt": 368,
+     "reasoning_chars": 277
+    }
+   ]
+  },
+  {
+   "variant": "reencode_reason",
+   "r": 1,
+   "requests": [
+    {
+     "req": 1,
+     "prompt_tokens": 366,
+     "cached_tokens": 0,
+     "cache_n": 0,
+     "prompt_n": 366,
+     "prompt_ms": 1037.8,
+     "first_stream_ms": 1058.8,
+     "wall_ms": 2179.9,
+     "completion_tokens": 84,
+     "tools": true,
+     "generated": true
+    },
+    {
+     "req": 2,
+     "prompt_tokens": 4807,
+     "cached_tokens": 449,
+     "cache_n": 449,
+     "prompt_n": 4358,
+     "prompt_ms": 3419.9,
+     "first_stream_ms": 3443.3,
+     "wall_ms": 3443.6,
+     "completion_tokens": 1,
+     "tools": true,
+     "prev_prompt": 366,
+     "reasoning_chars": 156
+    }
+   ]
+  },
+  {
+   "variant": "tools_all",
+   "r": 2,
+   "requests": [
+    {
+     "req": 1,
+     "prompt_tokens": 368,
+     "cached_tokens": 0,
+     "cache_n": 0,
+     "prompt_n": 368,
+     "prompt_ms": 1002.6,
+     "first_stream_ms": 1027.5,
+     "wall_ms": 1027.8,
+     "completion_tokens": 1,
+     "tools": true
+    },
+    {
+     "req": 2,
+     "prompt_tokens": 4757,
+     "cached_tokens": 0,
+     "cache_n": 0,
+     "prompt_n": 4757,
+     "prompt_ms": 3650.2,
+     "first_stream_ms": 3671.8,
+     "wall_ms": 3672.1,
+     "completion_tokens": 1,
+     "tools": true
+    },
+    {
+     "req": 3,
+     "prompt_tokens": 8813,
+     "cached_tokens": 0,
+     "cache_n": 0,
+     "prompt_n": 8813,
+     "prompt_ms": 5946.0,
+     "first_stream_ms": 5962.2,
+     "wall_ms": 5962.5,
+     "completion_tokens": 1,
+     "tools": true
+    },
+    {
+     "req": 4,
+     "prompt_tokens": 8827,
+     "cached_tokens": 0,
+     "cache_n": 0,
+     "prompt_n": 8827,
+     "prompt_ms": 6374.1,
+     "first_stream_ms": 6401.4,
+     "wall_ms": 6401.6,
+     "completion_tokens": 1,
+     "tools": true
+    }
+   ]
+  },
+  {
+   "variant": "reencode",
+   "r": 2,
+   "requests": [
+    {
+     "req": 1,
+     "prompt_tokens": 367,
+     "cached_tokens": 0,
+     "cache_n": 0,
+     "prompt_n": 367,
+     "prompt_ms": 1122.2,
+     "first_stream_ms": 1144.7,
+     "wall_ms": 2208.4,
+     "completion_tokens": 86,
+     "tools": true,
+     "generated": true
+    },
+    {
+     "req": 2,
+     "prompt_tokens": 4753,
+     "cached_tokens": 0,
+     "cache_n": 0,
+     "prompt_n": 4753,
+     "prompt_ms": 3410.1,
+     "first_stream_ms": 3432.6,
+     "wall_ms": 3432.8,
+     "completion_tokens": 1,
+     "tools": true,
+     "prev_prompt": 367,
+     "reasoning_chars": 159
+    }
+   ]
+  },
+  {
+   "variant": "reencode_reason",
+   "r": 2,
+   "requests": [
+    {
+     "req": 1,
+     "prompt_tokens": 367,
+     "cached_tokens": 0,
+     "cache_n": 0,
+     "prompt_n": 367,
+     "prompt_ms": 1000.4,
+     "first_stream_ms": 1016.2,
+     "wall_ms": 1984.2,
+     "completion_tokens": 84,
+     "tools": true,
+     "generated": true
+    },
+    {
+     "req": 2,
+     "prompt_tokens": 4808,
+     "cached_tokens": 450,
+     "cache_n": 450,
+     "prompt_n": 4358,
+     "prompt_ms": 3376.0,
+     "first_stream_ms": 3400.8,
+     "wall_ms": 3401.0,
+     "completion_tokens": 1,
+     "tools": true,
+     "prev_prompt": 367,
+     "reasoning_chars": 156
+    }
+   ]
+  }
+ ],
+ "tg": {
+  "prompt_tokens": 60,
+  "cached_tokens": 0,
+  "cache_n": 0,
+  "prompt_n": 60,
+  "prompt_ms": 140.5,
+  "first_stream_ms": 156.7,
+  "wall_ms": 3638.1,
+  "completion_tokens": 256,
+  "tools": false,
+  "tg_tok_s": 73.53
+ },
+ "engine_log_cache_lines": [
+  "[strata] 2026-11-19 09:06:24 engine started: C:\\strata-lab\\engine\\engine\\strata.exe --serve --native C:\\strata-lab\\data\\models\\qwen36-ud-q4_k_xl\\Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf --max-context 32768 --prefill auto --mtp 2 --conversation-cache-mib 1024",
+  "strata-q36: ignoring --conversation-cache-mib 1024 (not an option of this engine)"
+ ]
+}
