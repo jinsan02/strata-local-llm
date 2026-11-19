@@ -1,5 +1,5 @@
 {
- "_note": "로컬 LLM 워커 하네스 설정 (scripts/worker/strata_worker.py). 11-18 기준 H0. H3 · 채택 확인 뒤 채택안으로 바꾸고 같은 커밋에 근거를 남긴다. ctx 는 서버 --context 와 같게.",
+ "_note": "로컬 LLM 워커 하네스 설정 (scripts/worker/strata_worker.py). H0 유지(11-19 채택 확인에서 H3 기각, 6200224). 하네스를 바꾸면 같은 커밋에 근거를 남긴다. ctx 는 서버 --context 와 같게.",
  "harness": "H0",
  "tool_out": "chars",
  "reasoning_echo": "none",
