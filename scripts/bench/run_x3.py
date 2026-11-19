@@ -287,6 +287,71 @@ def edit_file(root: Path, args: dict, deny: tuple[str, ...]) -> tuple[bool, str]
 TOOL_OUT_LIMIT = 12000      # 기준선(H0): 글자 수로 끝을 자른다. 잘린 글자 수는 도구 로그에 남긴다.
 FORCE_EDIT_TURNS = 3        # H4: 강제 턴에서 edit_file 만으로 더 고칠 수 있는 횟수
 
+# Q15 (11-19): 공개(기존) 테스트를 도는 도구. --run-tests on 일 때만 준다(H0 는 없음). 숨은 테스트는 채점 때만 tests/ 에
+# 잠시 복사되므로(grade) 탐색 중에는 작업 복사본에 없다. 출력은 종료 코드 · 요약 · 첫 실패 · 재현 명령만, 전체 로그는 하네스 쪽 파일.
+RUN_TESTS_TIMEOUT = 120
+RUN_TESTS_TOOL = {"type": "function", "function": {"name": "run_tests",
+                  "description": "기존(공개) 테스트를 돌린다. 인자 없이 부르면 이 과제와 관련된 기존 테스트 전체, path 로 tests/ 아래 "
+                                 "파일 하나만. 결과: 종료 코드 · 통과/실패 수 · 첫 실패 · 재현 명령 (최대 120초)",
+                  "parameters": {"type": "object", "properties": {"path": {"type": "string", "description": "예: tests/test_utils.py (선택)"}}}}}
+RUN_TESTS_NOTE = "run_tests 도구로 기존(공개) 테스트를 돌려 결과를 볼 수 있다. 새 기능을 채점하는 테스트는 비공개라 여기에 없다."
+
+
+def _first_failure(out: str) -> str:
+    lines = out.splitlines()
+    head = re.compile(r"_{3,} .+ _{3,}$")
+    start = next((i for i, ln in enumerate(lines) if head.match(ln.strip())), None)
+    if start is None:
+        hit = [ln for ln in lines if ln.startswith(("FAILED", "ERROR", "E "))]
+        return ("\n".join(hit[:15]) or "\n".join(lines[-15:]))[:1500]
+    end = next((j for j in range(start + 1, len(lines)) if head.match(lines[j].strip()) or re.match(r"={3,}.*={3,}$", lines[j].strip())),
+               len(lines))
+    block = lines[start:end]
+    if len("\n".join(block)) <= 1500:
+        return "\n".join(block)
+    # 길면 제목 줄 + 끝부분(실제 오류 줄 · E 줄은 블록 끝에 있다; 앞쪽은 pytest 내부 호출 경로)
+    tail: list[str] = []
+    for ln in reversed(block[1:]):
+        if len("\n".join([block[0], "...", ln, *tail])) > 1500:
+            break
+        tail.insert(0, ln)
+    return "\n".join([block[0], "...", *tail])
+
+
+def make_run_tests(default_files: list[str]):
+    """작업 복사본(root)에서 공개 테스트를 도는 함수. (ok, 모델에 줄 문자열). ok=False 는 잘못된 경로 · 시간 초과뿐."""
+
+    def run_tests(root: Path, args: dict) -> tuple[bool, str]:
+        path = str((args or {}).get("path") or "").strip()
+        if path:
+            target = (root / path).resolve()
+            tests_dir = (root / "tests").resolve()
+            if tests_dir not in target.parents or target.suffix != ".py" or not target.is_file() or "x3_hidden" in target.name:
+                return False, f"오류: tests/ 아래에 있는 테스트 파일만 돌릴 수 있다 ({path})"
+            files = [target.relative_to(root.resolve()).as_posix()]
+        else:
+            files = list(default_files)
+        cmd = [PYX, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-o", "addopts=", "--tb=short", *files]
+        env = {**os.environ, "PYTHONPATH": str(root / "src"), "PYTHONDONTWRITEBYTECODE": "1"}
+        try:
+            r = subprocess.run(cmd, cwd=root, capture_output=True, text=True, errors="replace", timeout=RUN_TESTS_TIMEOUT, env=env)
+        except subprocess.TimeoutExpired:
+            return False, f"오류: 테스트가 {RUN_TESTS_TIMEOUT}초 안에 끝나지 않았다. path 로 파일 하나만 돌려라"
+        out = (r.stdout or "") + (r.stderr or "")
+        logdir = root.parent / f"{root.name}_testlogs"
+        logdir.mkdir(exist_ok=True)
+        n = len(list(logdir.glob("run*.log"))) + 1
+        (logdir / f"run{n}.log").write_text(out, encoding="utf-8")
+        summary = next((ln.strip("= ") for ln in reversed(out.splitlines()) if re.search(r"\d+ (passed|failed|errors?)\b", ln)),
+                       "(요약 줄 없음)")
+        repro = "PYTHONPATH=src python -m pytest -q --tb=short " + " ".join(files)
+        text = f"종료 코드 {r.returncode}\n요약: {summary}\n"
+        if r.returncode:
+            text += "첫 실패:\n" + _first_failure(out) + "\n"
+        return True, text + f"재현: {repro}\n(전체 로그 {len(out.splitlines())}줄은 하네스 쪽에 저장됨)"
+
+    return run_tests
+
 
 def to_anthropic(msgs: list, tools: list | None) -> dict:
     """Chat Completions 메시지 -> Anthropic Messages 요청 (서버 count_tokens 로 '보낼 요청 전체' 를 세기 위해)."""
@@ -349,11 +414,14 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
     prompt_tokens · cached_tokens · timings(cache_n · prompt_n · prompt_ms) 를 남긴다. 서버가 안 주면 None(NA).
     """
     chat = chat or chat_once
+    run_tests_fn = getattr(a, "run_tests_fn", None)   # Q15: 있으면 run_tests 도구를 준다(H0 = 없음)
+    nav_tools = NAV_TOOLS + [RUN_TESTS_TOOL] if run_tests_fn is not None else NAV_TOOLS
+    tool_names = "list_files · grep · read_file · edit_file" + (" · run_tests" if run_tests_fn is not None else "")
     counter = counter or (lambda m, t: count_exact(a.base_url, api_key, m, t))
     echo = getattr(a, "reasoning_echo", "none")     # H2 (T-013): none = H0 / all = 모든 assistant 턴 / last = 직전 턴만
     r = {"tool_log": [], "turns": [], "model_ms": 0.0, "tool_ms": 0.0, "out_tok": 0, "last_in": 0, "final": "", "status": "ok",
          "edit_ok": 0, "edit_fail": 0, "fake_calls": 0, "bad_json": 0, "tool_errors": 0, "truncated_chars": 0, "budget_cuts": 0,
-         "echo_chars": 0}
+         "echo_chars": 0, "tests_runs": 0}
 
     def add_assistant(m_out: dict, reasoning: str):
         if echo != "none" and reasoning:
@@ -374,7 +442,7 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
     for step in range(a.max_steps + FORCE_EDIT_TURNS):
         if step >= a.max_steps and not forced:
             break
-        exact = counter(msgs, [EDIT_TOOL] if forced and final_turn == "edit" else (None if forced else NAV_TOOLS))
+        exact = counter(msgs, [EDIT_TOOL] if forced and final_turn == "edit" else (None if forced else nav_tools))
         in_now, src = (exact, "count_tokens") if exact is not None else (r["last_in"], "prev_prompt_tokens")
         if not forced and (step == a.max_steps - 1 or in_now > force_at):
             forced = True
@@ -393,7 +461,7 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
             exact = counter(msgs, tools)
             in_now, src = (exact, "count_tokens") if exact is not None else (in_now, src)
         else:
-            tools = NAV_TOOLS
+            tools = nav_tools
         force = forced
         mt = max(1024, min(a.budget, a.ctx - in_now - 64)) if in_now else a.budget
         if mt < a.budget:
@@ -428,7 +496,7 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
                     fake_retry_left -= 1
                     add_assistant({"role": "assistant", "content": content}, msg.get("reasoning_content") or "")
                     msgs.append({"role": "user", "content": "방금 답은 도구 호출이 아니라 텍스트로 처리됐다(없는 도구 이름이거나 형식 오류). "
-                                 "사용할 수 있는 도구는 list_files · grep · read_file · edit_file 뿐이다. 파일 수정은 edit_file 로 하라."})
+                                 f"사용할 수 있는 도구는 {tool_names} 뿐이다. 파일 수정은 edit_file 로 하라."})
                     continue
             r["final"] = content
             break
@@ -446,7 +514,11 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
                 out, ok, logged = (f"오류: 도구 인자가 올바른 JSON 객체가 아니다 ({ex.msg}). 같은 도구를 올바른 JSON 인자로 다시 호출하라.",
                                    False, {"raw_head": raw[:200]})
             else:
-                if fn == "edit_file":
+                if fn == "run_tests" and run_tests_fn is not None:
+                    ok, out = run_tests_fn(root, args)
+                    r["tests_runs"] += 1
+                    logged = args
+                elif fn == "edit_file":
                     ok, out = edit_file(root, args, deny)
                     r["edit_ok" if ok else "edit_fail"] += 1
                     logged = {"path": args.get("path"), "old_chars": len(args.get("old_string") or ""),
@@ -482,7 +554,8 @@ def nav_summary(nr: dict, wall_ms: float, grade_ms: float) -> str:
             f"count_vs_server_max_diff {na(max(abs(c - p) for c, p in cnt) if cnt else None)}; budget_cuts {nr['budget_cuts']}; "
             f"bad_json {nr['bad_json']}; tool_errors {nr['tool_errors']}; truncated_chars {nr['truncated_chars']}; "
             f"echo_chars {nr.get('echo_chars', 0)}; forced_turns {nr.get('forced_turns', 0)}; "
-            f"wall_ms {wall_ms:.0f}; grade_ms {grade_ms:.0f}")
+            f"wall_ms {wall_ms:.0f}; grade_ms {grade_ms:.0f}"
+            + (f"; tests_runs {nr['tests_runs']}" if nr.get("tests_runs") else ""))
 
 
 def nav_apply_final(root: Path, r: dict, candidates: list[str], deny: tuple[str, ...]) -> tuple[int, list[str], str]:
@@ -625,6 +698,7 @@ def main() -> int:
     ap.add_argument("--tool-out", choices=["chars", "paged"], default="chars", help="H0 chars(글자 수 자르기) / H1 paged(토큰 예산 범위 · 다음 범위 안내)")
     ap.add_argument("--reasoning-echo", choices=["none", "all", "last"], default="none", help="H2: 이전 assistant 답의 reasoning_content 를 다시 보냄 (T-013)")
     ap.add_argument("--final-turn", choices=["none", "edit"], default="none", help="강제 마지막 턴: none = 도구 없이 텍스트 편집 블록(H0) / edit = edit_file 만 남김(H4)")
+    ap.add_argument("--run-tests", choices=["off", "on"], default="off", help="Q15: 공개 테스트 도구 run_tests 를 줌 (H0 = off)")
     ap.add_argument("--reasoning-budget", type=int, default=0, help="요청 reasoning_budget_tokens (0 = 서버 answer_room, S0)")
     ap.add_argument("--settings-id", default="S0", help="원장 settings_id (S0 = answer_room, S1T3 = thinking 3,072 등)")
     ap.add_argument("--base-url", default="http://127.0.0.1:8080")
@@ -741,15 +815,16 @@ def main() -> int:
                     task_txt = (TASKS / task / "prompt.md").read_text(encoding="utf-8")
                     sys_txt = ("너는 pypa/packaging 저장소(고정 커밋)에서 작업하는 코딩 에이전트다. 파일은 미리 주어지지 않는다. "
                                "list_files · grep · read_file 도구로 필요한 코드를 찾아 읽고, edit_file 도구로 직접 고쳐라.")
-                    msgs = [{"role": "system", "content": sys_txt}, {"role": "user", "content": "### 과제\n" + task_txt + "\n\n" + NAV_FORMAT}]
+                    msgs = [{"role": "system", "content": sys_txt}, {"role": "user", "content": "### 과제\n" + task_txt + "\n\n" + NAV_FORMAT + ("\n" + RUN_TESTS_NOTE if a.run_tests == "on" else "")}]
                     cfg = {"task": task, "mode": "navigate", "harness": a.harness, "commit": COMMIT, "tool_out_limit": TOOL_OUT_LIMIT,
                            "tool_out": a.tool_out, "reasoning_echo": a.reasoning_echo, "reasoning_budget": a.reasoning_budget or "answer_room", "final_turn": a.final_turn, "force_edit_turns": FORCE_EDIT_TURNS, **({"page_tokens": PAGE_TOKENS, "chars_per_token": CHARS_PER_TOKEN, "grep_hits": GREP_HITS,
                                                        "list_files": LIST_FILES} if a.tool_out == "paged" else {}),
-                           "tools": NAV_TOOLS, "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, "server_config": server_cfg}
+                           "tools": NAV_TOOLS + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {})}
                     cfg_sha = rb.sha256_bytes(rb.canon(cfg))
                     (run_dir / "config.json").write_bytes(rb.canon(cfg))
                     (run_dir / "env.json").write_bytes(rb.canon(env))
                     t_wall = time.perf_counter()
+                    a.run_tests_fn = make_run_tests(tcfg["regress"]) if a.run_tests == "on" else None
                     nr = navigate_loop(root, msgs, a, api_key, deny=("tests",))
                     tool_log, final, last_in = nr["tool_log"], nr["final"], nr["last_in"]
                     read = nav_read_ok(tool_log)
