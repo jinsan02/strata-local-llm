@@ -1,0 +1,1 @@
+`src/flask/blueprints.py`에서 `Blueprint.__init__` 메서드에 빈 이름(`name`) 체크를 추가했습니다. 이름이 빈 문자열인 경우 `ValueError`를 발생시킵니다.

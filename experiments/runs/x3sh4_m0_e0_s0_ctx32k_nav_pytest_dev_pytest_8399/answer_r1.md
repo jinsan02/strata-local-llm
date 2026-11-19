@@ -1,0 +1,1 @@
+`src/_pytest/unittest.py` 파일의 148번 줄에서 fixture 이름을 `"unittest_{setup_name}_fixture_{obj.__qualname__}"`에서 `"_{setup_name}_fixture_{obj.__qualname__}"`로 변경했습니다. 이렇게 하면 unittest setUpClass/fixtures가 생성될 때 이름이 `_`로 시작하여 `pytest --fixtures` 실행 시 기본적으로 숨겨집니다 ( `-v` 플래그 필요). 이 수정으로 코드 품질 CI 스크립트가 undocumented pytest fixtures를 경고하는 문제가 해결됩니다.

@@ -1,0 +1,1 @@
+`src/_pytest/unittest.py` 파일의 147행에서 fixture 이름을 `"unittest_..."` 에서 `"_unittest_..."` 로 변경하여 이름 앞에 언더스코어를 붙였다. pytest 는 이름이 밑줄로 시작하는 fixture를 "private"으로 간주하여 기본 `--fixtures` 출력에서는 숨기고 `-v` 플래그가 있을 때만 표시한다.

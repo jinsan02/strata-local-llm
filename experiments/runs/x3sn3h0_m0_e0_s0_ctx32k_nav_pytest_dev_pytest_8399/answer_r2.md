@@ -1,0 +1,1 @@
+`src/_pytest/unittest.py`에서 unittest fixture의 이름을 `unittest_{setup_name}_fixture_{obj.__qualname__}`에서 `_unittest_{setup_name}_fixture_{obj.__qualname__}`로 변경했다. 이로 인해 이름이 언더스코어로 시작하여 `--fixtures` 출력 시 기본값(비공개)으로 숨겨지게 되었다.

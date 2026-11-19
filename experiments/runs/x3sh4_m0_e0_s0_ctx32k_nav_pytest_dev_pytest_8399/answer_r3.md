@@ -1,0 +1,1 @@
+`src/_pytest/unittest.py`에서 생성되는 fixture 이름 앞에 `_`를 붙였습니다. 기존 `"unittest_{setup_name}_fixture_..."`를 `"_unittest_{setup_name}_fixture_..."`로 변경하여 private fixture 처리됩니다. 이 변경으로 `--fixtures` 명령 시 기본값으로는 표시되지 않습니다.

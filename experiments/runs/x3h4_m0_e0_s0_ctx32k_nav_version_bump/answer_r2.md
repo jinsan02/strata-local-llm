@@ -1,0 +1,1 @@
+`packaging/version.py` 파일의 `Version` 클래스에 `bump` 메서드를 추가했습니다. 이 메서드는 요청된 대로 `major`, `minor`, `micro` 부분 중 하나를 1씩 올리고 뒤부분은 0으로 초기화하며, epoch는 유지하고 pre/post/dev/local은 제거합니다. 존재하지 않는 인덱스에 접근할 경우 자동으로 확장(0 채움)되도록 구현되어 있습니다.

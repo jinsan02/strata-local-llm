@@ -1,0 +1,2 @@
+수정 완료. 다음 내용을 변경함:
+- `src/packaging/dependency_groups.py`: `InvalidGroupName` 예외 클래스 추가 및 `__all__` 등록, `_normalize_group_names`에 그룹 이름 정규식 검사 추가(`_validate_regex` 사용), `lookup()`과 `resolve()`에서 규칙 위반 시 즉시 `InvalidGroupName` 던짐.
