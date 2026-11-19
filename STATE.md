@@ -54,7 +54,7 @@
     **11-19 시작점 (11-18 밤 사용자 결정: 캐시 먼저)**: 대화 캐시 A/B(`--conversation-cache-mib` 없음 · 512 · 1024, T-013 원인 가설) → 서버 설정 결정 → 본체에서 `powershell -ExecutionPolicy Bypass -File C:\strata-lab\scripts\bench\launch_night3.ps1` (H0 대조 `x3n3h0` vs H4 `x3h4`, 번갈아 3회, 약 1시간 40분, 끝 표시 `engine\night-chain3.log` 의 `[night3] done`) → 로그와 원장 1:1 대조 · 커밋 → 판정. 그다음 **H3** = H1 + H2a (H4 가 통과하면 함께), 그 뒤 `run_tests` 도구(Q15)
 14. X4 기준선: 노트북에서 Claude Code CLI · Codex CLI 로 같은 과제(파일 탐색 → 수정 → 테스트 → 실패 로그 재수정), 같은 STRATA 32K. 후보 하나 더면 OpenCode. Hermes 는 64K 뒤
 15. 그다음 B1(P-diag → 첫 A/B, Q11 greedy·MTP 포함)
-16. 남은 X3 과제 3개(D · E · F) 구현 — 채택 하네스 확인 전용
+16. ~~남은 X3 과제 3개(D · E · F) 구현~~ 완료 · 검증 (11-19): 확인 전용, `configs/eval/x3-packaging/TASKS.md`
 17. ~~seed 42 반복 독립성~~ 확인 (11-18): 같은 seed 에서도 반복마다 답 · 호출 수가 달랐다(짧은 flask 일부만 같음) → 반복은 독립에 가깝다. 접두사는 체인마다 나눈다(LEDGER_SCHEMA 정정: 공유 폴더 config 덮어씀)
 18. **로컬 LLM 주 에이전트 · 워커 준비** (11-18 밤, `docs/WORKER.md`): 운영 서버 `scripts/launch_serve.ps1`(WMI), 워커 `scripts/worker/`(MCP `delegate_code_task` → diff). 자체 점검 5/5 · 실제 모델 1건 통과. 남은 것: 채택 하네스를 `configs/worker.json` 에 반영(H3 뒤), Codex 0.169 쓰기 샌드박스 · 출력 예산 키(X4), X5 워커 위임 A/B(클라우드 단독 vs 클라우드 지휘 + 로컬 워커). 지휘자 쪽 MCP 등록은 사람이 한다
 19. ~~T-013 원인 가설 확인~~ 기각 · 원인 확정 (11-19, record 커밋): q36 엔진이 `--conversation-cache-mib` 를 받지 않음, 재사용은 정확한 이어 붙이기만. 서버 설정은 그대로(H4 · H3 는 기본 설정)
@@ -130,6 +130,7 @@
 
 ## 최근 변경
 
+- 2026-11-19 · Claude Code · H4 A/B(30행, bedf6b1): H0 11 · H4 11, H4 는 텍스트 블록 불일치를 없앴지만 강제 턴 문법 오류 2건 · 시간 +17% · 입력 +35% → 채택하지 않음. 다음 H3 = H1 + H2a. X3 확인 전용 과제 D · E · F 구현 · 검증(기준 실패 · 참조 통과 · 회귀 통과). 측정 중 `configs/` 에 새 파일을 만들어 git_dirty 위험 → 2분 만에 git 밖으로 옮김(영향 행 0, 원장 git_dirty 전부 0).
 - 2026-11-19 · Claude Code · 대화 캐시 A/B(없음 · 512 · 1024, 원장 3행): q36 엔진이 옵션을 무시해 세 조건 같음, 후속 턴 재사용 0 재현. 엔진 소스로 원인 확정(T-013) — 든 토큰 전체가 앞부분일 때만 재사용, 체크포인트 없음. 서버 설정 변경 없이 H4 로. `serve-ctx.ps1 -CacheMib` 는 다른 엔진 경로용으로 남김.
 - 2026-11-18 · Claude Code · 로컬 LLM 을 주 에이전트 · 워커로 쓰는 준비(`docs/WORKER.md`): `launch_serve.ps1`(WMI 운영 서버, 63초 준비), `scripts/worker/`(X3 탐색 루프 재사용, 별도 작업 트리 · 테스트 · 1회 보완 · 측정 체인 감지 · 잠금, 표준 라이브러리 MCP 서버), 자체 점검 5/5, 노트북 → ssh → MCP → STRATA 실제 1건 `done` 43초. `run_x3.navigate_loop` 강제 턴 기준을 인자로(`force_at`, 32K 값 불변). Codex 0.169 연결 확인 · 쓰기 샌드박스 문제는 X4 로. T-015(실행 정책) · T-016(옛 .pyc), T-013 원인 가설(대화 캐시 자동 꺼짐), Q16(64K 메모리 추정).
 - 2026-11-18 · Claude Code · 마무리: 내일 안건 12건 권장대로 결정, Q2 종결(권장안 승인), API 키 생성 · 설정(git 제외, 401/200 확인), README · ENVIRONMENT · client README 최신화, 내일 계획 `docs/plan-20261119.md`.
