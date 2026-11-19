@@ -1,0 +1,62 @@
+diff --git a/src/packaging/utils.py b/src/packaging/utils.py
+index bc31b32..6ce68fe 100644
+--- a/src/packaging/utils.py
++++ b/src/packaging/utils.py
+@@ -7,11 +7,14 @@ from __future__ import annotations
+ __lazy_modules__ = {f"{__spec__.parent}.tags", f"{__spec__.parent}.version"}
+ 
+ import re
+-from typing import NewType, cast
++from typing import TYPE_CHECKING, NewType, cast
+ 
+-from .tags import InvalidTag, Tag, UnsortedTagsError, parse_tag
++from .tags import InvalidTag, Tag, UnsortedTagsError, _normalize_string, parse_tag
+ from .version import InvalidVersion, Version
+ 
++if TYPE_CHECKING:
++    from collections.abc import Iterable
++
+ __all__ = [
+     "BuildTag",
+     "InvalidName",
+@@ -203,6 +206,7 @@ def parse_wheel_filename(
+     filename: str,
+     *,
+     validate_order: bool = False,
++    platforms: Iterable[str] | None = None,
+ ) -> tuple[NormalizedName, Version, BuildTag, frozenset[Tag]]:
+     """
+     This function takes the filename of a wheel file, and parses it,
+@@ -224,6 +228,9 @@ def parse_wheel_filename(
+     :param str filename: The name of the wheel file.
+     :param bool validate_order: Check whether compressed tag set components
+         are in sorted order.
++    :param platforms: If given, at least one tag must have one of these
++        platforms (normalized like :mod:`packaging.tags` platform names) or
++        the ``any`` platform.
+     :raises InvalidWheelFilename: If the filename in question
+         does not follow the :ref:`wheel specification
+         <pypug:binary-distribution-format>`.
+@@ -254,6 +261,8 @@ def parse_wheel_filename(
+        not an identifier, a tag set component is empty, or the project name is
+        empty.
+     """
++    if isinstance(platforms, str):
++        raise TypeError("platforms must be an iterable of platform names, not a str")
+     if not filename.endswith(".whl"):
+         raise InvalidWheelFilename(
+             f"Invalid wheel filename (extension must be '.whl'): {filename!r}"
+@@ -302,6 +311,13 @@ def parse_wheel_filename(
+         raise InvalidWheelFilename(
+             f"Invalid wheel filename (invalid tag component): {filename!r}"
+         ) from None
++    if platforms is not None:
++        wanted = {_normalize_string(p).lower() for p in platforms}
++        if not any(t.platform == "any" or t.platform in wanted for t in tags):
++            raise InvalidWheelFilename(
++                f"Invalid wheel filename (no tag for platforms {sorted(wanted)!r}): "
++                f"{filename!r}"
++            )
+     return (name, version, build, tags)
+ 
+ 

@@ -1,0 +1,88 @@
+diff --git a/src/packaging/metadata.py b/src/packaging/metadata.py
+index 4360971..5c9dc1c 100644
+--- a/src/packaging/metadata.py
++++ b/src/packaging/metadata.py
+@@ -26,6 +26,7 @@ from typing import (
+ )
+ 
+ from . import licenses, requirements, specifiers, utils
++from ._parser import Value, Variable
+ from . import version as version_module
+ from .errors import ExceptionGroup, _ErrorCollector
+ 
+@@ -728,8 +729,15 @@ class _Validator(Generic[T]):
+             raise self._invalid_metadata(
+                 f"{name!r} is invalid for {self.raw_name!r}", cause=exc
+             ) from exc
+-        else:
+-            return normalized_names
++        seen: set[str] = set()
++        for name, normalized in zip(value, normalized_names):
++            if normalized in seen:
++                raise self._invalid_metadata(
++                    f"{name!r} duplicates another extra in {self.raw_name!r} "
++                    f"(normalized: {normalized!r})"
++                )
++            seen.add(normalized)
++        return normalized_names
+ 
+     def _process_requires_python(self, value: str) -> specifiers.SpecifierSet:
+         try:
+@@ -815,6 +823,21 @@ class _Validator(Generic[T]):
+     _process_import_namespaces = _process_import_names
+ 
+ 
++def _marker_extra_values(markers: object) -> set[str]:
++    """Normalized values compared with the ``extra`` variable in a marker tree."""
++    found: set[str] = set()
++    if isinstance(markers, list):
++        for item in markers:
++            found |= _marker_extra_values(item)
++    elif isinstance(markers, tuple) and len(markers) == 3:
++        lhs, _op, rhs = markers
++        if isinstance(lhs, Variable) and lhs.value == "extra" and isinstance(rhs, Value):
++            found.add(utils.canonicalize_name(rhs.value))
++        elif isinstance(rhs, Variable) and rhs.value == "extra" and isinstance(lhs, Value):
++            found.add(utils.canonicalize_name(lhs.value))
++    return found
++
++
+ class Metadata:
+     """Representation of distribution metadata.
+ 
+@@ -883,10 +906,35 @@ class Metadata:
+                 except InvalidMetadata as exc:
+                     collector.error(exc)
+ 
++            with collector.collect(InvalidMetadata):
++                ins._check_requires_dist_extras()
++
+             collector.finalize("invalid metadata")
+ 
+         return ins
+ 
++    def _check_requires_dist_extras(self) -> None:
++        """Every ``extra`` compared in a Requires-Dist marker is a Provides-Extra.
++
++        Uses only the values already validated (cached); skipped when either field
++        is absent or failed validation.
++        """
++        declared = self.__dict__.get("provides_extra")
++        reqs = self.__dict__.get("requires_dist")
++        if declared is None or not reqs:
++            return
++        known = set(declared)
++        for req in reqs:
++            if req.marker is None:
++                continue
++            for name in sorted(_marker_extra_values(req.marker._markers)):
++                if name not in known:
++                    raise InvalidMetadata(
++                        "requires-dist",
++                        f"{str(req)!r} uses extra {name!r} which is not in "
++                        f"'provides-extra'",
++                    )
++
+     @classmethod
+     def from_email(cls, data: bytes | str, *, validate: bool = True) -> Metadata:
+         """Parse metadata from email headers.

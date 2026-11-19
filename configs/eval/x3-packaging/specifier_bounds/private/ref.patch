@@ -1,0 +1,69 @@
+diff --git a/src/packaging/specifiers.py b/src/packaging/specifiers.py
+index 80e1467..c84a20b 100644
+--- a/src/packaging/specifiers.py
++++ b/src/packaging/specifiers.py
+@@ -1136,6 +1136,64 @@ class SpecifierSet(BaseSpecifier):
+ 
+         return self._canonical_specs() == other._canonical_specs()
+ 
++    def bounds(
++        self,
++    ) -> tuple[tuple[Version, bool] | None, tuple[Version, bool] | None]:
++        """The (lower, upper) bounds of this set, each ``None`` or ``(version, inclusive)``.
++
++        ``!=`` adds no bound; ``==V.*`` and ``~=V`` give an exclusive upper bound built
++        from the release numbers (epoch kept). The tightest bound wins; on equal
++        versions the exclusive one wins. Emptiness is not checked.
++
++        :raises ValueError: If the set has an ``===`` specifier.
++        """
++
++        def release_version(epoch: int, release: list[int]) -> Version:
++            text = ".".join(str(x) for x in release)
++            return Version(f"{epoch}!{text}" if epoch else text)
++
++        lower: tuple[Version, bool] | None = None
++        upper: tuple[Version, bool] | None = None
++        for spec in self._specs:
++            op, ver = spec.operator, spec.version
++            lo: tuple[Version, bool] | None = None
++            hi: tuple[Version, bool] | None = None
++            if op == "===":
++                raise ValueError(f"cannot compute bounds of {str(spec)!r}")
++            if op == "==" and ver.endswith(".*"):
++                base = Version(ver[:-2])
++                nxt = list(base.release)
++                nxt[-1] += 1
++                lo, hi = (base, True), (release_version(base.epoch, nxt), False)
++            elif op == "==":
++                lo = hi = (Version(ver), True)
++            elif op == "~=":
++                base = Version(ver)
++                nxt = list(base.release[:-1])
++                nxt[-1] += 1
++                lo, hi = (base, True), (release_version(base.epoch, nxt), False)
++            elif op == ">=":
++                lo = (Version(ver), True)
++            elif op == ">":
++                lo = (Version(ver), False)
++            elif op == "<=":
++                hi = (Version(ver), True)
++            elif op == "<":
++                hi = (Version(ver), False)
++            if lo is not None and (
++                lower is None
++                or lo[0] > lower[0]
++                or (lo[0] == lower[0] and not lo[1])
++            ):
++                lower = lo
++            if hi is not None and (
++                upper is None
++                or hi[0] < upper[0]
++                or (hi[0] == upper[0] and not hi[1])
++            ):
++                upper = hi
++        return lower, upper
++
+     def __len__(self) -> int:
+         """Returns the number of specifiers in this specifier set."""
+         return len(self._specs)

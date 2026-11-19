@@ -24,9 +24,9 @@
 | `dg_group_names` | **A** 한 파일의 규칙 → 다른 파일 호출부 | dependency group 이름을 core metadata Name 규칙(utils 의 기존 구현)으로 검사. `InvalidGroupName` 공개 예외, 생성 시 오류 묶음에 수집, lookup · resolve 는 단일 예외 | `dependency_groups.py`, `utils.py`, `errors.py` | `test_dependency_groups.py`, `test_utils.py` | 구현 · 검증 |
 | `marker_extras` | **B** 두 모듈 동시 수정 | `Marker.referenced_extras()` (중첩 마커 구조 순회, `extra` 비교 · `in extras`, 정규화) + `Requirement.marker_extras` | `markers.py`, `requirements.py` | `test_markers.py`, `test_requirements.py` | 구현 · 검증 |
 | `version_bump` | **C** 실패 로그 보고 1회 보완 | `Version.bump(part)` — 길이 유지 · 0 채움 · epoch 유지 · pre/post/dev/local 제거 · 대소문자 엄격 | `version.py` | `test_version.py` | 구현 · 검증 |
-| `tags_platform_filter` | A | `tags.py` 의 플랫폼 태그 규칙을 읽고 `utils.parse_wheel_filename` 에 플랫폼 필터 인자 추가 | `tags.py`, `utils.py` | `test_tags.py`, `test_utils.py` | 설계만 |
-| `metadata_extra_dupes` | B | 메타데이터 `Provides-Extra` 정규화 후 중복 검사 + `Requires-Dist` 마커가 선언되지 않은 extra 를 쓰면 오류 (metadata · markers) | `metadata.py`, `markers.py` | `test_metadata.py`, `test_markers.py` | 설계만 |
-| `specifier_bounds` | C | `SpecifierSet` 에서 하한 · 상한 버전을 계산하는 메서드 (포함/제외 경계, `~=` · `==*` 처리) | `specifiers.py`, `version.py` | `test_specifiers.py` | 설계만 |
+| `tags_platform_filter` | A | `tags.py` 의 플랫폼 태그 규칙을 읽고 `utils.parse_wheel_filename` 에 플랫폼 필터 인자 추가 | `tags.py`, `utils.py` | `test_tags.py`, `test_utils.py` | 구현 · 검증 (11-19, 확인 전용) |
+| `metadata_extra_dupes` | B | 메타데이터 `Provides-Extra` 정규화 후 중복 검사 + `Requires-Dist` 마커가 선언되지 않은 extra 를 쓰면 오류 (metadata · markers) | `metadata.py`, `markers.py`, `_parser.py` | `test_metadata.py`, `test_markers.py` | 구현 · 검증 (11-19, 확인 전용). markers 는 읽기만(과제 B 의 `referenced_extras` 와 겹치지 않게) |
+| `specifier_bounds` | C | `SpecifierSet` 에서 하한 · 상한 버전을 계산하는 메서드 (포함/제외 경계, `~=` · `==*` 처리) | `specifiers.py`, `version.py` | `test_specifiers.py` | 구현 · 검증 (11-19, 확인 전용) |
 
 모든 과제는 공통 지시(편집 블록 형식)를 붙인다. 형식: `### EDIT: <경로>` + `<<<<<<< SEARCH` / `=======` / `>>>>>>> REPLACE`.
 
@@ -37,6 +37,12 @@
 | dg_group_names | 10 failed, 4 passed (실패) | 통과 | 14 passed | 129 passed |
 | marker_extras | 11 failed | 통과 | 11 passed | 7,921 passed, 1 skipped |
 | version_bump | 16 failed | 통과 | 16 passed | 51,524 passed |
+| tags_platform_filter | 18 failed, 1 passed (실패) | 통과 (317) | 19 passed | 317 passed |
+| metadata_extra_dupes | 10 failed, 10 passed (실패) | 통과 (2,854) | 20 passed | 2,854 passed |
+| specifier_bounds | 30 failed | 통과 (2,108, 2 skipped) | 30 passed | 2,108 passed, 2 skipped |
+
+D · E · F 는 `scripts/bench/make_def.py` 가 고정 커밋 사본에서 참조 패치를 뽑아 만들고(원본 불변, `git apply --check`),
+`scripts/bench/validate_def.py` 가 측정 체인이 없을 때 검증한다. **확인 전용**: 하네스 튜닝 · 비교에 쓰지 않고 채택 확인에만 쓴다.
 
 ## 실행 방식 (`scripts/bench/run_x3.py`)
 
