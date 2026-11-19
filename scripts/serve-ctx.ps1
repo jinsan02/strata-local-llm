@@ -33,6 +33,10 @@ if ($Stop) { return }
 $src = Join-Path $eng 'strata-qwen36-ud-q4_k_xl.json'
 $dst = Join-Path $eng "strata-qwen36-ctx$Context.json"
 $cfg = Get-Content $src -Raw | ConvertFrom-Json
+# 11-19 설정 고정: 출력에 영향을 주는 서버 기본값을 config 에 그대로 적는다(행동 불변, 엔진 버전이 바뀌어도 같은 값)
+$pin = [ordered]@{answer_room = $true; repeat_stop_tokens = 256; tool_call_recovery = $true; undeclared_tool_calls = 'text';
+  fit_max_tokens = $true; reasoning_loop_recovery = $false; reasoning_close_retry = $false}
+foreach ($k in $pin.Keys) { $cfg | Add-Member -NotePropertyName $k -NotePropertyValue $pin[$k] -Force }
 foreach ($key in 'args','args_written') {
   $a = [System.Collections.ArrayList]@($cfg.$key)
   $i = $a.IndexOf('--max-context'); $a[$i + 1] = "$Context"
@@ -44,6 +48,11 @@ $cfg.log = Join-Path $eng ("strata-qwen36-ctx$Context" + $(if ($CacheMib -ge 0) 
 [IO.File]::WriteAllText($dst, ($cfg | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding($false)))
 "[serve] config $dst  (--max-context $Context, host $Host_, conversation-cache-mib $(if ($CacheMib -ge 0) { $CacheMib } else { 'auto' }))"
 $env:PYTHONUTF8 = '1'
+# 11-19 설정 고정: 웹 UI 의 Chat 공유 설정이 모든 요청 기본값을 바꾸지 않게 한다
+$shared = Join-Path $eng ("strata-qwen36-ctx$Context" + '.shared-settings.json')
+if (Test-Path $shared) { $bak = "$shared.bak-$(Get-Date -Format yyyyMMddHHmmss)"; Move-Item $shared $bak; "[serve] 경고: Chat 공유 설정 파일을 옮김 -> $bak" }
+Get-ChildItem env: | Where-Object { $_.Name -like 'STRATA_*' -and $_.Name -ne 'STRATA_API_KEY' } |
+  ForEach-Object { Remove-Item "env:$($_.Name)"; "[serve] 경고: 예상 밖 환경 변수 $($_.Name) 를 지움" }
 foreach ($kv in ($EnvSet -split ';' | Where-Object { $_ })) { $k, $v = $kv -split '=', 2; Set-Item "env:$k" $v; "[serve] env $k=$v" }
 Set-Location $eng
 & C:\ProgramData\anaconda3\envs\strata_local_llm\python.exe serve\server.py --engine strata --config $dst --port 8080 --host $Host_ 2>&1
