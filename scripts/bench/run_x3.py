@@ -259,6 +259,38 @@ NAV_FORMAT = ("수정은 edit_file 도구로 직접 하라(필요하면 여러 �
 FAKE_CALL_RE = re.compile(r"<tool_call>|<function=")
 
 
+EDIT_HINT = False           # H6 (--edit-hint on): old_string 0회 일치면 가장 비슷한 원문 구간을 공백 그대로 돌려준다
+EDIT_HINT_LINES = 12
+
+
+def _closest_region(text: str, old: str) -> str:
+    """old_string 과 가장 비슷한 연속 구간(같은 줄 수, 최대 EDIT_HINT_LINES)을 원문 그대로. 비슷한 게 없으면 빈 문자열."""
+    import difflib
+    src = text.splitlines()
+    want = [ln for ln in old.splitlines()]
+    while want and not want[0].strip():
+        want.pop(0)
+    if not src or not want:
+        return ""
+    n = min(len(want), EDIT_HINT_LINES)
+    key = want[0].strip()
+    best, best_i = 0.0, -1
+    for i, ln in enumerate(src):
+        s = ln.strip()
+        if not s:
+            continue
+        r = difflib.SequenceMatcher(None, key, s).ratio()
+        if r > best:
+            best, best_i = r, i
+    if best < 0.6:
+        return ""
+    if n > 1:   # 첫 줄이 같은 후보가 여럿이면 구간 전체로 다시 고른다
+        cands = [i for i, ln in enumerate(src) if ln.strip() and difflib.SequenceMatcher(None, key, ln.strip()).ratio() >= best - 1e-9]
+        joined = "\n".join(want[:n])
+        best_i = max(cands, key=lambda i: difflib.SequenceMatcher(None, joined, "\n".join(src[i:i + n])).ratio())
+    return "\n".join(src[best_i:best_i + n])
+
+
 def edit_file(root: Path, args: dict, deny: tuple[str, ...]) -> tuple[bool, str]:
     path = args.get("path") or ""
     old, new = args.get("old_string"), args.get("new_string")
@@ -279,7 +311,12 @@ def edit_file(root: Path, args: dict, deny: tuple[str, ...]) -> tuple[bool, str]
     n = text.count(old)
     if n != 1:
         hint = "read_file 로 현재 내용을 다시 확인하고 공백 · 들여쓰기까지 그대로 복사하라" if n == 0 else "앞뒤 줄을 더 넣어 한 곳만 맞게 하라"
-        return False, f"오류: old_string 이 {path} 에서 {n}회 일치한다 (정확히 1회여야 함). {hint}"
+        msg = f"오류: old_string 이 {path} 에서 {n}회 일치한다 (정확히 1회여야 함). {hint}"
+        if n == 0 and EDIT_HINT:
+            near = _closest_region(text, old)
+            if near:
+                msg += f"\n가장 비슷한 현재 원문(공백 그대로, 줄 번호 없음 - old_string 은 이것을 그대로 복사해 만들어라):\n```\n{near}\n```"
+        return False, msg
     p.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
     return True, f"{path} 를 고쳤다 (-{len(old.splitlines())}줄 +{len(new.splitlines())}줄)"
 
@@ -405,6 +442,17 @@ def _tool_ok(fn: str, out: str) -> bool:
     return not out.startswith("오류")
 
 
+def _reread_key(root: Path, args: dict):
+    """C1: (경로, 시작 줄, 끝 줄, 파일 해시). 파일이 없거나 저장소 밖이면 None."""
+    import hashlib
+    path = str(args.get("path") or "")
+    target = (root / path).resolve()
+    if not path or root.resolve() not in target.parents or not target.is_file():
+        return None
+    digest = hashlib.sha1(target.read_bytes()).hexdigest()
+    return (path, int(args.get("start_line") or 1), str(args.get("end_line") or ""), digest)
+
+
 def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...], chat=None, counter=None) -> dict:
     """도구 탐색 루프(X3 · SWE 공용). 편집은 edit_file 로 작업 트리에 바로 적용된다.
 
@@ -415,13 +463,15 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
     """
     chat = chat or chat_once
     run_tests_fn = getattr(a, "run_tests_fn", None)   # Q15: 있으면 run_tests 도구를 준다(H0 = 없음)
+    reread_guard = getattr(a, "reread_guard", "off") == "on"   # C1: 같은 범위 · 같은 내용 재읽기는 안내만
+    seen_reads: dict = {}
     nav_tools = NAV_TOOLS + [RUN_TESTS_TOOL] if run_tests_fn is not None else NAV_TOOLS
     tool_names = "list_files · grep · read_file · edit_file" + (" · run_tests" if run_tests_fn is not None else "")
     counter = counter or (lambda m, t: count_exact(a.base_url, api_key, m, t))
     echo = getattr(a, "reasoning_echo", "none")     # H2 (T-013): none = H0 / all = 모든 assistant 턴 / last = 직전 턴만
     r = {"tool_log": [], "turns": [], "model_ms": 0.0, "tool_ms": 0.0, "out_tok": 0, "last_in": 0, "final": "", "status": "ok",
          "edit_ok": 0, "edit_fail": 0, "fake_calls": 0, "bad_json": 0, "tool_errors": 0, "truncated_chars": 0, "budget_cuts": 0,
-         "echo_chars": 0, "tests_runs": 0}
+         "echo_chars": 0, "tests_runs": 0, "reread_skips": 0}
 
     def add_assistant(m_out: dict, reasoning: str):
         if echo != "none" and reasoning:
@@ -524,8 +574,17 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
                     logged = {"path": args.get("path"), "old_chars": len(args.get("old_string") or ""),
                               "new_chars": len(args.get("new_string") or "")}
                 else:
-                    out = (run_tool_paged if getattr(a, "tool_out", "chars") == "paged" else run_tool)(root, fn, args)
-                    ok, logged = _tool_ok(fn, out), args
+                    rkey = _reread_key(root, args) if reread_guard and fn == "read_file" else None
+                    if rkey is not None and rkey in seen_reads:
+                        out = (f"(이미 본 내용: 턴 {seen_reads[rkey]} 의 read_file 결과와 같은 범위이고 그 뒤 파일이 바뀌지 않았다. "
+                               "앞의 결과를 참고하라. 다른 부분이 필요하면 start_line · end_line 을 바꾸거나 grep 으로 위치를 찾아라.)")
+                        ok, logged = True, {**args, "reread_guard": True}
+                        r["reread_skips"] += 1
+                    else:
+                        out = (run_tool_paged if getattr(a, "tool_out", "chars") == "paged" else run_tool)(root, fn, args)
+                        ok, logged = _tool_ok(fn, out), args
+                        if rkey is not None and ok:
+                            seen_reads[rkey] = step
             r["tool_ms"] += (time.perf_counter() - t0) * 1000
             if not ok:
                 r["tool_errors"] += 1
@@ -555,7 +614,8 @@ def nav_summary(nr: dict, wall_ms: float, grade_ms: float) -> str:
             f"bad_json {nr['bad_json']}; tool_errors {nr['tool_errors']}; truncated_chars {nr['truncated_chars']}; "
             f"echo_chars {nr.get('echo_chars', 0)}; forced_turns {nr.get('forced_turns', 0)}; "
             f"wall_ms {wall_ms:.0f}; grade_ms {grade_ms:.0f}"
-            + (f"; tests_runs {nr['tests_runs']}" if nr.get("tests_runs") else ""))
+            + (f"; tests_runs {nr['tests_runs']}" if nr.get("tests_runs") else "")
+            + (f"; reread_skips {nr['reread_skips']}" if nr.get("reread_skips") else ""))
 
 
 def nav_apply_final(root: Path, r: dict, candidates: list[str], deny: tuple[str, ...]) -> tuple[int, list[str], str]:
@@ -687,6 +747,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--mode", choices=["preload", "navigate"], required=True)
     ap.add_argument("--ctx", type=int, default=32768)
+    ap.add_argument("--force-at", type=int, default=None, help="강제 마지막 턴 문턱(입력 토큰). 기본: 32K 는 22,272(기존), 그 밖은 ctx - budget - 2048")
     ap.add_argument("--budget", type=int, default=8192)
     ap.add_argument("--inputs", type=int, nargs="+", default=[0, 16384, 24320], help="preload 목표 입력 토큰. 0 = 필수 파일만")
     ap.add_argument("--tasks", nargs="+", default=["dg_group_names", "marker_extras", "version_bump"])
@@ -698,6 +759,8 @@ def main() -> int:
     ap.add_argument("--tool-out", choices=["chars", "paged"], default="chars", help="H0 chars(글자 수 자르기) / H1 paged(토큰 예산 범위 · 다음 범위 안내)")
     ap.add_argument("--reasoning-echo", choices=["none", "all", "last"], default="none", help="H2: 이전 assistant 답의 reasoning_content 를 다시 보냄 (T-013)")
     ap.add_argument("--final-turn", choices=["none", "edit"], default="none", help="강제 마지막 턴: none = 도구 없이 텍스트 편집 블록(H0) / edit = edit_file 만 남김(H4)")
+    ap.add_argument("--reread-guard", choices=["off", "on"], default="off", help="C1: 같은 범위 · 같은 내용 재읽기는 안내만 (H0 = off)")
+    ap.add_argument("--edit-hint", choices=["off", "on"], default="off", help="H6: edit_file 0회 일치 때 가장 비슷한 원문을 돌려줌 (H0 = off)")
     ap.add_argument("--run-tests", choices=["off", "on"], default="off", help="Q15: 공개 테스트 도구 run_tests 를 줌 (H0 = off)")
     ap.add_argument("--reasoning-budget", type=int, default=0, help="요청 reasoning_budget_tokens (0 = 서버 answer_room, S0)")
     ap.add_argument("--settings-id", default="S0", help="원장 settings_id (S0 = answer_room, S1T3 = thinking 3,072 등)")
@@ -708,6 +771,11 @@ def main() -> int:
     if a.reasoning_budget:
         rb.EXTRA_BODY["reasoning_budget_tokens"] = a.reasoning_budget
     assert (a.settings_id == "S0") == (not a.reasoning_budget), "settings_id 와 reasoning_budget 이 맞지 않는다"
+    force_default = 24320 - 2048 if a.ctx == 32768 else a.ctx - a.budget - 2048
+    a.force_at = a.force_at if a.force_at is not None else force_default
+    force_note = {} if (a.ctx == 32768 and a.force_at == 24320 - 2048) else {"force_at": a.force_at}
+    global EDIT_HINT
+    EDIT_HINT = a.edit_hint == "on"
 
     api_key = os.environ.get("STRATA_API_KEY", "strata-local")
     engine_dir = Path(r"C:\strata-lab\engine")
@@ -819,7 +887,7 @@ def main() -> int:
                     cfg = {"task": task, "mode": "navigate", "harness": a.harness, "commit": COMMIT, "tool_out_limit": TOOL_OUT_LIMIT,
                            "tool_out": a.tool_out, "reasoning_echo": a.reasoning_echo, "reasoning_budget": a.reasoning_budget or "answer_room", "final_turn": a.final_turn, "force_edit_turns": FORCE_EDIT_TURNS, **({"page_tokens": PAGE_TOKENS, "chars_per_token": CHARS_PER_TOKEN, "grep_hits": GREP_HITS,
                                                        "list_files": LIST_FILES} if a.tool_out == "paged" else {}),
-                           "tools": NAV_TOOLS + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {})}
+                           "tools": NAV_TOOLS + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {}), **({"edit_hint": "on", "edit_hint_lines": EDIT_HINT_LINES} if a.edit_hint == "on" else {}), **force_note, **({"reread_guard": "on"} if a.reread_guard == "on" else {})}
                     cfg_sha = rb.sha256_bytes(rb.canon(cfg))
                     (run_dir / "config.json").write_bytes(rb.canon(cfg))
                     (run_dir / "env.json").write_bytes(rb.canon(env))
