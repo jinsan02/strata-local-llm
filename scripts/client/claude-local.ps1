@@ -23,4 +23,5 @@ $env:CLAUDE_CODE_MAX_CONTEXT_TOKENS = $ctx
 $env:CLAUDE_CODE_MAX_OUTPUT_TOKENS = "$out"
 $env:CLAUDE_CODE_SIMPLE = '1'               # 전체 프롬프트 15.6K 토큰 → 1.25K (32K 창에서 권장)
 Write-Host "Claude Code → STRATA $base (context $ctx, 입력 $([int]$ctx - $out), 출력+reasoning $out)" -ForegroundColor Cyan
-& claude @ClaudeArgs
+# 데스크톱 앱과 ~/.claude 를 같이 쓰므로 거기 등록된 MCP(strata-worker 등)가 붙어 프롬프트가 커진다. 측정 · 로컬 실행에서는 뺀다.
+& claude --strict-mcp-config @ClaudeArgs

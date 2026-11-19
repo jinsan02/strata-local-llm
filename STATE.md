@@ -130,6 +130,7 @@
 
 ## 최근 변경
 
+- 2026-11-19 · Claude Code · H3 A/B(30행, 4317f90): H0 10 · H3 9, 시간 −32% · 새로 읽은 입력 −79% → H3 채택 후보. run_tests 도구(Q15, --run-tests on 일 때만) · selftest, E1 · 64K 메모(`docs/E1-candidates.md`: q36 KV fp32 고정 · KV 옵션 없음, 프롬프트 끝 순환 상태 스냅샷 안). 사람: 페이지 파일 64GB 고정(커밋 한도 95GB) · Tailscale 무인 실행 · 업데이트 12-10 까지 중지 · 재부팅. RDP 는 암호 없는 로그인이라 불가, ssh 로 운영. `claude-local.ps1` 에 --strict-mcp-config.
 - 2026-11-19 · Claude Code · H4 A/B(30행, bedf6b1): H0 11 · H4 11, H4 는 텍스트 블록 불일치를 없앴지만 강제 턴 문법 오류 2건 · 시간 +17% · 입력 +35% → 채택하지 않음. 다음 H3 = H1 + H2a. X3 확인 전용 과제 D · E · F 구현 · 검증(기준 실패 · 참조 통과 · 회귀 통과). 측정 중 `configs/` 에 새 파일을 만들어 git_dirty 위험 → 2분 만에 git 밖으로 옮김(영향 행 0, 원장 git_dirty 전부 0).
 - 2026-11-19 · Claude Code · 대화 캐시 A/B(없음 · 512 · 1024, 원장 3행): q36 엔진이 옵션을 무시해 세 조건 같음, 후속 턴 재사용 0 재현. 엔진 소스로 원인 확정(T-013) — 든 토큰 전체가 앞부분일 때만 재사용, 체크포인트 없음. 서버 설정 변경 없이 H4 로. `serve-ctx.ps1 -CacheMib` 는 다른 엔진 경로용으로 남김.
 - 2026-11-18 · Claude Code · 로컬 LLM 을 주 에이전트 · 워커로 쓰는 준비(`docs/WORKER.md`): `launch_serve.ps1`(WMI 운영 서버, 63초 준비), `scripts/worker/`(X3 탐색 루프 재사용, 별도 작업 트리 · 테스트 · 1회 보완 · 측정 체인 감지 · 잠금, 표준 라이브러리 MCP 서버), 자체 점검 5/5, 노트북 → ssh → MCP → STRATA 실제 1건 `done` 43초. `run_x3.navigate_loop` 강제 턴 기준을 인자로(`force_at`, 32K 값 불변). Codex 0.169 연결 확인 · 쓰기 샌드박스 문제는 X4 로. T-015(실행 정책) · T-016(옛 .pyc), T-013 원인 가설(대화 캐시 자동 꺼짐), Q16(64K 메모리 추정).
