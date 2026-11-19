@@ -12,7 +12,7 @@
 | T-016 | 11-18 | 워커 보완 시도에서 옛 `.pyc` 가 고친 소스를 가림 | eval | 해결 (`PYTHONDONTWRITEBYTECODE=1`) |
 | T-015 | 11-18 | `powershell -File` 로 적어 둔 스크립트가 실행 정책에 막힘 | infra | 해결 (문서 명령 수정) |
 | T-014 | 11-19 | X3 preload 보완 요청에 비공개 테스트 실패 로그가 들어감 | eval | 해결 (공개 로그만, 7행 정정 기록) |
-| T-013 | 11-18 | 같은 세션 후속 턴의 캐시 재사용이 0 (매 턴 전체 다시 읽음) | engine · eval | 하네스 우회 확인 (H2a: 재읽기 −83%, 품질 같음). 엔진 원인은 3차 |
+| T-013 | 11-18 | 같은 세션 후속 턴의 캐시 재사용이 0 (매 턴 전체 다시 읽음) | engine · eval | 하네스 우회 확인 (H2a: 재읽기 −83%, 품질 같음). 엔진 원인 확정(11-19): q36 은 정확히 이어질 때만 재사용, 옵션 없음 → E1 후보 |
 | T-012 | 11-18 | ssh 세션이 끝나면 그 세션에서 띄운 서버 · 측정이 같이 꺼짐 | infra | 해결 (WMI 밤 체인) |
 | T-011 | 11-18 | 탐색(navigate) 모드 5건 중 4건이 없는 'SEARCH' 도구를 텍스트로 호출하고 끝남 | eval | 해결 (C안, 재측정 4/5) |
 | T-010 | 11-18 | X3 파일럿 1차: 채점 파서가 정답을 0점 처리 + 원장 6행 유실 | eval · infra | 해결 (재측정) |
@@ -124,6 +124,18 @@ H2a(모든 assistant 턴 reasoning 재전송) · H2b(직전 턴만) 를 H0 와 �
 (`engine/src/core/conversation_memory_test.cpp` #3493: 4GiB → 0, 8GiB → 2,048MiB, 상한 8,192MiB). 32K 에서 남은 RAM 은 약 0.7GB(T-003)라
 대화 캐시가 꺼져 후속 턴이 처음부터 다시 읽었을 가능성이 높다. 확인할 것: 서버 로그의 `conversation cache:` 줄 유무(32K 로그에는 없었음),
 `--conversation-cache-mib 1024`(또는 512) 를 명시했을 때 재사용 · RAM 여유 · 페이징. `--prompt-cache N`(기본 6, 약 118MB/개)도 같이 본다.
+
+### 가설 검증 (11-19 08:53~09:13) — 기각, 원인 확정
+`--conversation-cache-mib` 없음 · 512 · 1024 A/B(`scripts/bench/cache-chain.ps1`, `experiments/probes/cache_ab_20261119_*.json`, 원장 `cab_*` 3행).
+엔진 로그가 `strata-q36: ignoring --conversation-cache-mib N (not an option of this engine)` — **q36 경로에는 대화 캐시가 없다**
+(도움말의 옵션은 다른 엔진 경로 것). 세 조건 모두 tools_all · reencode 후속 턴 재사용 0, reencode_reason 449~507.
+원인은 소스(`engine/src/qwen35/q36_engine.cu` `match_len` 3544 · 요청 처리 3651): 세션이 든 토큰 **전체**(이전 프롬프트 + 생성한
+모든 토큰, 받아들인 MTP 초안 포함)가 새 프롬프트의 앞부분과 한 토큰도 다르지 않을 때만 그 길이를 재사용하고, 아니면 상태를
+지우고 처음부터 읽는다("the recurrent state cannot step back"). 중간 체크포인트가 없다. 그래서 히스토리를 생성 그대로(reasoning
+포함) 다시 보낼 때만 재사용된다 — H2a 가 −83% 를 낸 이유. 설정으로 고칠 수 없다.
+대응: (1) 하네스 · 클라이언트가 생성 그대로 다시 보낸다(H2a, X4 에서 Claude Code · Codex 확인), (2) E1 후보 — 요청마다 프롬프트 끝
+(생성 직전)의 순환 상태 스냅샷을 두고, 다음 요청이 그 지점까지 같으면 스냅샷으로 되돌려 attention KV 만 자른다(템플릿이 이전
+답을 다르게 렌더링해도 이전 프롬프트 전체를 재사용).
 
 ### A/B 결과 (11-18 18:54~21:27, 각 3회)
 H2a(전 턴 재전송): 15회 통과 11 vs H0 12(품질 같음 기준 안), X3 wall −31%, 새로 읽은 입력 −83%(누적 1.25M 중 0.29M 만 새로 읽음).
