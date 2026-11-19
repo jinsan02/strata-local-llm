@@ -1,8 +1,14 @@
 ﻿{
     "stopped":  [
+                    "XboxService",
                     "GamingServices",
                     "GamingServicesNet",
+                    "GameInputRedistService",
+                    "ClickToRunSvc",
+                    "LGHUBUpdaterService",
+                    "KollusSvr",
+                    "CodexSandboxService.OpenAI.Codex",
                     "WSearch"
                 ],
-    "ts":  "2026-11-18T22:02:45"
+    "ts":  "2026-11-19T08:53:21"
 }
