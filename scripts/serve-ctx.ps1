@@ -5,6 +5,9 @@ param(
   [int]$Context = 16384,
   [string]$Host_ = '127.0.0.1',     # X4 에서만 Tailscale 주소
   [int]$CacheMib = -1,              # 0 이상이면 --conversation-cache-mib N (T-013). -1 = 엔진 자동(남은 RAM 4GiB 미만이면 꺼짐)
+  [string]$ExtraArgs = '',          # 엔진 인자 덧붙임 (P-diag, 예: '--expert-slots 40'). 공백으로 나눈다
+  [string]$EnvSet = '',             # 서버 · 엔진 환경 변수 'K=V;K2=V2' (예: STRATA_Q36_NO_MMQ=1)
+  [string]$Tag = '',                # 엔진 로그 이름 꼬리 (ctx<N>-<tag>.log)
   [switch]$Stop
 )
 $ErrorActionPreference = 'Continue'
@@ -34,11 +37,13 @@ foreach ($key in 'args','args_written') {
   $a = [System.Collections.ArrayList]@($cfg.$key)
   $i = $a.IndexOf('--max-context'); $a[$i + 1] = "$Context"
   if ($CacheMib -ge 0) { [void]$a.Add('--conversation-cache-mib'); [void]$a.Add("$CacheMib") }
+  foreach ($x in ($ExtraArgs -split '\s+' | Where-Object { $_ })) { [void]$a.Add($x) }
   $cfg.$key = @($a)
 }
-$cfg.log = Join-Path $eng ("strata-qwen36-ctx$Context" + $(if ($CacheMib -ge 0) { "-cm$CacheMib" } else { '' }) + '.log')
+$cfg.log = Join-Path $eng ("strata-qwen36-ctx$Context" + $(if ($CacheMib -ge 0) { "-cm$CacheMib" } else { '' }) + $(if ($Tag) { "-$Tag" } else { '' }) + '.log')
 [IO.File]::WriteAllText($dst, ($cfg | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding($false)))
 "[serve] config $dst  (--max-context $Context, host $Host_, conversation-cache-mib $(if ($CacheMib -ge 0) { $CacheMib } else { 'auto' }))"
 $env:PYTHONUTF8 = '1'
+foreach ($kv in ($EnvSet -split ';' | Where-Object { $_ })) { $k, $v = $kv -split '=', 2; Set-Item "env:$k" $v; "[serve] env $k=$v" }
 Set-Location $eng
 & C:\ProgramData\anaconda3\envs\strata_local_llm\python.exe serve\server.py --engine strata --config $dst --port 8080 --host $Host_ 2>&1
