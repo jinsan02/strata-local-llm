@@ -1,0 +1,1 @@
+수정 내용: `src/_pytest/unittest.py`의 147번 줄에서 fixture 이름을 `"unittest_..."`에서 `"_unittest_..."`로 변경하여, pytest의 `--fixtures` 명령에서 기본적으로 숨겨지도록 했다. fixtures names starting with underscore are hidden unless `-v` is used.

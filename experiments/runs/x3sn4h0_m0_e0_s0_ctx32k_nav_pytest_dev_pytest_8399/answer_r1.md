@@ -1,0 +1,1 @@
+Fixture 이름에 `unittest_` 대신 `_pytest_unittest_` 접두사를 붙여 이름을 밑줄(_)로 시작하도록 변경하여 pytest에서 비공개(하이드된) fixtures로 처리되게 했다. 이에 따라 `pytest --fixtures` 실행 시 unittest setUpClass/tearDownClass 등에서 생성된 fixture가 기본적으로 표시되지 않는다.

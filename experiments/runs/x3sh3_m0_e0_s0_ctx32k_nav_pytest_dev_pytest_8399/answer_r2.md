@@ -1,0 +1,1 @@
+수정 완료: `src/_pytest/unittest.py` 파일에서 fixture 이름을 `"unittest_..."` 에서 `"_unittest_..."` (앞에 언더스코어 추가) 로 변경했습니다. 이로 인해 unittest 관련 피스처가 비공개 피스처로 처리되어 `-v` 없이 `pytest --fixtures` 에 표시되지 않습니다.

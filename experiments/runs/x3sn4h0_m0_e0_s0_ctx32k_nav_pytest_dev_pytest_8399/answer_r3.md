@@ -1,0 +1,1 @@
+Fixure 이름을 `unittest_{setup_name}_fixture_{obj.__qualname__}`에서 `_unittest_{setup_name}_fixture_{obj.__qualname__}`로 변경했습니다. 앞에 언더스코어(_)를 붙임으로써 fixture가 "private"으로 처리되어 `pytest --fixtures`에서 기본적으로 숨겨집니다.

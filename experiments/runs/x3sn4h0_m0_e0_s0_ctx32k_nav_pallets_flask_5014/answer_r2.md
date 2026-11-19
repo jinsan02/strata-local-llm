@@ -1,0 +1,1 @@
+Blueprint 클래스의 `__init__` 메서드에서 `name` 파라미터가 비어있는지 검사하는 코드를 추가하여, 빈 이름으로 Blueprint를 생성할 때 `ValueError`가 발생하도록 수정했다.

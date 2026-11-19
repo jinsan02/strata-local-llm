@@ -1,0 +1,1 @@
+src/flask/blueprints.py 파일의 `Blueprint` 클래스 생성자(`__init__`)에 `name` 인자가 비어있는 경우 `ValueError`를 발생시키는 검증 로직을 추가했습니다. 이로 인해 빈 이름을 가진 Blueprint가 생성되는 것을 방지합니다.
