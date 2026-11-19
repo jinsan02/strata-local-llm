@@ -29,6 +29,25 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import run_bench as rb  # noqa: E402
 
+# 11-19 밤: thinking 관측. 서버는 thinking 이 상한에 닿으면 이 문장과 </think> 를 넣어 닫는다(engine serve/server.py REASONING_WRAP_UP).
+THINK_WRAP_MARK = "I have thought about this long enough; time to give my answer."
+
+
+def think_cap(mt, budget=0):
+    """그 턴의 thinking 상한(서버 answer_room · reasoning_budget 규칙과 같게, 답 몫 = min(max(512, mt/4), mt/2)). None = 상한 없음."""
+    if not mt:
+        return budget or None
+    reserve = min(max(512, mt // 4), mt // 2)
+    if budget:
+        return max(1, min(budget, mt - reserve))
+    return mt - reserve if mt >= 1024 else None
+
+
+def think_est(nr: dict) -> tuple:
+    """(run 전체 thinking 토큰 추정, 한 턴 최대 추정). completion_tokens 를 reasoning · 답 · 호출 문자 비율로 나눈 값."""
+    est = [t["think_tok_est"] for t in nr["turns"] if t.get("think_tok_est") is not None]
+    return (sum(est), max(est)) if est else ("NA", "NA")
+
 # 11-19 S1: 샘플링 세트. card-general = 지금(run_bench.SAMPLING 과 같아야 한다), card-coding = 모델 카드 정밀 코딩 세트.
 SAMPLING_SETS = {
     "card-general": {"temperature": 1.0, "top_p": 0.95, "top_k": 20, "presence_penalty": 1.5, "seed": 42},
@@ -493,7 +512,7 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
     echo = getattr(a, "reasoning_echo", "none")     # H2 (T-013): none = H0 / all = 모든 assistant 턴 / last = 직전 턴만
     r = {"tool_log": [], "turns": [], "model_ms": 0.0, "tool_ms": 0.0, "out_tok": 0, "last_in": 0, "final": "", "status": "ok",
          "edit_ok": 0, "edit_fail": 0, "fake_calls": 0, "bad_json": 0, "tool_errors": 0, "truncated_chars": 0, "budget_cuts": 0,
-         "echo_chars": 0, "tests_runs": 0, "reread_skips": 0}
+         "echo_chars": 0, "tests_runs": 0, "reread_skips": 0, "think_wraps": 0, "reasoning": []}
 
     def add_assistant(m_out: dict, reasoning: str):
         if echo != "none" and reasoning:
@@ -553,12 +572,22 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
         msg = data["choices"][0]["message"]
         calls = msg.get("tool_calls") or []
         content = msg.get("content") or ""
+        rsn = msg.get("reasoning_content") or ""
+        wrap = THINK_WRAP_MARK in rsn
+        r["think_wraps"] += int(wrap)
+        call_chars = len(json.dumps([c.get("function") for c in calls], ensure_ascii=False)) if calls else 0
+        tot = len(rsn) + len(content) + call_chars
+        ct = u.get("completion_tokens")
+        think_tok = round(ct * len(rsn) / tot) if ct is not None and tot else (0 if ct is not None else None)
+        r["reasoning"].append({"step": step, "chars": len(rsn), "wrap": wrap, "text": rsn})
         r["turns"].append({"step": step, "in_count": exact, "in_src": src, "prompt_tokens": u.get("prompt_tokens"),
                            "cached_tokens": (u.get("prompt_tokens_details") or {}).get("cached_tokens"),
                            "cache_n": tm.get("cache_n"), "prompt_n": tm.get("prompt_n"), "prompt_ms": tm.get("prompt_ms"),
                            "predicted_n": tm.get("predicted_n"), "predicted_ms": tm.get("predicted_ms"),
                            "completion_tokens": u.get("completion_tokens"), "max_tokens": mt, "tools": bool(tools),
                            "finish": data["choices"][0].get("finish_reason"), "n_calls": len(calls),
+                           "reasoning_chars": len(rsn), "content_chars": len(content), "call_chars": call_chars,
+                           "think_cap": think_cap(mt, getattr(a, "reasoning_budget", 0) or 0), "think_wrap": wrap, "think_tok_est": think_tok,
                            "rejected": data.get("strata_rejected_tool_calls"), "wall_ms": round((time.perf_counter() - t_w) * 1000, 1)})
         if not calls:
             if FAKE_CALL_RE.search(content) and not force:
@@ -635,6 +664,7 @@ def nav_summary(nr: dict, wall_ms: float, grade_ms: float) -> str:
             f"count_vs_server_max_diff {na(max(abs(c - p) for c, p in cnt) if cnt else None)}; budget_cuts {nr['budget_cuts']}; "
             f"bad_json {nr['bad_json']}; tool_errors {nr['tool_errors']}; truncated_chars {nr['truncated_chars']}; "
             f"echo_chars {nr.get('echo_chars', 0)}; forced_turns {nr.get('forced_turns', 0)}; "
+            f"think_wraps {nr.get('think_wraps', 0)}; think_tok_est {think_est(nr)[0]}; think_turn_max_est {think_est(nr)[1]}; "
             f"wall_ms {wall_ms:.0f}; grade_ms {grade_ms:.0f}"
             + (f"; tests_runs {nr['tests_runs']}" if nr.get("tests_runs") else "")
             + (f"; reread_skips {nr['reread_skips']}" if nr.get("reread_skips") else ""))
@@ -931,6 +961,7 @@ def main() -> int:
                     gr = grade(root, tcfg, hidden_total) if applied else None
                     wall_ms = (time.perf_counter() - t_wall) * 1000
                     (run_dir / f"turns_r{i}.json").write_text(json.dumps(nr["turns"], ensure_ascii=False, indent=1), encoding="utf-8")
+                    (run_dir / f"reasoning_r{i}.jsonl").write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in nr["reasoning"]), encoding="utf-8")
                     et = error_type(applied, errs, gr)
                     rid = f"{run_name}_r{i}"
                     row = base_row(a, rid, f"x3-navigate-{task}", env_sha, commit, dirty, cfg_sha, engine_commit)
@@ -952,7 +983,8 @@ def main() -> int:
                     print(json.dumps({"run": rid, "tool_calls": len(tool_log), "required_read": f"{len(found)}/{len(tcfg['required_files'])}",
                                       "edit_ok": nr["edit_ok"], "edit_fail": nr["edit_fail"], "text_calls": nr["fake_calls"],
                                       "bad_json": nr["bad_json"], "tool_errors": nr["tool_errors"], "wall_s": round(wall_ms / 1000),
-                                      "error_type": et, "hidden": row["tests_passed"], "last_input": last_in}, ensure_ascii=False), flush=True)
+                                      "error_type": et, "hidden": row["tests_passed"], "last_input": last_in,
+                                      "think_wraps": nr["think_wraps"], "think_tok_est": think_est(nr)[0]}, ensure_ascii=False), flush=True)
     return 0
 
 
