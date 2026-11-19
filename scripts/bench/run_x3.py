@@ -29,6 +29,28 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import run_bench as rb  # noqa: E402
 
+# 11-19 S1: 샘플링 세트. card-general = 지금(run_bench.SAMPLING 과 같아야 한다), card-coding = 모델 카드 정밀 코딩 세트.
+SAMPLING_SETS = {
+    "card-general": {"temperature": 1.0, "top_p": 0.95, "top_k": 20, "presence_penalty": 1.5, "seed": 42},
+    "card-coding": {"temperature": 0.6, "top_p": 0.95, "top_k": 20, "presence_penalty": 0.0, "seed": 42},
+}
+SEED_BASE = 42  # --seed-per-rep: 회차 i 의 seed = SEED_BASE + i - 1 (11-19 저녁: 같은 설정 · 새 서버면 회차가 똑같이 나와 표본이 안 됨)
+SEED_POLICY = "42+rep-1"
+assert rb.SAMPLING == SAMPLING_SETS["card-general"], f"run_bench.SAMPLING 이 card-general 과 다르다: {rb.SAMPLING}"
+
+
+def apply_sampling(name: str) -> dict:
+    """rb.SAMPLING 을 세트 name 으로 바꾼다(같은 dict 를 고쳐 chat_once · config 가 모두 본다)."""
+    rb.SAMPLING.clear()
+    rb.SAMPLING.update(SAMPLING_SETS[name])
+    return rb.SAMPLING
+
+
+def freeze_sha(python: str) -> str:
+    """채점 환경의 pip freeze sha256 (실패하면 'NA')."""
+    r = subprocess.run([python, "-m", "pip", "freeze", "--all"], capture_output=True, text=True)
+    return rb.sha256_bytes(r.stdout.encode("utf-8")) if r.returncode == 0 and r.stdout.strip() else "NA"
+
 TASKS = rb.ROOT / "configs" / "eval" / "x3-packaging"
 SRC = Path(r"C:\strata-lab\work\packaging-src")
 RUNS = Path(r"C:\strata-lab\work\x3-runs")
@@ -762,12 +784,17 @@ def main() -> int:
     ap.add_argument("--reread-guard", choices=["off", "on"], default="off", help="C1: 같은 범위 · 같은 내용 재읽기는 안내만 (H0 = off)")
     ap.add_argument("--edit-hint", choices=["off", "on"], default="off", help="H6: edit_file 0회 일치 때 가장 비슷한 원문을 돌려줌 (H0 = off)")
     ap.add_argument("--run-tests", choices=["off", "on"], default="off", help="Q15: 공개 테스트 도구 run_tests 를 줌 (H0 = off)")
+    ap.add_argument("--sampling", choices=sorted(SAMPLING_SETS), default="card-general",
+                    help="샘플링 세트 (S1): card-general = 1.0/0.95/20/presence 1.5 (기본, 지금) · card-coding = 0.6/0.95/20/presence 0")
+    ap.add_argument("--seed-per-rep", action="store_true",
+                    help="회차 i 의 seed = 42 + i - 1 (끄면 모든 회차 42). 두 조건을 같은 --rep-start 로 돌리면 같은 seed 로 짝지어진다")
     ap.add_argument("--reasoning-budget", type=int, default=0, help="요청 reasoning_budget_tokens (0 = 서버 answer_room, S0)")
     ap.add_argument("--settings-id", default="S0", help="원장 settings_id (S0 = answer_room, S1T3 = thinking 3,072 등)")
     ap.add_argument("--base-url", default="http://127.0.0.1:8080")
     ap.add_argument("--timeout", type=float, default=1800)
     ap.add_argument("--chars-per-token", type=float, default=3.2)
     a = ap.parse_args()
+    apply_sampling(a.sampling)
     if a.reasoning_budget:
         rb.EXTRA_BODY["reasoning_budget_tokens"] = a.reasoning_budget
     assert (a.settings_id == "S0") == (not a.reasoning_budget), "settings_id 와 reasoning_budget 이 맞지 않는다"
@@ -782,7 +809,8 @@ def main() -> int:
     server_cfg = json.loads((engine_dir / f"strata-qwen36-ctx{a.ctx}.json").read_text(encoding="utf-8"))
     engine_commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=engine_dir, capture_output=True, text=True).stdout.strip()
     env = {"engine_commit": engine_commit, "engine_exe_sha256": rb.sha256_bytes(Path(server_cfg["exe"]).read_bytes()),
-           "packaging_commit": COMMIT, "test_python": subprocess.run([PYX, "-V"], capture_output=True, text=True).stdout.strip()}
+           "packaging_commit": COMMIT, "test_python": subprocess.run([PYX, "-V"], capture_output=True, text=True).stdout.strip(),
+           "test_env_freeze_sha256": freeze_sha(PYX)}
     env_sha = rb.sha256_bytes(rb.canon(env))
     commit, dirty = rb.git("rev-parse", "HEAD"), rb.code_dirty()
     k = a.ctx // 1024
@@ -801,6 +829,8 @@ def main() -> int:
         conds = a.inputs if a.mode == "preload" else [0]
         for target in conds:
             for i in range(a.rep_start, a.rep_start + a.repeat):
+                if a.seed_per_rep:
+                    rb.SAMPLING["seed"] = SEED_BASE + i - 1
                 tag = (f"in{round(target / 1024)}k" if target else "inreq") if a.mode == "preload" else "nav"
                 run_name = f"{a.prefix}_m0_e0_s0_ctx{k}k_{tag}_{task}"
                 run_dir = rb.ROOT / "experiments" / "runs" / run_name
@@ -820,7 +850,7 @@ def main() -> int:
                         exact = got
                     cfg = {"task": task, "mode": "preload", "commit": COMMIT, "prompt_sha256": rb.sha256_bytes(prompt.encode()),
                            "input_target": target, "prompt_tokens_exact": exact, "required_files": tcfg["required_files"],
-                           "pad_pool": PAD_POOL, "budget": a.budget, "sampling": rb.SAMPLING, "server_config": server_cfg,
+                           "pad_pool": PAD_POOL, "budget": a.budget, "sampling": rb.SAMPLING, **({"seed_policy": SEED_POLICY} if a.seed_per_rep else {}), "server_config": server_cfg,
                            "thinking_cap": a.reasoning_budget or a.budget - min(max(512, a.budget // 4), a.budget // 2),
                            "thinking_cap_source": "request" if a.reasoning_budget else "answer_room",
                            "repair_feedback": "public regress log + hidden pass count only (T-014)"}
@@ -887,7 +917,7 @@ def main() -> int:
                     cfg = {"task": task, "mode": "navigate", "harness": a.harness, "commit": COMMIT, "tool_out_limit": TOOL_OUT_LIMIT,
                            "tool_out": a.tool_out, "reasoning_echo": a.reasoning_echo, "reasoning_budget": a.reasoning_budget or "answer_room", "final_turn": a.final_turn, "force_edit_turns": FORCE_EDIT_TURNS, **({"page_tokens": PAGE_TOKENS, "chars_per_token": CHARS_PER_TOKEN, "grep_hits": GREP_HITS,
                                                        "list_files": LIST_FILES} if a.tool_out == "paged" else {}),
-                           "tools": NAV_TOOLS + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {}), **({"edit_hint": "on", "edit_hint_lines": EDIT_HINT_LINES} if a.edit_hint == "on" else {}), **force_note, **({"reread_guard": "on"} if a.reread_guard == "on" else {})}
+                           "tools": NAV_TOOLS + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, **({"seed_policy": SEED_POLICY} if a.seed_per_rep else {}), "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {}), **({"edit_hint": "on", "edit_hint_lines": EDIT_HINT_LINES} if a.edit_hint == "on" else {}), **force_note, **({"reread_guard": "on"} if a.reread_guard == "on" else {})}
                     cfg_sha = rb.sha256_bytes(rb.canon(cfg))
                     (run_dir / "config.json").write_bytes(rb.canon(cfg))
                     (run_dir / "env.json").write_bytes(rb.canon(env))
