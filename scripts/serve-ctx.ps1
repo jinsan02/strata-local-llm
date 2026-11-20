@@ -8,6 +8,7 @@ param(
   [string]$ExtraArgs = '',          # 엔진 인자 덧붙임 (P-diag, 예: '--expert-slots 40'). 공백으로 나눈다
   [string]$EnvSet = '',             # 서버 · 엔진 환경 변수 'K=V;K2=V2' (예: STRATA_Q36_NO_MMQ=1)
   [string]$Tag = '',                # 엔진 로그 이름 꼬리 (ctx<N>-<tag>.log)
+  [string]$Model = '',              # 11-21 Q1: 모델 GGUF 경로 바꾸기 (빈 값 = 원본 M0). 러너는 --model-id 로 파일 이름을 확인한다
   [switch]$Stop
 )
 $ErrorActionPreference = 'Continue'
@@ -40,6 +41,10 @@ foreach ($k in $pin.Keys) { $cfg | Add-Member -NotePropertyName $k -NoteProperty
 foreach ($key in 'args','args_written') {
   $a = [System.Collections.ArrayList]@($cfg.$key)
   $i = $a.IndexOf('--max-context'); $a[$i + 1] = "$Context"
+  if ($Model) {
+    if (-not (Test-Path $Model)) { "[serve] 거부: 모델 파일 없음 $Model"; exit 2 }
+    $j = $a.IndexOf('--native'); $a[$j + 1] = $Model
+  }
   if ($CacheMib -ge 0) { [void]$a.Add('--conversation-cache-mib'); [void]$a.Add("$CacheMib") }
   foreach ($x in ($ExtraArgs -split '\s+' | Where-Object { $_ })) { [void]$a.Add($x) }
   $cfg.$key = @($a)

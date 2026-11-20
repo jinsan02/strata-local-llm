@@ -791,8 +791,8 @@ def chat_once(base_url: str, api_key: str, messages: list, max_tokens: int, time
 
 # ── 메인 ───────────────────────────────────────────────────────────────────
 def base_row(a, rid: str, workload: str, env_sha: str, commit: str, dirty: str, cfg_sha: str, engine_commit: str) -> dict:
-    return {"run_id": rid, "config_id": "X3", "phase": "eval", "origin": "local", "workload": workload, "model_id": "M0",
-            "model_sha256": M0_SHA, "engine_commit": engine_commit, "settings_id": a.settings_id, "ctx": a.ctx, "parallel": 1,
+    return {"run_id": rid, "config_id": "X3", "phase": "eval", "origin": "local", "workload": workload, "model_id": a.model_id,
+            "model_sha256": a.model_sha256, "engine_commit": engine_commit, "settings_id": a.settings_id, "ctx": a.ctx, "parallel": 1,
             "kv": "fp32", "mtp": "on", "thinking": "on", "cache_state": "cold", "git_commit": commit, "git_dirty": dirty,
             "config_sha256": cfg_sha, "env_sha256": env_sha}
 
@@ -825,7 +825,15 @@ def main() -> int:
     ap.add_argument("--base-url", default="http://127.0.0.1:8080")
     ap.add_argument("--timeout", type=float, default=1800)
     ap.add_argument("--chars-per-token", type=float, default=3.2)
+    # 11-21 Q1 G3: 후보 모델(M1a · M1b ...). 서버 설정의 모델 파일 이름이 이 ID 와 맞아야 한다(serve-ctx.ps1 -Model)
+    ap.add_argument("--model-id", default="M0", help="원장 model_id · 실행 이름 (M0 = Unsloth UD-Q4_K_XL)")
+    ap.add_argument("--model-sha256", default=None, help="M0 가 아니면 필수 (모델 파일 sha256)")
     a = ap.parse_args()
+    if a.model_id == "M0":
+        a.model_sha256 = a.model_sha256 or M0_SHA
+        assert a.model_sha256 == M0_SHA, "M0 sha256 이 다르다"
+    else:
+        assert a.model_sha256 and re.fullmatch(r"[0-9a-f]{64}", a.model_sha256), "--model-sha256 이 필요하다"
     apply_sampling(a.sampling)
     if a.reasoning_budget:
         rb.EXTRA_BODY["reasoning_budget_tokens"] = a.reasoning_budget
@@ -839,6 +847,9 @@ def main() -> int:
     api_key = os.environ.get("STRATA_API_KEY", "strata-local")
     engine_dir = Path(r"C:\strata-lab\engine")
     server_cfg = json.loads((engine_dir / f"strata-qwen36-ctx{a.ctx}.json").read_text(encoding="utf-8"))
+    model_file = Path(server_cfg["args"][server_cfg["args"].index("--native") + 1]).name
+    want = "UD-Q4_K_XL.gguf" if a.model_id == "M0" else f"-{a.model_id.upper()}.gguf"
+    assert model_file.endswith(want), f"서버 모델 {model_file} 이 --model-id {a.model_id} 와 맞지 않는다"
     engine_commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=engine_dir, capture_output=True, text=True).stdout.strip()
     env = {"engine_commit": engine_commit, "engine_exe_sha256": rb.sha256_bytes(Path(server_cfg["exe"]).read_bytes()),
            "packaging_commit": COMMIT, "test_python": subprocess.run([PYX, "-V"], capture_output=True, text=True).stdout.strip(),
@@ -864,7 +875,7 @@ def main() -> int:
                 if a.seed_per_rep:
                     rb.SAMPLING["seed"] = SEED_BASE + i - 1
                 tag = (f"in{round(target / 1024)}k" if target else "inreq") if a.mode == "preload" else "nav"
-                run_name = f"{a.prefix}_m0_e0_s0_ctx{k}k_{tag}_{task}"
+                run_name = f"{a.prefix}_{a.model_id.lower()}_e0_s0_ctx{k}k_{tag}_{task}"
                 run_dir = rb.ROOT / "experiments" / "runs" / run_name
                 run_dir.mkdir(parents=True, exist_ok=True)
                 root = fresh_copy(f"{run_name}_r{i}")
