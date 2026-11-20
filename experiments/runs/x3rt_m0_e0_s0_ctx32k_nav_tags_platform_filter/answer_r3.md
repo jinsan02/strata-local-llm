@@ -1,0 +1,1 @@
+수정 완료. `src/packaging/utils.py` 파일의 `parse_wheel_filename` 함수에 `platforms` 키워드 전용 인자를 추가하고, 해당 인자를 사용하여 플랫폼 태그를 검증하는 로직을 구현했습니다. `collections.abc.Iterable` 타입을 import하고, `platforms`가 문자열인 경우 `TypeError`를 발생시키며, 정규화된 플랫폼 이름과 휠의 플랫폼 태그를 비교합니다. `any` 플랫폼 태그는 모든 `platforms`와 매칭되며, 기존 동작은 유지됩니다.
