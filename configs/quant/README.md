@@ -3,6 +3,7 @@
 `docs/q1-plan-20261120.md` 3절의 후보. 원본은 BF16(`unsloth/Qwen3.6-35B-A3B-MTP-GGUF` 리비전 `5bc3e23`), 기본 형식 `Q8_0`(expert 밖 텐서는 M0 와 같은 Q8_0),
 `--imatrix` 는 `scripts/quant/build_calib.py` 보정 세트로 만든 것. 한 줄 = `정규식=형식`, **위에서부터 처음 맞는 줄이 이긴다**(llama.cpp v1.0.0 `llama-quant.cpp`).
 층 0~39 는 본층, 40 은 MTP 블록.
+모든 레시피 첫 줄 `ssm_(alpha|beta).weight=f32`: 기본 Q8_0 이 이 두 SSM 텐서(30층 x 2)를 Q8_0 으로 바꾸므로 M0 와 같게 F32 로 둔다(11-20 Q8_0 대조에서 발견, 나머지 비-expert 텐서는 M0 와 같음).
 
 | 파일 | 후보 | gate / up | down |
 | --- | --- | --- | --- |
