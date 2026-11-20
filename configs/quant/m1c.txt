@@ -1,0 +1,5 @@
+blk\.39\.ffn_(gate|up)_exps=q5_k
+blk\.(0|1|2|37|38|40)\.ffn_(gate|up)_exps=q4_k
+ffn_(gate|up)_exps=iq3_s
+blk\.(34|38|39)\.ffn_down_exps=q6_k
+ffn_down_exps=iq4_xs
