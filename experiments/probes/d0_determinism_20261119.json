@@ -1,0 +1,329 @@
+{
+ "probe": "D0",
+ "task": "dg_group_names",
+ "max_tokens": 1024,
+ "general": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 20,
+  "presence_penalty": 1.5,
+  "seed": 42
+ },
+ "greedy": {
+  "temperature": 0.0,
+  "top_p": 0.95,
+  "top_k": 20,
+  "presence_penalty": 1.5,
+  "seed": 42
+ },
+ "minutes": 4.4,
+ "verdict": {
+  "N5 같은 서버 general 반복 (A1 vs A2)": {
+   "same": false,
+   "first_diff_char": 41,
+   "chars": [
+    2330,
+    2286
+   ]
+  },
+  "N5 같은 서버 general 반복 (A1 vs A3)": {
+   "same": false,
+   "first_diff_char": 32,
+   "chars": [
+    2330,
+    2126
+   ]
+  },
+  "N5 같은 서버 greedy 반복 (A1 vs A2)": {
+   "same": false,
+   "first_diff_char": 41,
+   "chars": [
+    254,
+    288
+   ]
+  },
+  "N5 같은 서버 greedy 반복 (A1 vs A3)": {
+   "same": false,
+   "first_diff_char": 41,
+   "chars": [
+    254,
+    270
+   ]
+  },
+  "N2 재시작 greedy (A vs B)": {
+   "same": false,
+   "first_diff_char": 41,
+   "chars": [
+    254,
+    288
+   ]
+  },
+  "N2 재시작 general (A vs B)": {
+   "same": false,
+   "first_diff_char": 51,
+   "chars": [
+    2330,
+    2501
+   ]
+  },
+  "N3 재사용 vs 처음부터 (A reuse vs B cold)": {
+   "same": false,
+   "first_diff_char": 224,
+   "chars": [
+    304,
+    400
+   ]
+  },
+  "N4 MTP 2 vs 0 greedy (B vs C)": {
+   "same": true,
+   "first_diff_char": null,
+   "chars": [
+    288,
+    288
+   ]
+  },
+  "N4 MTP 2 vs 0 P2 cold (B vs C)": {
+   "same": true,
+   "first_diff_char": null,
+   "chars": [
+    400,
+    400
+   ]
+  },
+  "MTP 0 같은 서버 greedy 반복 (C1 vs C2)": {
+   "same": false,
+   "first_diff_char": 41,
+   "chars": [
+    288,
+    254
+   ]
+  }
+ },
+ "requests": [
+  {
+   "server": "A",
+   "label": "R_general_1",
+   "temperature": 1.0,
+   "n_msgs": 2,
+   "chars": 2330,
+   "sha256": "a3c56d166f792086cacc59ae609ee5f7d0a150a23869a5c5d69410ec3a2d5892",
+   "completion_tokens": 559,
+   "prompt_tokens": 935,
+   "cache_n": 0,
+   "prompt_n": 935,
+   "finish": "tool_calls",
+   "wall_ms": 8821.1,
+   "text": "{\"calls\": [{\"arguments\": \"{\\\"pattern\\\":\\\"packaging/**/*.py\\\"}\", \"name\": \"list_files\"}], \"content\": \"\", \"reasoning\": \"The user wants to add group name validation to the `packaging` library, specifically for PEP 735 dependency groups.\\n\\nHere's a breakdown of the requirements:\\n1.  **Group Name Validation**: Group names must follow the same rules as the `Name` field in core metadata. The packaging library already has an implementation for this rule (likely a regex or validation function). I need to find and reuse it, not create a new regex.\\n2.  **New Exception**: Add `InvalidGroupName` (subclass of `ValueError`) to `packaging.dependency_groups`. It must be exported in `__all__`.\\n3.  **DependencyGroupResolver Initialization**: When creating `DependencyGroupResolver(...)`, if any group name (key) in the input data doesn't match the rule, an `InvalidGroupName` exception should be raised for each invalid name. These exceptions should be reported \\\"all at once\\\" like other errors (e.g., duplicate names). The message must contain the original name in `repr()` form.\\n4.  **`lookup()` and `resolve()`**: If called with an invalid group name, they should immediately raise a single `InvalidGroupName` exception before any other processing.\\n5.  **Preserve Existing Behavior**: Valid names should continue to work as expected (normalization, duplicate check, include logic, cycle check).\\n\\n**Step 1: Locate relevant files.**\\nI need to find where `dependency_groups` is defined and where the metadata name validation is implemented.\\n\\n-   `packaging/dependency_groups.py`: Likely contains the main logic.\\n-   `packaging/requirements.py` or similar: Might contain metadata helpers.\\n-   `packaging/_elffile.py`, `packaging/_manylinux.py`, etc.: Probably not relevant.\\n-   `packaging/metadata.py`? Or maybe a `_core_metadata` module.\\n\\nLet's list files in the root and `packaging/` directory to find them.\\n\\n**Step 2: Find existing Name validation logic.**\\nI suspect there's a function like `_validate_name` or a regex pattern `_NAME_RE` somewhere in the repository that parses requirements or metadata. PEP 685 (PEP 735's predecessor) and PEP 440/508 rules often share similar name normalization patterns (e.g., `[A-Z0-9](-[A-Z0-9]+)*`).\\n\\n**Step\\n\\nI have thought about this long enough; time to give my answer.\\n\"}"
+  },
+  {
+   "server": "A",
+   "label": "R_general_2",
+   "temperature": 1.0,
+   "n_msgs": 2,
+   "chars": 2286,
+   "sha256": "98e3685dc62d47d3ccd272322a81d9cb42c7f8afd7b6c0c0dc7d97677cdfadc0",
+   "completion_tokens": 536,
+   "prompt_tokens": 935,
+   "cache_n": 0,
+   "prompt_n": 935,
+   "finish": "tool_calls",
+   "wall_ms": 7446.6,
+   "text": "{\"calls\": [{\"arguments\": \"{\\\"pattern\\\":\\\"src/packaging/**/*.py\\\"}\", \"name\": \"list_files\"}], \"content\": \"\", \"reasoning\": \"The user wants to add group name validation to the `packaging` library, specifically for PEP 735 dependency groups.\\n\\nHere's a breakdown of the requirements:\\n1.  **Validation Rule**: Group names must follow the same rules as the `Name` field in core metadata (PEP 685). I need to find the existing implementation in `packaging` and reuse it.\\n2.  **New Exception**: Add an `InvalidGroupName` exception class, which is a subclass of `ValueError`, to `packaging.dependency_groups`. It should be exported in `__all__`.\\n3.  **Constructor (`DependencyGroupResolver.__init__`)**: When initializing the resolver, check all provided group names (keys). If any are invalid, raise an exception. The instructions say \\\"raise one for each invalid name\\\" but also \\\"report them all at once like existing errors\\\". This implies collecting the errors and raising a single error containing all of them, similar to how duplicate names might be handled or perhaps a specific aggregate error if that exists. Wait, looking at the prompt again: \\\"규칙에 맞지 않는 그룹 이름(키)마다 `InvalidGroupName` 을 하나씩 만들어 기존 오류(중복 이름 등)와 **같은 방식으로 한꺼번에** 보고하라.\\\" This suggests an AggregateException pattern or similar if one exists, or raising a specific error message listing them. Let's first look at how errors are currently handled in the codebase.\\n4.  **Methods (`lookup`, `resolve`)**: These methods should validate the name immediately and raise `InvalidGroupName` (single exception) if invalid before any other processing.\\n5.  **Preservation**: Existing behavior for valid names must remain unchanged.\\n\\n**Plan:**\\n1.  Explore the repository structure to find relevant files.\\n2.  Find the existing implementation of the `Name` field validation regex or function.\\n3.  Find the `packaging/dependency_groups.py` file.\\n4.  Understand how errors are currently raised in `dependency_groups.py` (especially \\\"duplicate names\\\" or similar).\\n5.  Implement the changes:\\n    *   Define `InvalidGroupName`.\\n    *   Import the validation logic (or regex).\\n    *   Add validation to `DependencyGroupResolver.__init__`, `lookup`, and `resolve`.\\n\\nLet's start by listing files in the source directory.\\n\"}"
+  },
+  {
+   "server": "A",
+   "label": "R_general_3",
+   "temperature": 1.0,
+   "n_msgs": 2,
+   "chars": 2126,
+   "sha256": "dedce3fc62b2fb4fd314a874cbec6aa2970fcd458730a86a13a9593d7cc4a0d4",
+   "completion_tokens": 494,
+   "prompt_tokens": 935,
+   "cache_n": 0,
+   "prompt_n": 935,
+   "finish": "tool_calls",
+   "wall_ms": 6453.9,
+   "text": "{\"calls\": [{\"arguments\": \"{\\\"path_glob\\\": \\\"packaging/**/*.py\\\", \\\"pattern\\\": \\\"NAME_RE\\\"}\", \"name\": \"grep\"}], \"content\": \"\", \"reasoning\": \"The user wants to add group name validation to the `packaging` library, specifically for dependency groups (PEP 735).\\nHere are the requirements:\\n1.  **Group Name Validation**: Group names must follow the same rules as the `Name` field in core metadata. This rule is already implemented in `packaging`. I should use that existing implementation instead of creating a new regex.\\n2.  **New Exception**: Add `InvalidGroupName` to `packaging.dependency_groups`, which is a subclass of `ValueError`, and add it to `__all__`.\\n3.  **DependencyGroupResolver Initialization**: When initializing `DependencyGroupResolver(...)`, if any group name (key) in the provided data doesn't match the rule, create an `InvalidGroupName` for each invalid name and raise them all at once (similar to how duplicate names are reported). The message must include the repr of the original name.\\n4.  **`lookup()` and `resolve()`**: If these methods receive a name that doesn't match the rule, raise a single `InvalidGroupName` immediately before other processing.\\n5.  **Existing Behavior**: Existing behavior for valid names (normalization, duplicate checks, includes, cycle checks) must remain unchanged.\\n\\n**Plan:**\\n1.  Find where the core metadata `Name` validation regex is defined in the `packaging` repo. It's likely in `packaging/specifiers` or `packaging.utils`.\\n2.  Explore `packaging/dependency_groups.py` to understand its current structure and implementation.\\n3.  Add the `InvalidGroupName` exception class to `packaging.dependency_groups`.\\n4.  Import the name validation regex/function from wherever it is found.\\n5.  Modify `DependencyGroupResolver.__init__` to check keys in the input dictionary against the regex. If invalid, collect errors and raise.\\n6.  Modify `lookup` and `resolve` methods to validate the argument name before processing.\\n\\n**Step 1: Find Name validation logic**\\nLet's look for `NAME_RE` or similar patterns in the repo. It's usually in `packaging.utils.py`.\\n\\n\"}"
+  },
+  {
+   "server": "A",
+   "label": "R_greedy_1",
+   "temperature": 0.0,
+   "n_msgs": 2,
+   "chars": 254,
+   "sha256": "88a34bf59e9029009e67b9b18a6ebbf12fbc5ed49c8840af7dc9cfe1556d55c1",
+   "completion_tokens": 55,
+   "prompt_tokens": 935,
+   "cache_n": 0,
+   "prompt_n": 935,
+   "finish": "tool_calls",
+   "wall_ms": 1706.6,
+   "text": "{\"calls\": [{\"arguments\": \"{\\\"pattern\\\":\\\"**/*.py\\\"}\", \"name\": \"list_files\"}], \"content\": \"\", \"reasoning\": \"Let me start by exploring the repository structure to understand how it's organized and find the relevant files for dependency groups handling.\\n\"}"
+  },
+  {
+   "server": "A",
+   "label": "R_greedy_2",
+   "temperature": 0.0,
+   "n_msgs": 2,
+   "chars": 288,
+   "sha256": "d94003f67f595682a381106215ddba2a94e67448781c53f57c574a7f37ad2259",
+   "completion_tokens": 64,
+   "prompt_tokens": 935,
+   "cache_n": 0,
+   "prompt_n": 935,
+   "finish": "tool_calls",
+   "wall_ms": 1933.6,
+   "text": "{\"calls\": [{\"arguments\": \"{\\\"pattern\\\":\\\"src/packaging/**/*.py\\\"}\", \"name\": \"list_files\"}], \"content\": \"\", \"reasoning\": \"Let me start by exploring the repository structure to understand the codebase, particularly focusing on the `packaging.dependency_groups` module and related files.\\n\"}"
+  },
+  {
+   "server": "A",
+   "label": "R_greedy_3",
+   "temperature": 0.0,
+   "n_msgs": 2,
+   "chars": 270,
+   "sha256": "091c32c5f71c55c4ba4f54771fb2a290afdbe14adca14657253b41433a3920ec",
+   "completion_tokens": 61,
+   "prompt_tokens": 935,
+   "cache_n": 0,
+   "prompt_n": 935,
+   "finish": "tool_calls",
+   "wall_ms": 2085.1,
+   "text": "{\"calls\": [{\"arguments\": \"{\\\"pattern\\\":\\\"src/packaging/**/*.py\\\"}\", \"name\": \"list_files\"}], \"content\": \"\", \"reasoning\": \"Let me start by exploring the repository structure to understand the codebase, particularly focusing on the `packaging.dependency_groups` module.\\n\"}"
+  },
+  {
+   "server": "A",
+   "label": "R_greedy_setup",
+   "temperature": 0.0,
+   "n_msgs": 2,
+   "chars": 254,
+   "sha256": "88a34bf59e9029009e67b9b18a6ebbf12fbc5ed49c8840af7dc9cfe1556d55c1",
+   "completion_tokens": 55,
+   "prompt_tokens": 935,
+   "cache_n": 0,
+   "prompt_n": 935,
+   "finish": "tool_calls",
+   "wall_ms": 1724.3,
+   "text": "{\"calls\": [{\"arguments\": \"{\\\"pattern\\\":\\\"**/*.py\\\"}\", \"name\": \"list_files\"}], \"content\": \"\", \"reasoning\": \"Let me start by exploring the repository structure to understand how it's organized and find the relevant files for dependency groups handling.\\n\"}"
+  },
+  {
+   "server": "A",
+   "label": "P2_greedy_reuse",
+   "temperature": 0.0,
+   "n_msgs": 4,
+   "chars": 304,
+   "sha256": "623b6979af71772cbbb22a26ec77785a360dde48f76892c4060422c74a1d3866",
+   "completion_tokens": 77,
+   "prompt_tokens": 1020,
+   "cache_n": 989,
+   "prompt_n": 31,
+   "finish": "tool_calls",
+   "wall_ms": 1029.7,
+   "text": "{\"calls\": [{\"arguments\": \"{\\\"pattern\\\":\\\"src/**/*.py\\\"}\", \"name\": \"list_files\"}], \"content\": \"\", \"reasoning\": \"The tool returned \\\"(D0 탐침: 고정 도구 결과. 실제 실행 없음)\\\" which seems to be a Korean message indicating that the tool is probing but not actually executing. Let me try again with a simpler pattern.\\n\"}"
+  },
+  {
+   "server": "B",
+   "label": "P2_greedy_cold",
+   "temperature": 0.0,
+   "n_msgs": 4,
+   "chars": 400,
+   "sha256": "6268326de5fa67e17a61095ad1011aac55fd3e03d04e39306b356f7bd6f21275",
+   "completion_tokens": 97,
+   "prompt_tokens": 1020,
+   "cache_n": 0,
+   "prompt_n": 1020,
+   "finish": "tool_calls",
+   "wall_ms": 3154.0,
+   "text": "{\"calls\": [{\"arguments\": \"{\\\"pattern\\\":\\\"src/**/*.py\\\"}\", \"name\": \"list_files\"}], \"content\": \"\", \"reasoning\": \"The tool returned \\\"(D0 탐침: 고정 도구 결과. 실제 실행 없음)\\\" which seems to be a Korean message indicating that the tool is not actually executing but returning a fixed result. Let me try again with a different approach - maybe I need to use the tools properly.\\n\\nLet me try listing files again.\\n\"}"
+  },
+  {
+   "server": "B",
+   "label": "R_greedy_1",
+   "temperature": 0.0,
+   "n_msgs": 2,
+   "chars": 288,
+   "sha256": "d94003f67f595682a381106215ddba2a94e67448781c53f57c574a7f37ad2259",
+   "completion_tokens": 64,
+   "prompt_tokens": 935,
+   "cache_n": 0,
+   "prompt_n": 935,
+   "finish": "tool_calls",
+   "wall_ms": 2021.7,
+   "text": "{\"calls\": [{\"arguments\": \"{\\\"pattern\\\":\\\"src/packaging/**/*.py\\\"}\", \"name\": \"list_files\"}], \"content\": \"\", \"reasoning\": \"Let me start by exploring the repository structure to understand the codebase, particularly focusing on the `packaging.dependency_groups` module and related files.\\n\"}"
+  },
+  {
+   "server": "B",
+   "label": "R_general_1",
+   "temperature": 1.0,
+   "n_msgs": 2,
+   "chars": 2501,
+   "sha256": "ed904d3fdba4ca5a9d4aab0c7efb2921fe58772b75c38317ccefecf6f9380e11",
+   "completion_tokens": 603,
+   "prompt_tokens": 935,
+   "cache_n": 0,
+   "prompt_n": 935,
+   "finish": "tool_calls",
+   "wall_ms": 8183.5,
+   "text": "{\"calls\": [{\"arguments\": \"{\\\"pattern\\\":\\\"packaging/dependency_groups.py\\\"}\", \"name\": \"list_files\"}, {\"arguments\": \"{\\\"path_glob\\\":\\\"packaging/*.py\\\",\\\"pattern\\\":\\\"_name_regex\\\"}\", \"name\": \"grep\"}], \"content\": \"\", \"reasoning\": \"The user wants to add group name validation to the `packaging` library, specifically for dependency groups (PEP 735).\\n\\nHere are the requirements:\\n1.  **Validation Rule**: Group names must follow the same rules as the `Name` field in Core Metadata. This logic already exists in the `packaging` package. I need to find and reuse it. Do not create a new regex.\\n2.  **New Exception**: Add an `InvalidGroupName` exception (subclass of `ValueError`) to `packaging.dependency_groups`. Also add it to `__all__`.\\n3.  **DependencyGroupResolver initialization**: When creating `DependencyGroupResolver(...)`, check the keys (group names). If any key doesn't match the name rule, raise an `InvalidGroupName` exception immediately? Or collect them? The prompt says \\\"existing errors (like duplicate names) are reported together\\\". Wait, let me re-read carefully.\\n    *   \\\"규칙에 맞지 않는 그룹 이름(키)마다 `InvalidGroupName` 을 하나씩 만들어 기존 오류(중복 이름 등)와 **같은 방식으로 한꺼번에** 보고하라.\\\" -> This suggests collecting multiple errors (like duplicates) and reporting them together? Or maybe just raising one if found?\\n    *   Actually, usually in Python, checking for duplicates often raises the first duplicate found. However, PEP 735 implementation might aggregate errors. I need to check how `DependencyGroupResolver` currently handles duplicates or other issues to match that style. The prompt says \\\"like existing errors (duplicates etc)\\\". This implies there is a mechanism to handle multiple errors, possibly aggregating them in `__init__`.\\n    *   Message must contain the original name in `repr` form.\\n4.  **`lookup()` and `resolve()`**: If an invalid name is passed here, raise `InvalidGroupName` immediately (singular exception) before other processing.\\n5.  **Preserve existing behavior**: Normalization, duplicate checks, includes, cycle checks must remain unchanged for valid names.\\n\\nLet's explore the repository structure first.\\n\\n**Plan:**\\n1.  List files to find `dependency_groups.py`.\\n2.  Find where the Name validation rule is defined (likely in `packaging.specifiers` or `packaging.utils`). I recall it being in `utils.py` as `_normalized_match_regex` or similar.\\n3.  Read `dependency_groups.py` to understand\\n\\nI have thought about this long enough; time to give my answer.\\n\"}"
+  },
+  {
+   "server": "C",
+   "label": "P2_greedy_cold",
+   "temperature": 0.0,
+   "n_msgs": 4,
+   "chars": 400,
+   "sha256": "6268326de5fa67e17a61095ad1011aac55fd3e03d04e39306b356f7bd6f21275",
+   "completion_tokens": 97,
+   "prompt_tokens": 1020,
+   "cache_n": 0,
+   "prompt_n": 1020,
+   "finish": "tool_calls",
+   "wall_ms": 3301.4,
+   "text": "{\"calls\": [{\"arguments\": \"{\\\"pattern\\\":\\\"src/**/*.py\\\"}\", \"name\": \"list_files\"}], \"content\": \"\", \"reasoning\": \"The tool returned \\\"(D0 탐침: 고정 도구 결과. 실제 실행 없음)\\\" which seems to be a Korean message indicating that the tool is not actually executing but returning a fixed result. Let me try again with a different approach - maybe I need to use the tools properly.\\n\\nLet me try listing files again.\\n\"}"
+  },
+  {
+   "server": "C",
+   "label": "R_greedy_1",
+   "temperature": 0.0,
+   "n_msgs": 2,
+   "chars": 288,
+   "sha256": "d94003f67f595682a381106215ddba2a94e67448781c53f57c574a7f37ad2259",
+   "completion_tokens": 64,
+   "prompt_tokens": 935,
+   "cache_n": 0,
+   "prompt_n": 935,
+   "finish": "tool_calls",
+   "wall_ms": 1743.4,
+   "text": "{\"calls\": [{\"arguments\": \"{\\\"pattern\\\":\\\"src/packaging/**/*.py\\\"}\", \"name\": \"list_files\"}], \"content\": \"\", \"reasoning\": \"Let me start by exploring the repository structure to understand the codebase, particularly focusing on the `packaging.dependency_groups` module and related files.\\n\"}"
+  },
+  {
+   "server": "C",
+   "label": "R_greedy_2",
+   "temperature": 0.0,
+   "n_msgs": 2,
+   "chars": 254,
+   "sha256": "88a34bf59e9029009e67b9b18a6ebbf12fbc5ed49c8840af7dc9cfe1556d55c1",
+   "completion_tokens": 55,
+   "prompt_tokens": 935,
+   "cache_n": 0,
+   "prompt_n": 935,
+   "finish": "tool_calls",
+   "wall_ms": 1695.0,
+   "text": "{\"calls\": [{\"arguments\": \"{\\\"pattern\\\":\\\"**/*.py\\\"}\", \"name\": \"list_files\"}], \"content\": \"\", \"reasoning\": \"Let me start by exploring the repository structure to understand how it's organized and find the relevant files for dependency groups handling.\\n\"}"
+  },
+  {
+   "server": "C",
+   "label": "R_general_1",
+   "temperature": 1.0,
+   "n_msgs": 2,
+   "chars": 2351,
+   "sha256": "a3235c1e50ac261967b378c453025f083ad98bb2321cc56039808ac82023e414",
+   "completion_tokens": 542,
+   "prompt_tokens": 935,
+   "cache_n": 0,
+   "prompt_n": 935,
+   "finish": "tool_calls",
+   "wall_ms": 7535.8,
+   "text": "{\"calls\": [{\"arguments\": \"{\\\"pattern\\\":\\\"packaging/*.py\\\"}\", \"name\": \"list_files\"}], \"content\": \"\", \"reasoning\": \"The user wants to add group name validation to the `packaging` library, specifically for dependency groups (PEP 735).\\nHere are the requirements:\\n1.  **Validation Rule**: Group names must follow the same rules as the `Name` field in Core Metadata. I need to find this existing implementation in the repository and reuse it. Do not create a new regex.\\n2.  **New Exception**: Add a public exception `InvalidGroupName` (subclass of `ValueError`) to `packaging.dependency_groups` and add it to `__all__`.\\n3.  **Constructor Validation (`DependencyGroupResolver(...)`)**: When creating the resolver, if any group name (key) in the provided mapping is invalid, raise a single exception containing all invalid names (similar to how duplicate errors or other aggregate errors are handled). The message must include the repr of the original names.\\n4.  **Method Validation (`lookup()` and `resolve()`)**: If an invalid name is passed to these methods, raise a single `InvalidGroupName` immediately before any other processing.\\n5.  **Preservation**: Existing behavior for valid names (normalization, duplicate checking, inclusion, cycle detection) must remain unchanged.\\n\\n**Plan:**\\n1.  Explore the repository structure to find relevant files.\\n    *   Look for `packaging/dependency_groups.py` or similar.\\n    *   Look for `packaging.specifiers.py` or `packaging.utils.py` where name validation might already exist (likely `packaging.utils`).\\n2.  Read the existing name validation implementation in `packaging/utils.py` (or similar) to understand the regex or function used.\\n3.  Read `packaging/dependency_groups.py` to understand the current structure of `DependencyGroupResolver`, `lookup`, and `resolve`.\\n4.  Implement the changes:\\n    *   Add `InvalidGroupName` exception class.\\n    *   Update `__all__` in `dependency_groups.py`.\\n    *   Import the name validation function from `utils.py` (or wherever it is).\\n    *   Modify `DependencyGroupResolver.__init__` to check keys and raise an aggregate error if any are invalid.\\n    *   Modify `lookup` and `resolve` to check the specific name argument.\\n5.  Verify using grep/read_file that I haven't missed anything.\\n\\nLet's start by listing files in the packaging directory.\\n\"}"
+  }
+ ]
+}

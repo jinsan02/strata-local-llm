@@ -1,0 +1,13 @@
+<tool_call>
+<function=read_file>
+<parameter=end_line>
+170
+</parameter>
+<parameter=path>
+src/packaging/dependency_groups.py
+</parameter>
+<parameter=start_line>
+130
+</parameter>
+</function>
+</tool_call>

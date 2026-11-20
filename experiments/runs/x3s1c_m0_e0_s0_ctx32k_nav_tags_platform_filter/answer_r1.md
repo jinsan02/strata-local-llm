@@ -1,0 +1,1 @@
+수정 완료. `src/packaging/utils.py`의 `parse_wheel_filename` 함수에 `platforms` 키워드 전용 인자를 추가했습니다. 플랫폼 이름 정규화(`.`/`-`/` ` → `_`, 소문자) 및 일치 여부를 검증하는 로직을 구현했으며, 문자열 전달 시 `TypeError`를, 불일치 시 `InvalidWheelFilename`을 발생시킵니다. `any` 플랫폼 태그는 항상 통과하며 기존 동작은 변경되지 않았습니다. 기존 테스트 파일은 수정하지 않았습니다.

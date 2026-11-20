@@ -1,0 +1,1 @@
+`src/packaging/version.py` 파일의 `Version` 클래스에 `bump(part: str) -> Version` 메서드를 추가했습니다. 이 메서드는 "major", "minor", "micro" 중 하나의 part 인자를 받아 해당 위치의 release 숫자를 1 증가시키고, 이후 위치들을 0으로 만듭니다. 존재하지 않는 위치에 대해서는 0을 채워 늘리며, pre/post/dev/local은 모두 버리고 epoch는 유지합니다. 유효하지 않은 part 값에 대해서는 `ValueError`를 던집니다.

@@ -1,0 +1,13 @@
+<tool_call>
+<function=read_file>
+<parameter=end_line>
+312
+</parameter>
+<parameter=path>
+src/packaging/requirements.py
+</parameter>
+<parameter=start_line>
+260
+</parameter>
+</function>
+</tool_call>
