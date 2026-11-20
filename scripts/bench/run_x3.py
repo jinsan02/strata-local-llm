@@ -52,6 +52,8 @@ def think_est(nr: dict) -> tuple:
 SAMPLING_SETS = {
     "card-general": {"temperature": 1.0, "top_p": 0.95, "top_k": 20, "presence_penalty": 1.5, "seed": 42},
     "card-coding": {"temperature": 0.6, "top_p": 0.95, "top_k": 20, "presence_penalty": 0.0, "seed": 42},
+    # 11-21 Q17 (a): 순수 greedy(temperature 0 · penalty 0) - q36 경로가 MTP 초안을 쓰는 유일한 조건(q36_engine.cu:3730)
+    "greedy": {"temperature": 0.0, "top_p": 0.95, "top_k": 20, "presence_penalty": 0.0, "seed": 42},
 }
 SEED_BASE = 42  # --seed-per-rep: 회차 i 의 seed = SEED_BASE + i - 1 (11-19 저녁: 같은 설정 · 새 서버면 회차가 똑같이 나와 표본이 안 됨)
 SEED_POLICY = "42+rep-1"
