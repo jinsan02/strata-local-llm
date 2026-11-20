@@ -70,13 +70,17 @@ foreach ($id in $models.Keys) {
   $sha = (Get-FileHash $m.path -Algorithm SHA256).Hash.ToLower()
   if (-not $sha.StartsWith($m.sha)) { "[g3] 오류: $id sha256 $sha 이 기록($($m.sha)…)과 다름 - 건너뜀"; continue }
   "[g3] $id sha256 $sha"
-  if (-not (Start-Model $id $m.path)) { continue }
+  # Start-Model 의 글줄과 성공 여부가 한 배열로 돌아온다: 글줄은 찍고, 마지막 값(bool)으로 판정
+  $out = @(Start-Model $id $m.path)
+  $out | Where-Object { $_ -is [string] }
+  if (-not $out[-1]) { continue }
   Probe-PP $id
   if (-not $m.x3) { continue }
-  for ($r = 1; $r -le $Reps; $r++) {
-    "[g3] $id rep $r $(Get-Date -Format s)"
-    & $py -u "$R\scripts\bench\run_x3.py" --mode navigate --tasks @tasks --prefix x3g3 @hb --rep-start $r --model-id $id --model-sha256 $sha 2>&1 | ForEach-Object { "[g3] $_" }
-    "[g3] $id rep $r end $(Get-Date -Format s)"
+  # 주의: PowerShell 변수 이름은 대소문자를 가리지 않는다 - 회차 변수를 $r 로 쓰면 $R(저장소 경로)을 덮는다 (11-21 첫 실행 버그)
+  for ($rep = 1; $rep -le $Reps; $rep++) {
+    "[g3] $id rep $rep $(Get-Date -Format s)"
+    & $py -u "$R\scripts\bench\run_x3.py" --mode navigate --tasks @tasks --prefix x3g3 @hb --rep-start $rep --model-id $id --model-sha256 $sha 2>&1 | ForEach-Object { "[g3] $_" }
+    "[g3] $id rep $rep end $(Get-Date -Format s)"
   }
 }
 & powershell -NoProfile -ExecutionPolicy Bypass -File "$R\scripts\serve-ctx.ps1" -Stop | Out-Null
