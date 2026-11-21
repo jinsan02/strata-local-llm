@@ -5,7 +5,7 @@
 ## 지금
 
 - 마지막 갱신: 2026-11-22
-- **11-22 01:56 25-4 끝**: L2 마스킹 14/30 기각, **64K 21/30 효과 → 64K 를 노력치 high 로**. 다음은 노력치 옵션(다음 할 일 26)
+- **11-22 01:56 25-4 끝**: L2 마스킹 14/30 기각, **64K 21/30 효과 → 64K 를 노력치 high 로**. 다음은 노력치 옵션(다음 할 일 26). **11-22 08시 노력치 체인 시작(medium · xhigh, 64K, 끝 예상 16~17시)**
 - 단계: **하네스 · 샘플링 탐색 마무리 → Q1(맞춤 양자화) 착수 직전 (11-20 오후)**. 기준 조합 = **M0 · E0 · 32K · H0 + card-coding**. 하네스 후보 H1 · H2a · H2b · H3 · H4 · C1 · S1T3 · T1(출력 예산 16K) 모두 기각 또는 효과 없음, card-coding 16/30 vs card-general 9/30 로 채택. A4(재토큰화) 원인 확인 · 보류. **Q1 진행 중 (11-21 02시)**: 서버 없이 빌드 · Q8_0 · 세 imatrix · 후보 R0 · M1a~M1d · R0u 생성 완료, R0u 가 M0 와 텐서 형식 · KL 모두 같음(재현 확인). **G2: M1a(KL 1.20배 · top-1 −0.32%p) · M1b(1.24배 · −0.51%p) 통과, M1c · M1d 탈락**. imatrix 비교(I-ours · I-unsloth · I-mix) 차이 오차 안 → **I-ours 로 결정**. **Q1-0c · G3 (11-21 오전, 47cb0f3)**: M1b · M1a 적재 정상(슬롯 88 · 85 vs 63), 둘 다 5/12 vs M0 7/12 → G3 통과, 다만 긴 입력 PP −23% · −44%(IQ 텐서 때문에 fused int8 커널을 못 씀). **원인 확인(엔진 소스, [`docs/engine-kernels-20261121.md`](docs/engine-kernels-20261121.md))**: IQ4_XS down 은 fused · 우리 int8 커널 어느 쪽도 받지 않고 이 빌드엔 MMQ 가 없어 한 층이라도 걸리면 전 층이 grouped 로 떨어진다. 카드는 **RTX 5070 Ti(sm_120, 70 SM, 16GB)**. **M1e(gate/up IQ4_XS + down IQ4_NL, 11-21 10시)**: 39/41 층 fused, PP 1,692 vs M0 1,525(+11%), KL 0.0538, expert RAM −1.79 GiB → M1a · M1b 대신 이것. G3 4/12 경계 통과 → **G4 13/30 vs 16/30 탈락(11-21 12:45, 16절, import_or_syntax 6 vs 1)**. 완만한 후보 **M2(gate/up 만 IQ4_XS, 13:14)**: KL 0.0474(M0 1.05배) · PP −3.5% · RAM −0.60 GiB → **G4 11/30 탈락(15:30, 18절, 짝 2 : 7) → Q1 종료 · M0 유지**. KL 이 M0 에 가까워도 X3 는 따라오지 않았다. **25-3 H7(편집 적용을 너그럽게, 18:11): 17/30 vs 16/30 → 채택, 기준 조합에 `--edit-apply lenient` 를 더함(02b1fe6)**. 커널 추가(int8 IQ4_XS down)는 작지만 E1 후보로 기록만(engine-kernels 6절). 11-21 밤 체인 `nrg`(04b1411): **run_tests 16/30 = 대조 16/30 → 효과 없음(Q15)**, **greedy 8/12 vs 7/12(r1-2) → 크게 안 떨어짐, 30회 확인 후보(Q17)**. 상세 [`docs/q1-plan-20261120.md`](docs/q1-plan-20261120.md) 11 · 12절
 - 전체 계획: [`docs/plan-20261120.md`](docs/plan-20261120.md) (9단계, 11-19 확정 · 11-20 진행 표시)
 - 이전 계획 문서: v2.0 + v2.1 + **v2.2** ([`docs/plan-v2.2-amendment-20261118.md`](docs/plan-v2.2-amendment-20261118.md): 1차 실행 설정 → 2차 양자화 → 3차 서버·엔진, 기존 ID 대응표, KV 독립 변수. 9절 = 3차 P0 · HR · E1 후속 전달문)
@@ -81,6 +81,7 @@
     1. 노력치: 서버는 64K 하나, 요청마다 `effort` 로 강제 턴 문턱 · 호출 상한을 고른다. low 22K/12 · medium 22K/20(지금 기준과 같음) · high 55K/20(= x3k64h7) · xhigh 55K/30. 테스트가 실패하면 한 단계 올려 **처음부터 새로** 다시 돈다(자동 올리기). 측정: xhigh 6과제 x 5회(대조 x3k64h7 21/30), 그리고 64K 서버에서 medium 이 32K 의 x3h7 과 같은지 확인.
     2. 도구: 편집 직후 문법 검사(ast.parse, 깨지면 되돌리고 줄 번호를 알려 줌) → 파일 개요 · 심볼 읽기(outline / read_symbol). 하나씩 30회로 재고 −1 규칙으로 채택.
     3. 그 뒤 후보: H1 + H7 + coding, greedy(Q17), `configs/worker.json` 갱신.
+    **11-22 착수 (`docs/effort-20261122.md`)**: `run_x3.py --effort` · `g3-chain.ps1 -Effort` · 자체 점검 10/10. 오늘 체인 `scripts/bench/effort-chain.ps1`(64K 서버): 팔 M medium `x3e64m`(대조 x3h7 17/30, 약 2시간) → 팔 X xhigh `x3exh`(대조 x3k64h7 21/30, 약 5~6시간), 끝 표시 `engine\effort-chain.log` 의 `[effort] done`. 판정: M 16 이상이면 서버 하나(64K) + medium 운영, X 22 이상이면 xhigh 유지. 자동 올리기 효과는 세 세트로 서버 없이 추정.
     - 속도 쪽 MTP 는 Q17.
 
 ## 사람에게 요청한 것
@@ -161,6 +162,7 @@
 
 ## 최근 변경
 
+- 2026-11-22 · Claude Code · 노력치 옵션(`--effort low/medium/high/xhigh` = 문턱 · 호출 상한 묶음) · 측정 체인 `effort-chain.ps1` · `docs/effort-20261122.md`(정의 · 판정 · 오늘 시간표). 자체 점검 10/10, 기존 자체 점검 전부 통과.
 - 2026-11-22 · Claude Code · 25-4 끝: A 32K + L2 마스킹 14/30(짝 2:6) 기각, B 64K 21/30(짝 6:2, 숨은 510 vs 361, 회차 약 53분) 효과 → 24번 결정 = 64K 를 노력치 high 로. 조합 분석 문서 · `scripts/analysis/x3_combo.py` 추가. 다음 할 일 26(노력치 → 도구) 기록.
 - 2026-11-21 · Claude Code · 25-3 H7(`--edit-apply lenient`, 1be6e1f): M0 30회 17/30 vs H0 16/30(짝 5:4, 숨은 테스트 361 vs 335) → 채택(02b1fe6). apply_fail · no_edit 5 → 0, 늘어난 import_or_syntax 는 H7 규칙과 무관(재적용 확인). 남은 실패는 내용 오류. h7 문서 5절.
 
