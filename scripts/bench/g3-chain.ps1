@@ -4,7 +4,8 @@
 #   G3 : H0 + card-coding, 6과제 x 2회(seed 42 · 43), 접두사 x3g3. 대조 = x3s1c 1 · 2회차(7/12, 다시 안 돌림). 탈락 = 대조보다 3 넘게 나쁨(< 4/12).
 # 순서: M0 PP → M1b(PP · X3) → M1a(PP · X3). 모델마다 서버는 한 번만 띄운다. 끝나면 서버 종료 · 밤 모드. 끝 표시 '[g3] done'.
 param([int]$Context = 32768, [int]$Reps = 2, [string[]]$Only = @(), [int]$RepStart = 1,   # 11-21 G4: -RepStart 3 -Reps 5 = G3 의 1 · 2회차에 3~5회차를 더해 30회(두 번 안 돌림)
-      [string]$Harness = 'H0', [string]$Prefix = 'x3g3', [ValidateSet('strict', 'lenient')][string]$EditApply = 'strict', [switch]$ForceX3, [switch]$Mask)   # 11-21 H7: -Only M0 -ForceX3 -Harness H7 -Prefix x3h7 -EditApply lenient -Reps 5
+      [string]$Harness = 'H0', [string]$Prefix = 'x3g3', [ValidateSet('strict', 'lenient')][string]$EditApply = 'strict', [switch]$ForceX3, [switch]$Mask,
+      [ValidateSet('none', 'low', 'medium', 'high', 'xhigh')][string]$Effort = 'none')   # 11-22 노력치(STATE 26)   # 11-21 H7: -Only M0 -ForceX3 -Harness H7 -Prefix x3h7 -EditApply lenient -Reps 5
 $ErrorActionPreference = 'Continue'
 $R = 'C:\strata-lab'; $D = "$R\data\models"
 $py = 'C:\ProgramData\anaconda3\envs\strata_local_llm\python.exe'
@@ -66,7 +67,8 @@ $gpu = Start-Process nvidia-smi -ArgumentList "--query-gpu=timestamp,temperature
 $tasks = @('dg_group_names', 'marker_extras', 'version_bump', 'tags_platform_filter', 'metadata_extra_dupes', 'specifier_bounds')
 $hb = @('--harness', $Harness, '--tool-out', 'chars', '--reasoning-echo', 'none', '--final-turn', 'none', '--seed-per-rep', '--sampling', 'card-coding', '--edit-apply', $EditApply, '--ctx', $Context)   # 11-21 25-4: --ctx 를 넘김(전에는 run_x3 기본 32768)
 if ($Mask) { $hb += @('--mask', 'on') }   # 11-21 25-4 L2
-"[g3] harness $Harness prefix $Prefix edit-apply $EditApply ctx $Context mask $([bool]$Mask)"
+if ($Effort -ne 'none') { $hb += @('--effort', $Effort) }   # 11-22 노력치
+"[g3] harness $Harness prefix $Prefix edit-apply $EditApply ctx $Context mask $([bool]$Mask) effort $Effort"
 foreach ($id in $models.Keys) {
   if ($Only.Count -and $id -notin $Only) { continue }
   $m = $models[$id]

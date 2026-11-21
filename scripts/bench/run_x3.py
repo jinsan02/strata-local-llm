@@ -640,6 +640,24 @@ def mask_old_outputs(msgs: list, tool_meta: list, in_now: int, masked: set, mask
     return n, freed
 
 
+EFFORT_LEVELS = ("low", "medium", "high", "xhigh")   # 11-22 노력치(STATE 26). 문턱 None = ctx - budget - 2048
+EFFORT = {"low": (24320 - 2048, 12), "medium": (24320 - 2048, 20), "high": (None, 20), "xhigh": (None, 30)}
+
+
+def resolve_effort(a) -> None:
+    """--effort 를 force_at · max_steps 로 푼다. 노력치와 직접 값을 같이 주면 거부(어느 쪽인지 원장에서 헷갈리지 않게)."""
+    effort = getattr(a, "effort", "none") or "none"
+    if effort == "none":
+        a.max_steps = 20 if a.max_steps is None else a.max_steps
+        a.force_at = a.force_at if a.force_at is not None else (24320 - 2048 if a.ctx == 32768 else a.ctx - a.budget - 2048)
+        return
+    assert a.force_at is None and a.max_steps is None, "--effort 와 --force-at · --max-steps 는 같이 쓰지 않는다"
+    f, s = EFFORT[effort]
+    a.force_at = f if f is not None else a.ctx - a.budget - 2048
+    a.max_steps = s
+    assert a.force_at <= a.ctx - a.budget - 2048, f"문턱 {a.force_at} 이 ctx {a.ctx} 에 비해 크다"
+
+
 def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...], chat=None, counter=None) -> dict:
     """도구 탐색 루프(X3 · SWE 공용). 편집은 edit_file 로 작업 트리에 바로 적용된다.
 
@@ -970,7 +988,9 @@ def main() -> int:
     ap.add_argument("--repeat", type=int, default=1)
     ap.add_argument("--rep-start", type=int, default=1, help="반복 번호 시작 (H0 · H1 을 번갈아 돌릴 때 _r<n> 이 겹치지 않게)")
     ap.add_argument("--prefix", default="x3")
-    ap.add_argument("--max-steps", type=int, default=20)
+    ap.add_argument("--max-steps", type=int, default=None, help="도구 호출 상한. 기본 20 (--effort 가 있으면 그 값)")
+    ap.add_argument("--effort", choices=["none", *EFFORT_LEVELS], default="none",
+                    help="11-22 노력치: 강제 턴 문턱 · 호출 상한 묶음. low 22,272/12 · medium 22,272/20 · high ctx-budget-2048/20 · xhigh ctx-budget-2048/30")
     ap.add_argument("--harness", default="H0", help="하네스 후보 ID (H0 = nav-v3 기준선: edit_file · 재요청 1회 · 글자 수 자르기 12,000)")
     ap.add_argument("--tool-out", choices=["chars", "paged"], default="chars", help="H0 chars(글자 수 자르기) / H1 paged(토큰 예산 범위 · 다음 범위 안내)")
     ap.add_argument("--reasoning-echo", choices=["none", "all", "last"], default="none", help="H2: 이전 assistant 답의 reasoning_content 를 다시 보냄 (T-013)")
@@ -1004,9 +1024,10 @@ def main() -> int:
     if a.reasoning_budget:
         rb.EXTRA_BODY["reasoning_budget_tokens"] = a.reasoning_budget
     assert (a.settings_id == "S0") == (not a.reasoning_budget), "settings_id 와 reasoning_budget 이 맞지 않는다"
-    force_default = 24320 - 2048 if a.ctx == 32768 else a.ctx - a.budget - 2048
-    a.force_at = a.force_at if a.force_at is not None else force_default
+    resolve_effort(a)
     force_note = {} if (a.ctx == 32768 and a.force_at == 24320 - 2048) else {"force_at": a.force_at}
+    if a.effort != "none":
+        force_note.update({"effort": a.effort, "force_at": a.force_at})
     global EDIT_HINT, EDIT_APPLY
     EDIT_HINT = a.edit_hint == "on"
     EDIT_APPLY = a.edit_apply
