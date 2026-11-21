@@ -596,6 +596,50 @@ def _reread_key(root: Path, args: dict):
     return (path, int(args.get("start_line") or 1), str(args.get("end_line") or ""), digest)
 
 
+# L2 (11-21, 25-4, docs/l2-mask-20261121.md): 관찰 마스킹. 입력이 MASK_AT 를 넘으면 그때 한 번에, 최근 MASK_KEEP 개를 뺀
+# 오래된 큰 도구 결과를 자리표시로 바꾼다(입력이 MASK_TO 아래가 될 때까지만). 매 턴 지우지 않아 재처리는 마스킹 1번에 1회.
+MASK_AT, MASK_TO, MASK_KEEP, MASK_MIN_CHARS = 16000, 10000, 2, 400
+
+
+def _mask_desc(fn: str, args) -> str:
+    if not isinstance(args, dict):
+        return fn
+    if fn == "read_file":
+        s, e = args.get("start_line"), args.get("end_line")
+        rng = f" 줄 {s or 1}~{e or '끝'}" if (s or e) else " 처음부터"
+        return f"read_file {args.get('path', '')}{rng}"
+    if fn == "grep":
+        return f"grep {args.get('pattern', '')!r}" + (f" ({args['path']})" if args.get("path") else "")
+    if fn == "list_files":
+        return f"list_files {args.get('path', '') or '.'}"
+    return fn
+
+
+def mask_old_outputs(msgs: list, tool_meta: list, in_now: int, masked: set, mask_to: int = None, keep: int = None,
+                     min_chars: int = None, cpt: float = None) -> tuple[int, int]:
+    """tool_meta = [(msgs 위치, 도구 이름, 인자)] (도구 결과 순서), masked = 이미 지운 위치. 오래된 것부터 지운다. (지운 수, 지운 글자 수)."""
+    mask_to = MASK_TO if mask_to is None else mask_to
+    keep = MASK_KEEP if keep is None else keep
+    min_chars = MASK_MIN_CHARS if min_chars is None else min_chars
+    cpt = CHARS_PER_TOKEN if cpt is None else cpt
+    n = freed = 0
+    est = in_now
+    for idx, fn, args in (tool_meta[:-keep] if keep else tool_meta):
+        if est <= mask_to:
+            break
+        m = msgs[idx]
+        old = m.get("content") or ""
+        if fn == "edit_file" or idx in masked or len(old) < min_chars:
+            continue
+        ph = f"(문맥 절약: 이 도구 결과({_mask_desc(fn, args)}, {len(old)}자)는 지웠다. 필요하면 다시 호출하라.)"
+        m["content"] = ph
+        masked.add(idx)
+        n += 1
+        freed += len(old) - len(ph)
+        est -= (len(old) - len(ph)) / cpt
+    return n, freed
+
+
 def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...], chat=None, counter=None) -> dict:
     """도구 탐색 루프(X3 · SWE 공용). 편집은 edit_file 로 작업 트리에 바로 적용된다.
 
@@ -625,6 +669,10 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
             m_out["reasoning_content"] = reasoning
             r["echo_chars"] += len(reasoning)
         msgs.append(m_out)
+    mask_on = getattr(a, "mask", "off") == "on"   # L2 (25-4): 관찰 마스킹 (H0 = off)
+    tool_meta: list = []    # (msgs 위치, 도구, 인자) — 마스킹 대상 찾기용, 서버로는 보내지 않는다
+    masked: set = set()
+    r.update({"masks": 0, "masked_outputs": 0, "masked_chars": 0, "mask_log": []})
     fake_retry_left = 1
     force_at = getattr(a, 'force_at', 24320 - 2048)   # 워커: ctx - budget - 2048 (32K 에서 같은 값)
     # H4 (11-18 A/B 의 최다 실패 = 강제 마지막 턴 텍스트 편집 블록 불일치): final_turn=edit 이면 강제 턴에 도구를 다 빼지 않고
@@ -637,6 +685,16 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
             break
         exact = counter(msgs, [EDIT_TOOL] if forced and final_turn == "edit" else (None if forced else nav_tools))
         in_now, src = (exact, "count_tokens") if exact is not None else (r["last_in"], "prev_prompt_tokens")
+        if mask_on and not forced and in_now and in_now > MASK_AT:
+            n_m, freed = mask_old_outputs(msgs, tool_meta, in_now, masked)
+            if n_m:
+                r["masks"] += 1
+                r["masked_outputs"] += n_m
+                r["masked_chars"] += freed
+                before = in_now
+                exact = counter(msgs, nav_tools)
+                in_now, src = (exact, "count_tokens") if exact is not None else (int(in_now - freed / CHARS_PER_TOKEN), "mask_est")
+                r["mask_log"].append({"step": step, "in_before": before, "in_after": in_now, "n": n_m, "chars": freed})
         if not forced and (step == a.max_steps - 1 or in_now > force_at):
             forced = True
             if final_turn == "edit":
@@ -746,6 +804,7 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
             cut = max(0, len(out) - TOOL_OUT_LIMIT)
             r["truncated_chars"] += cut
             r["tool_log"].append({"step": step, "tool": fn, "args": logged, "ok": ok, "out_chars": len(out), "truncated": cut})
+            tool_meta.append((len(msgs), fn, logged))
             msgs.append({"role": "tool", "tool_call_id": c.get("id", ""), "content": out[:TOOL_OUT_LIMIT]})
     return r
 
@@ -771,7 +830,8 @@ def nav_summary(nr: dict, wall_ms: float, grade_ms: float) -> str:
             f"think_wraps {nr.get('think_wraps', 0)}; think_tok_est {think_est(nr)[0]}; think_turn_max_est {think_est(nr)[1]}; "
             f"wall_ms {wall_ms:.0f}; grade_ms {grade_ms:.0f}"
             + (f"; tests_runs {nr['tests_runs']}" if nr.get("tests_runs") else "")
-            + (f"; reread_skips {nr['reread_skips']}" if nr.get("reread_skips") else ""))
+            + (f"; reread_skips {nr['reread_skips']}" if nr.get("reread_skips") else "")
+            + (f"; masks {nr['masks']}; masked_outputs {nr['masked_outputs']}; masked_chars {nr['masked_chars']}" if nr.get("masks") else ""))
 
 
 def nav_apply_final(root: Path, r: dict, candidates: list[str], deny: tuple[str, ...]) -> tuple[int, list[str], str]:
@@ -919,6 +979,8 @@ def main() -> int:
     ap.add_argument("--edit-hint", choices=["off", "on"], default="off", help="H6: edit_file 0회 일치 때 가장 비슷한 원문을 돌려줌 (H0 = off)")
     ap.add_argument("--edit-apply", choices=["strict", "lenient"], default="strict",
                     help="H7: lenient = 들여쓰기 이동 · 줄 끝 공백 무시 · 텍스트 edit_file 호출 받기 · 여러 곳 일치 줄 번호 (H0 = strict)")
+    ap.add_argument("--mask", choices=["off", "on"], default="off",
+                    help="L2 (25-4): 입력이 MASK_AT 를 넘으면 오래된 큰 도구 결과를 자리표시로 바꿈 (H0 = off)")
     ap.add_argument("--run-tests", choices=["off", "on"], default="off", help="Q15: 공개 테스트 도구 run_tests 를 줌 (H0 = off)")
     ap.add_argument("--sampling", choices=sorted(SAMPLING_SETS), default="card-general",
                     help="샘플링 세트 (S1): card-general = 1.0/0.95/20/presence 1.5 (기본, 지금) · card-coding = 0.6/0.95/20/presence 0")
@@ -1065,7 +1127,7 @@ def main() -> int:
                     cfg = {"task": task, "mode": "navigate", "harness": a.harness, "commit": COMMIT, "tool_out_limit": TOOL_OUT_LIMIT,
                            "tool_out": a.tool_out, "reasoning_echo": a.reasoning_echo, "reasoning_budget": a.reasoning_budget or "answer_room", "final_turn": a.final_turn, "force_edit_turns": FORCE_EDIT_TURNS, **({"page_tokens": PAGE_TOKENS, "chars_per_token": CHARS_PER_TOKEN, "grep_hits": GREP_HITS,
                                                        "list_files": LIST_FILES} if a.tool_out == "paged" else {}),
-                           "tools": NAV_TOOLS + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, **({"seed_policy": SEED_POLICY} if a.seed_per_rep else {}), "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {}), **({"edit_hint": "on", "edit_hint_lines": EDIT_HINT_LINES} if a.edit_hint == "on" else {}), **({"edit_apply": "lenient", "indent_shift_max": INDENT_SHIFT_MAX} if a.edit_apply == "lenient" else {}),**force_note, **({"reread_guard": "on"} if a.reread_guard == "on" else {})}
+                           "tools": NAV_TOOLS + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, **({"seed_policy": SEED_POLICY} if a.seed_per_rep else {}), "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {}), **({"edit_hint": "on", "edit_hint_lines": EDIT_HINT_LINES} if a.edit_hint == "on" else {}), **({"edit_apply": "lenient", "indent_shift_max": INDENT_SHIFT_MAX} if a.edit_apply == "lenient" else {}), **({"mask": "on", "mask_at": MASK_AT, "mask_to": MASK_TO, "mask_keep": MASK_KEEP, "mask_min_chars": MASK_MIN_CHARS} if a.mask == "on" else {}),**force_note, **({"reread_guard": "on"} if a.reread_guard == "on" else {})}
                     cfg_sha = rb.sha256_bytes(rb.canon(cfg))
                     (run_dir / "config.json").write_bytes(rb.canon(cfg))
                     (run_dir / "env.json").write_bytes(rb.canon(env))
@@ -1098,11 +1160,14 @@ def main() -> int:
                     rb.write_row(row)
                     (run_dir / f"answer_r{i}.md").write_text(final, encoding="utf-8")
                     (run_dir / f"tools_r{i}.json").write_text(json.dumps(tool_log, ensure_ascii=False, indent=1), encoding="utf-8")
+                    if nr.get("mask_log"):
+                        (run_dir / f"mask_r{i}.json").write_text(json.dumps(nr["mask_log"], ensure_ascii=False, indent=1), encoding="utf-8")
                     print(json.dumps({"run": rid, "tool_calls": len(tool_log), "required_read": f"{len(found)}/{len(tcfg['required_files'])}",
                                       "edit_ok": nr["edit_ok"], "edit_fail": nr["edit_fail"], "text_calls": nr["fake_calls"],
                                       "bad_json": nr["bad_json"], "tool_errors": nr["tool_errors"], "wall_s": round(wall_ms / 1000),
                                       "error_type": et, "hidden": row["tests_passed"], "last_input": last_in,
-                                      "think_wraps": nr["think_wraps"], "think_tok_est": think_est(nr)[0]}, ensure_ascii=False), flush=True)
+                                      "think_wraps": nr["think_wraps"], "think_tok_est": think_est(nr)[0],
+                                      **({"masks": nr["masks"], "masked_chars": nr["masked_chars"]} if nr.get("masks") else {})}, ensure_ascii=False), flush=True)
     return 0
 
 
