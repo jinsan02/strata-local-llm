@@ -1,0 +1,5 @@
+ssm_(alpha|beta)\.weight=f32
+blk\.39\.ffn_(gate|up)_exps=q5_k
+ffn_(gate|up)_exps=iq4_xs
+blk\.(34|38|39)\.ffn_down_exps=q6_k
+ffn_down_exps=q5_k

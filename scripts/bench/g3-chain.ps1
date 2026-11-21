@@ -14,7 +14,8 @@ $models = [ordered]@{
   M0  = @{ path = "$D\qwen36-ud-q4_k_xl\Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf"; sha = '55983c5a'; x3 = $false }
   M1b = @{ path = "$D\qwen36-m1b\Qwen3.6-35B-A3B-M1B.gguf"; sha = 'cb2eaf34'; x3 = $true }
   M1a = @{ path = "$D\qwen36-m1a\Qwen3.6-35B-A3B-M1A.gguf"; sha = '7d4c5c2f'; x3 = $true }
-  M1e = @{ path = "$D\qwen36-m1e\Qwen3.6-35B-A3B-M1E.gguf"; sha = ''; x3 = $true }   # 11-21: sha 는 생성 뒤 G0 줄
+  M1e = @{ path = "$D\qwen36-m1e\Qwen3.6-35B-A3B-M1E.gguf"; sha = '5b4f868d'; x3 = $true }   # 11-21: down IQ4_NL
+  M2 = @{ path = "$D\qwen36-m2\Qwen3.6-35B-A3B-M2.gguf"; sha = ''; x3 = $true }   # 11-21: gate/up IQ4_XS, down M0 그대로 (sha 는 생성 뒤 G0 줄)
 }
 function Start-Model([string]$id, [string]$path) {
   & powershell -NoProfile -ExecutionPolicy Bypass -File "$R\scripts\serve-ctx.ps1" -Stop | Out-Null
