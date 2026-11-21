@@ -75,3 +75,20 @@ ggml 형식 번호: Q5_0 6 · Q5_1 7 · Q8_0 8 · Q4_K 12 · Q5_K 13 · Q6_K 14 
 2. M1a 계열(Q4_K gate)은 down 을 IQ4_NL 로 바꿔도 fused 가 안 된다(K-quant gate 는 IQ4_NL down 짝이 없음) → int8 경로. 이득이 작아 후보에서 뺀다.
 3. 엔진을 MMQ 포함으로 다시 빌드(`STRATA_MMQ=ON`)하면 IQ4_XS down 층이 MMQ 로 가서 낭떠러지는 피한다. 엔진 변경(E1 성격)이라 뒤로.
 4. 확인 순서(싸게): M1e 생성(서버 없이 약 5분) → 엔진 로그가 `fused int8 kernels` 인지 + PP 탐침(약 5분) → G2 KL(같은 기준 로짓) → G3. PP 가 M0 근처로 돌아오면 G4 후보는 M1e.
+
+## 6. 확인 결과 · 왜 처음에 못 잡았나 · 커널 추가 (11-21 오전)
+
+**M1e 확인 [측정]** (q1-plan 14절): 엔진 로그 `39 of 41 layers on the fused int8 kernels, 2 on our int8 kernels` — 5절 예측과 같다. 긴 입력 PP 1,692 vs M0 1,525 tok/s(+11%), KL 0.0538.
+
+**왜 처음에 못 잡았나** (회고, 다음에 같은 실수를 막기 위해):
+1. 레시피를 llama.cpp 기준(Unsloth · bartowski 혼합)으로 짰다. llama.cpp 에선 IQ4_XS down 이 흔하고 빠르다. STRATA 는 커널마다 받는 형식 짝이 따로 있는데, **레시피 설계 때 엔진 지원 목록을 소스에서 확인하지 않았다**(10분이면 확인 가능했다).
+2. 계획의 위험 항목은 'IQ **gate/up** 경로가 느릴 수 있다'였다. down 형식과 '한 층이 전체를 끌어내리는 규칙'(`q36_prompt_path_ok`)은 몰랐다. 또 층마다 MMQ 로 떨어질 거라 가정했는데 이 빌드엔 MMQ 가 없었다.
+3. 계획상 Q1-0c(작은 시험 GGUF 로 적재 · PP 확인)는 후보 생성 **전**이었는데, 서버가 필요해 밤 체인에서 빠지고 G2 뒤로 밀렸다. G2(llama.cpp KL)는 품질만 보고 STRATA 속도는 보지 못한다.
+4. 카드도 문서에 '5070' 으로 적힌 것을 확인 없이 따라 썼다(실물 5070 Ti, 70 SM).
+→ **규칙으로 남김**: 새 양자화 레시피는 만들기 전에 층별 (gate/up, down) 짝을 3절 표와 맞춰 보고, 엔진 로그의 `prompt experts` 줄을 G0 단계 확인 항목에 넣는다.
+
+**커널을 추가해서 유리하게 할 수 있나** [소스 검토, 미구현]:
+- **우리 int8 커널에 IQ4_XS down 추가 — 작다.** IQ4_XS 디코드는 gate/up 용으로 이미 같은 템플릿 안에 있다(`i8_expert.cuh:156, 189, 259, 350, 863`; `i8_launch<T, GU>` 하나가 gate/up · down 을 함께 처리). 바꿀 곳: `i8_d_type` 에 23 추가(`i8_expert.cuh:62`), `i8_smem_bytes` 의 down 분기(`:1167`), 디스패치 한 줄(`iq_kernels.cu:6389-6395`). n_ff 512 는 256 의 배수라 K-quant down 과 같은 조건을 만족한다. 검증 도구 `src/kernels/native_i8_parity.cpp` 가 있다. 다만 int8 경로는 fused 보다 느릴 수 있어(이번엔 2개 층만 써서 분리 측정 없음) 이득은 'grouped 낭떠러지 회피 + down 0.25 bpw(약 0.3 GiB) 절약' 정도.
+- **fused 커널에 IQ4_XS down 추가 — 중간.** `load_unit<T_IQ4_XS>` 디코드는 있지만 down 쪽 256값 슈퍼블록 경로는 Q5_K · Q6_K 만 있다(`sw_gu256`, `moe_fused_iq.cu:179`), 인스턴스 · `setup_one<T_IQ4_XS,false>` · `d_covered` · 스테이징 규칙 · 점유율을 같이 손봐야 한다.
+- **MMQ 포함 재빌드** — 모든 IQ 형식을 받지만, 전 층 fused 인 지금보다 느릴 수 있고 엔진 빌드 구성이 바뀐다.
+- **판단**: M1e 로 PP 손실 문제는 이미 풀렸다(M0 보다 빠름). 커널 추가는 E1(엔진 변경) 후보로 기록만 하고, 더 작은 크기가 필요해질 때(64K 메모리 배분) 다시 본다. 남은 2개 int8 층(34 · 38)은 gate/up 을 Q4_K 로 바꾸면(K-quant 짝) 전 층 fused 가 된다.
