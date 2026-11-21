@@ -1,0 +1,1 @@
+`packaging.markers.Marker`에 `referenced_extras()` 메서드와 `_collect_extras()` 정적 메서드를 추가했고, `packaging.requirements.Requirement`에 `marker_extras` 속성(property)을 추가했습니다. 두 파일 모두 `utils.NormalizedName` 임포트를 추가했습니다. 기존 동작은 변경되지 않습니다.
