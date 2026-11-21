@@ -25,6 +25,7 @@ $models = [ordered]@{
   R0u = "$D\qwen36-r0u\Qwen3.6-35B-A3B-R0U.gguf"
   M1a = "$D\qwen36-m1a\Qwen3.6-35B-A3B-M1A.gguf"
   M1b = "$D\qwen36-m1b\Qwen3.6-35B-A3B-M1B.gguf"
+  M1e = "$D\qwen36-m1e\Qwen3.6-35B-A3B-M1E.gguf"   # 11-21: down IQ4_NL (engine-kernels 5절)
   M1c = "$D\qwen36-m1c\Qwen3.6-35B-A3B-M1C.gguf"
   M1d = "$D\qwen36-m1d\Qwen3.6-35B-A3B-M1D.gguf"
   # imatrix 비교(10절): -u = I-unsloth, -x = I-mix. q1-var.ps1 이 만든다

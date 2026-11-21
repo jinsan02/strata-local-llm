@@ -14,6 +14,7 @@ $models = [ordered]@{
   M0  = @{ path = "$D\qwen36-ud-q4_k_xl\Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf"; sha = '55983c5a'; x3 = $false }
   M1b = @{ path = "$D\qwen36-m1b\Qwen3.6-35B-A3B-M1B.gguf"; sha = 'cb2eaf34'; x3 = $true }
   M1a = @{ path = "$D\qwen36-m1a\Qwen3.6-35B-A3B-M1A.gguf"; sha = '7d4c5c2f'; x3 = $true }
+  M1e = @{ path = "$D\qwen36-m1e\Qwen3.6-35B-A3B-M1E.gguf"; sha = ''; x3 = $true }   # 11-21: sha 는 생성 뒤 G0 줄
 }
 function Start-Model([string]$id, [string]$path) {
   & powershell -NoProfile -ExecutionPolicy Bypass -File "$R\scripts\serve-ctx.ps1" -Stop | Out-Null
@@ -68,7 +69,7 @@ foreach ($id in $models.Keys) {
   if (-not (Test-Path $m.path)) { "[g3] 오류: $id 파일 없음 $($m.path)"; continue }
   "[g3] $id hash $(Get-Date -Format s)"
   $sha = (Get-FileHash $m.path -Algorithm SHA256).Hash.ToLower()
-  if (-not $sha.StartsWith($m.sha)) { "[g3] 오류: $id sha256 $sha 이 기록($($m.sha)…)과 다름 - 건너뜀"; continue }
+  if ($m.sha -and -not $sha.StartsWith($m.sha)) { "[g3] 오류: $id sha256 $sha 이 기록($($m.sha)…)과 다름 - 건너뜀"; continue }
   "[g3] $id sha256 $sha"
   # Start-Model 의 글줄과 성공 여부가 한 배열로 돌아온다: 글줄은 찍고, 마지막 값(bool)으로 판정
   $out = @(Start-Model $id $m.path)
