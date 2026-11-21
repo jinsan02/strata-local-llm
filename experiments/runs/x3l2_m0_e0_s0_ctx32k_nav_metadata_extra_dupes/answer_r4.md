@@ -1,0 +1,13 @@
+<tool_call>
+<function=read_file>
+<parameter=end_line>
+100
+</parameter>
+<parameter=path>
+src/packaging/metadata.py
+</parameter>
+<parameter=start_line>
+50
+</parameter>
+</function>
+</tool_call>

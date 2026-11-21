@@ -1,0 +1,16 @@
+[
+ {
+  "step": 8,
+  "in_before": 17595,
+  "in_after": 9745,
+  "n": 3,
+  "chars": 24358
+ },
+ {
+  "step": 16,
+  "in_before": 16356,
+  "in_after": 8469,
+  "n": 5,
+  "chars": 24248
+ }
+]

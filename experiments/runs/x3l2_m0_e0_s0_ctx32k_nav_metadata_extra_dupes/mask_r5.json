@@ -1,0 +1,23 @@
+[
+ {
+  "step": 7,
+  "in_before": 17948,
+  "in_after": 10199,
+  "n": 3,
+  "chars": 24253
+ },
+ {
+  "step": 11,
+  "in_before": 16321,
+  "in_after": 7934,
+  "n": 3,
+  "chars": 27456
+ },
+ {
+  "step": 19,
+  "in_before": 17218,
+  "in_after": 9568,
+  "n": 5,
+  "chars": 23199
+ }
+]
