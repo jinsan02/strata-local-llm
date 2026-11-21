@@ -126,6 +126,81 @@ def _dedent_pair(search: str, replace: str) -> tuple[str, str] | None:
     return strip(search), strip(replace)
 
 
+# H7 (11-21, --edit-apply lenient): 적용 쪽만 너그럽게. H0 = strict (위 dedent 까지만).
+# docs/h7-edit-apply-20261121.md: 강제 턴 블록 전체를 2~3칸 더 들여 쓰는 실패가 가장 많았다(오프라인 재현 15건 적용 · 5건 통과).
+EDIT_APPLY = "strict"
+INDENT_SHIFT_MAX = 16
+LAST_EDIT_HOW = ["exact"]   # 마지막 edit_file 의 적용 방법(도구 기록용)
+TEXT_CALL_RE = re.compile(r"<function=edit_file>(.*?)</function>", re.S)
+PARAM_RE = re.compile(r"<parameter=(\w+)>\n?(.*?)\n?</parameter>", re.S)
+
+
+def _shift(s: str, d: int) -> str | None:
+    """모든 내용 줄을 d 칸 옮긴다(빈 줄은 비움). 빼야 할 공백이 없는 줄이 있으면 None."""
+    out = []
+    for ln in s.split("\n"):
+        if not ln.strip():
+            out.append("")
+        elif d < 0:
+            if ln[:-d] != " " * (-d):
+                return None
+            out.append(ln[-d:])
+        else:
+            out.append(" " * d + ln)
+    return "\n".join(out)
+
+
+def _line_no(text: str, pos: int) -> int:
+    return text.count("\n", 0, pos) + 1
+
+
+def lenient_replace(text: str, old: str, new: str) -> tuple[str | None, str, list[int]]:
+    """(새 내용 또는 None, 방법, 일치한 줄 번호들). 정확히 → 들여쓰기 이동(한 가지 이동 · 한 곳 · 줄 시작) → 줄 끝 공백 무시."""
+    n = text.count(old)
+    if n == 1:
+        return text.replace(old, new, 1), "exact", []
+    if n > 1:
+        pos, lines = text.find(old), []
+        while pos != -1 and len(lines) < 10:
+            lines.append(_line_no(text, pos))
+            pos = text.find(old, pos + 1)
+        return None, "multi", lines
+    hits = []
+    for d in range(-INDENT_SHIFT_MAX, INDENT_SHIFT_MAX + 1):
+        s2, r2 = (_shift(old, d), _shift(new, d)) if d else (None, None)
+        if not s2 or r2 is None or not s2.strip() or text.count(s2) != 1:
+            continue
+        pos = text.find(s2)
+        if pos == 0 or text[pos - 1] == "\n":
+            hits.append((d, s2, r2))
+    if len(hits) == 1:
+        d, s2, r2 = hits[0]
+        return text.replace(s2, r2, 1), f"indent{d:+d}", []
+    if len(hits) > 1:
+        return None, "indent_ambiguous", []
+    tl = text.split("\n")
+    ol = old[:-1] if old.endswith("\n") else old
+    nl = new[:-1] if old.endswith("\n") and new.endswith("\n") else new
+    sl = [x.rstrip() for x in ol.split("\n")]
+    k = len(sl)
+    if any(sl):
+        found = [i for i in range(len(tl) - k + 1) if [x.rstrip() for x in tl[i:i + k]] == sl]
+        if len(found) == 1:
+            i = found[0]
+            return "\n".join(tl[:i] + nl.split("\n") + tl[i + k:]), "rstrip", []
+    return None, "none", []
+
+
+def text_edit_calls(answer: str) -> list[tuple[str | None, str, str]]:
+    """도구가 없는 턴에 텍스트로 쓴 edit_file 호출 → (경로, old, new). old 가 비면(새 파일) 받지 않는다."""
+    out = []
+    for m in TEXT_CALL_RE.finditer(answer or ""):
+        p = {k: v for k, v in PARAM_RE.findall(m.group(1))}
+        if p.get("path") and p.get("old_string") and "new_string" in p:
+            out.append((p["path"].strip(), p["old_string"], p["new_string"]))
+    return out
+
+
 def apply_edits(root: Path, answer: str, candidates: list[str] | None = None,
                 deny: tuple[str, ...] = ("tests",)) -> tuple[int, list[str]]:
     """(적용한 블록 수, 오류 목록). 형식 판정은 LAST_FORMAT 에 남긴다.
@@ -147,6 +222,9 @@ def apply_edits(root: Path, answer: str, candidates: list[str] | None = None,
             blocks.append((paths[-1] if paths else None, m.group(1), m.group(2)))
         if blocks:
             flags.add("no_edit_header")
+        elif EDIT_APPLY == "lenient" and (tc := text_edit_calls(answer)):
+            blocks = tc
+            flags.add("text_call")
     errors, applied = [], 0
     for path, search, replace in blocks:
         targets = [path] if path else list(candidates or [])
@@ -167,6 +245,16 @@ def apply_edits(root: Path, answer: str, candidates: list[str] | None = None,
             if not p.exists():
                 continue
             text = p.read_text(encoding="utf-8")
+            if EDIT_APPLY == "lenient":
+                nt, how, _ = lenient_replace(text, search, replace)
+                if nt is not None:
+                    p.write_text(nt, encoding="utf-8", newline="\n")
+                    applied += 1
+                    done = True
+                    if how != "exact":
+                        flags.add(how)
+                    break
+                continue
             pairs = [(search, replace)]
             if (dd := _dedent_pair(search, replace)) is not None:
                 pairs.append(dd)
@@ -351,9 +439,21 @@ def edit_file(root: Path, args: dict, deny: tuple[str, ...]) -> tuple[bool, str]
     if not p.is_file():
         return False, f"오류: {path} 파일이 없다"
     text = p.read_text(encoding="utf-8")
+    LAST_EDIT_HOW[0] = "exact"
+    if EDIT_APPLY == "lenient":
+        nt, how, lines = lenient_replace(text, old, new)
+        LAST_EDIT_HOW[0] = how
+        if nt is not None:
+            p.write_text(nt, encoding="utf-8", newline="\n")
+            note = {"exact": "", "rstrip": " (줄 끝 공백 차이는 무시하고 맞췄다)"}.get(
+                how, f" (old_string 전체를 {how[6:]}칸 옮겨야 맞았다 - 들여쓰기를 맞춰 적용했다)")
+            return True, f"{path} 를 고쳤다 (-{len(old.splitlines())}줄 +{len(new.splitlines())}줄){note}"
+        if how == "multi":
+            return False, (f"오류: old_string 이 {path} 의 여러 곳(줄 {', '.join(map(str, lines))})에서 일치한다. "
+                           "고칠 곳의 앞뒤 줄을 더 넣어 한 곳만 맞게 하라")
     n = text.count(old)
     if n != 1:
-        hint = "read_file 로 현재 내용을 다시 확인하고 공백 · 들여쓰기까지 그대로 복사하라" if n == 0 else "앞뒤 줄을 더 넣어 한 곳만 맞게 하라"
+        hint ="read_file 로 현재 내용을 다시 확인하고 공백 · 들여쓰기까지 그대로 복사하라" if n == 0 else "앞뒤 줄을 더 넣어 한 곳만 맞게 하라"
         msg = f"오류: old_string 이 {path} 에서 {n}회 일치한다 (정확히 1회여야 함). {hint}"
         if n == 0 and EDIT_HINT:
             near = _closest_region(text, old)
@@ -626,6 +726,8 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
                     r["edit_ok" if ok else "edit_fail"] += 1
                     logged = {"path": args.get("path"), "old_chars": len(args.get("old_string") or ""),
                               "new_chars": len(args.get("new_string") or "")}
+                    if EDIT_APPLY == "lenient":   # H7: 실패 원인을 나중에 볼 수 있게 방법과 old_string 원문을 남긴다
+                        logged.update({"how": LAST_EDIT_HOW[0], "old_string": args.get("old_string")})
                 else:
                     rkey = _reread_key(root, args) if reread_guard and fn == "read_file" else None
                     if rkey is not None and rkey in seen_reads:
@@ -815,6 +917,8 @@ def main() -> int:
     ap.add_argument("--final-turn", choices=["none", "edit"], default="none", help="강제 마지막 턴: none = 도구 없이 텍스트 편집 블록(H0) / edit = edit_file 만 남김(H4)")
     ap.add_argument("--reread-guard", choices=["off", "on"], default="off", help="C1: 같은 범위 · 같은 내용 재읽기는 안내만 (H0 = off)")
     ap.add_argument("--edit-hint", choices=["off", "on"], default="off", help="H6: edit_file 0회 일치 때 가장 비슷한 원문을 돌려줌 (H0 = off)")
+    ap.add_argument("--edit-apply", choices=["strict", "lenient"], default="strict",
+                    help="H7: lenient = 들여쓰기 이동 · 줄 끝 공백 무시 · 텍스트 edit_file 호출 받기 · 여러 곳 일치 줄 번호 (H0 = strict)")
     ap.add_argument("--run-tests", choices=["off", "on"], default="off", help="Q15: 공개 테스트 도구 run_tests 를 줌 (H0 = off)")
     ap.add_argument("--sampling", choices=sorted(SAMPLING_SETS), default="card-general",
                     help="샘플링 세트 (S1): card-general = 1.0/0.95/20/presence 1.5 (기본, 지금) · card-coding = 0.6/0.95/20/presence 0")
@@ -841,8 +945,9 @@ def main() -> int:
     force_default = 24320 - 2048 if a.ctx == 32768 else a.ctx - a.budget - 2048
     a.force_at = a.force_at if a.force_at is not None else force_default
     force_note = {} if (a.ctx == 32768 and a.force_at == 24320 - 2048) else {"force_at": a.force_at}
-    global EDIT_HINT
+    global EDIT_HINT, EDIT_APPLY
     EDIT_HINT = a.edit_hint == "on"
+    EDIT_APPLY = a.edit_apply
 
     api_key = os.environ.get("STRATA_API_KEY", "strata-local")
     engine_dir = Path(r"C:\strata-lab\engine")
@@ -960,7 +1065,7 @@ def main() -> int:
                     cfg = {"task": task, "mode": "navigate", "harness": a.harness, "commit": COMMIT, "tool_out_limit": TOOL_OUT_LIMIT,
                            "tool_out": a.tool_out, "reasoning_echo": a.reasoning_echo, "reasoning_budget": a.reasoning_budget or "answer_room", "final_turn": a.final_turn, "force_edit_turns": FORCE_EDIT_TURNS, **({"page_tokens": PAGE_TOKENS, "chars_per_token": CHARS_PER_TOKEN, "grep_hits": GREP_HITS,
                                                        "list_files": LIST_FILES} if a.tool_out == "paged" else {}),
-                           "tools": NAV_TOOLS + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, **({"seed_policy": SEED_POLICY} if a.seed_per_rep else {}), "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {}), **({"edit_hint": "on", "edit_hint_lines": EDIT_HINT_LINES} if a.edit_hint == "on" else {}), **force_note, **({"reread_guard": "on"} if a.reread_guard == "on" else {})}
+                           "tools": NAV_TOOLS + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, **({"seed_policy": SEED_POLICY} if a.seed_per_rep else {}), "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {}), **({"edit_hint": "on", "edit_hint_lines": EDIT_HINT_LINES} if a.edit_hint == "on" else {}), **({"edit_apply": "lenient", "indent_shift_max": INDENT_SHIFT_MAX} if a.edit_apply == "lenient" else {}),**force_note, **({"reread_guard": "on"} if a.reread_guard == "on" else {})}
                     cfg_sha = rb.sha256_bytes(rb.canon(cfg))
                     (run_dir / "config.json").write_bytes(rb.canon(cfg))
                     (run_dir / "env.json").write_bytes(rb.canon(env))
