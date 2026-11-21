@@ -1,0 +1,10 @@
+<tool_call>
+<function=read_file>
+<parameter=path>
+src/packaging/requirements.py
+</parameter>
+<parameter=start_line>
+270
+</parameter>
+</function>
+</tool_call>
