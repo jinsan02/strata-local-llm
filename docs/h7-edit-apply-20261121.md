@@ -55,3 +55,29 @@ edit_file 을 2 · 3번 규칙으로 맞추면 도구 결과에 그 사실을 �
   명령은 `g3-chain.ps1 -Only M0 -ForceX3 -Harness H7 -Prefix x3h7 -EditApply lenient -Reps 5` 이다.
 - **판정**: 손실 없는 변경이다. 15 이상(−1 이내)이면 해가 없으므로 채택(기본값 lenient)한다. 17 이상이면 효과가 있다고 본다.
   재현 결과로 보면 대조에서 크게 오르기는 어렵다. 실패 유형 중 apply_fail · no_edit 이 줄었는지 같이 본다.
+
+## 5. 결과 (11-21 16:08~18:11, `x3h7`, 02b1fe6) → 채택
+
+| | H0 x3s1c (대조) | H7 x3h7 |
+|---|---:|---:|
+| 통과 | 16/30 | **17/30** |
+| 짝 (H7 만 통과 : 대조만 통과) | | 5 : 4 |
+| 숨은 테스트 합 / 550 | 335 | 361 |
+| no_edit · apply_fail | 4 · 1 | 0 · 0 |
+| import_or_syntax | 1 | 5 |
+| test_fail | 8 | 8 |
+
+| 과제 (r1~r5) | 대조 | H7 |
+|---|---|---|
+| dg_group_names | 01110 | 11111 |
+| marker_extras | 10001 | 11010 |
+| version_bump | 11011 | 11111 |
+| tags_platform_filter | 11111 | 11011 |
+| metadata_extra_dupes | 10010 | 00000 |
+| specifier_bounds | 00000 | 00000 |
+
+- **규칙이 실제로 쓰인 실행은 6회**: 들여쓰기 이동 4회(marker r1 · metadata r1 · specifier r4 · r5), 텍스트 edit_file 호출 2회(dg r4 · metadata r5). 그중 통과는 2회(marker r1 · dg r4, 둘 다 도구 편집도 있었다).
+- **늘어난 import_or_syntax 는 H7 탓이 아니다.** 도구 편집 없는 실행 11건을 strict 와 lenient 로 다시 적용했다(`replay_edit_apply.py scripts\bench x3h7_m0`). 적용 블록이 늘어난 4건(metadata r1 · r5, specifier r4 · r5)은 strict 였어도 통과하지 못했다(apply_fail · no_edit · 부분 적용). 5건 가운데 3건(specifier r1 · metadata r3 · marker r5)은 H7 규칙이 쓰이지 않았다. 나머지 2건(specifier r4 · r5)은 블록을 옮겨 적용했지만, strict 였다면 적용 실패로 어차피 0/30 이다. 결국 실패 이름이 '적용 못함'에서 '적용했으나 틀림'으로 바뀐 것이다.
+- **판정**: 기준 15 이상이므로 채택한다. 이제 기준 조합은 **H0 + `--edit-apply lenient` + card-coding** 이다. 다만 +1 · 짝 5:4 는 잡음 범위라, 효과가 있다고 말할 수는 없고 해가 없다는 것까지만 확인했다. CLI 기본값은 다른 하네스 옵션처럼 strict 로 두고, 측정 때 명시적으로 넘긴다(예전 실행 재현을 위해).
+- **남은 실패는 내용 오류다.** test_fail 8 · import_or_syntax 5, 특히 metadata_extra_dupes 0/5 · specifier_bounds 0/5. 적용 규칙으로는 더 올릴 수 없다. 이 둘은 강제 마지막 턴(입력 2.2~2.6만 토큰)까지 가서 텍스트 블록 하나로 답하는 실행이라, 남은 길은 문맥 관리(25-4)나 그 턴 전에 도구로 편집하게 만드는 쪽이다.
+- 양자화 모델은 들여쓰기 실수가 더 잦았다(재현에서 M2 11 → 14). Q1 은 닫혔지만, 다시 열 일이 생기면 H7 로 재야 한다.
