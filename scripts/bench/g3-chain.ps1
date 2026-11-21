@@ -3,7 +3,7 @@
 #        N0(MTP 제거)는 Q17 이 greedy 30회 후보로 남아 보류(MTP 가 다시 필요할 수 있음).
 #   G3 : H0 + card-coding, 6과제 x 2회(seed 42 · 43), 접두사 x3g3. 대조 = x3s1c 1 · 2회차(7/12, 다시 안 돌림). 탈락 = 대조보다 3 넘게 나쁨(< 4/12).
 # 순서: M0 PP → M1b(PP · X3) → M1a(PP · X3). 모델마다 서버는 한 번만 띄운다. 끝나면 서버 종료 · 밤 모드. 끝 표시 '[g3] done'.
-param([int]$Context = 32768, [int]$Reps = 2, [string[]]$Only = @())
+param([int]$Context = 32768, [int]$Reps = 2, [string[]]$Only = @(), [int]$RepStart = 1)   # 11-21 G4: -RepStart 3 -Reps 5 = G3 의 1 · 2회차에 3~5회차를 더해 30회(두 번 안 돌림)
 $ErrorActionPreference = 'Continue'
 $R = 'C:\strata-lab'; $D = "$R\data\models"
 $py = 'C:\ProgramData\anaconda3\envs\strata_local_llm\python.exe'
@@ -78,7 +78,7 @@ foreach ($id in $models.Keys) {
   Probe-PP $id
   if (-not $m.x3) { continue }
   # 주의: PowerShell 변수 이름은 대소문자를 가리지 않는다 - 회차 변수를 $r 로 쓰면 $R(저장소 경로)을 덮는다 (11-21 첫 실행 버그)
-  for ($rep = 1; $rep -le $Reps; $rep++) {
+  for ($rep = $RepStart; $rep -le $Reps; $rep++) {
     "[g3] $id rep $rep $(Get-Date -Format s)"
     & $py -u "$R\scripts\bench\run_x3.py" --mode navigate --tasks @tasks --prefix x3g3 @hb --rep-start $rep --model-id $id --model-sha256 $sha 2>&1 | ForEach-Object { "[g3] $_" }
     "[g3] $id rep $rep end $(Get-Date -Format s)"
