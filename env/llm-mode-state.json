@@ -2,7 +2,8 @@
     "stopped":  [
                     "GamingServices",
                     "GamingServicesNet",
+                    "CodexSandboxService.OpenAI.Codex",
                     "WSearch"
                 ],
-    "ts":  "2026-11-21T21:29:25"
+    "ts":  "2026-11-22T09:45:17"
 }
