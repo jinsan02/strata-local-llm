@@ -11,7 +11,7 @@
 #   .\strata-remote.ps1 -Prompt "파이썬으로 피보나치 함수를 써 줘" -MaxTokens 256
 #   .\strata-remote.ps1 -ModelsOnly
 param(
-  [string]$BaseUrl = $(if ($env:STRATA_BASE_URL) { $env:STRATA_BASE_URL } else { 'http://100.121.174.83:8080' }),
+  [string]$BaseUrl = $(if ($env:STRATA_BASE_URL) { $env:STRATA_BASE_URL } else { throw 'STRATA_BASE_URL 을 설정하세요 (예: http://<본체 Tailscale 주소>:8080)' }),
   [string]$Prompt = '한 문장으로 자기소개를 해 줘.',
   [int]$MaxTokens = 128,
   [switch]$ModelsOnly

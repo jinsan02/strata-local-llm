@@ -6,7 +6,7 @@
 # 예:  .\claude-local.ps1                 # 대화형
 #      .\claude-local.ps1 -p "이 폴더의 README 를 요약해 줘"
 param([Parameter(ValueFromRemainingArguments = $true)][string[]]$ClaudeArgs)
-$base = if ($env:STRATA_BASE_URL) { $env:STRATA_BASE_URL } else { 'http://100.121.174.83:8080' }
+$base = if ($env:STRATA_BASE_URL) { $env:STRATA_BASE_URL } else { throw 'STRATA_BASE_URL 을 설정하세요 (예: http://<본체 Tailscale 주소>:8080)' }
 $ctx  = if ($env:STRATA_CONTEXT) { $env:STRATA_CONTEXT } else { '32768' }   # 서버의 --context 와 같게
 $env:ANTHROPIC_BASE_URL = $base             # /v1 을 붙이지 않는다 (Claude Code 가 /v1/messages 를 붙인다)
 $env:ANTHROPIC_AUTH_TOKEN = $(if ($env:STRATA_API_KEY) { $env:STRATA_API_KEY } else { 'strata-local' })

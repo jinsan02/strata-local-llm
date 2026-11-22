@@ -7,7 +7,7 @@
 ## 하드웨어
 
 ```
-호스트  DESKTOP-053T952 (Tailscale 100.121.174.83, SSH 별칭 desktop-5070, 사용자 jinsan)
+호스트  DESKTOP-053T952 (Tailscale <본체 Tailscale 주소>, SSH 별칭 desktop-5070, 사용자 jinsan)
 GPU     NVIDIA GeForce RTX 5070 Ti 16GB (16303 MiB), sm_120 (Blackwell)
 Driver  616.92 (CUDA UMD 13.4)
 CPU     AMD Ryzen 9 9900X 12C/24T
@@ -75,7 +75,7 @@ C:\ProgramData\anaconda3\Scripts\conda.exe env export -n strata_local_llm --no-b
 STRATA v0.2.15 의 `strata connect` 가 이 셋을 공식 지원한다(`strata connect <app>` 로 설정 안내 출력).
 
 ```
-노트북 (Tailscale 100.104.230.60)  ──tailnet──▶  desktop-5070 (100.121.174.83):8080  STRATA 서버
+노트북 (Tailscale 100.104.230.60)  ──tailnet──▶  desktop-5070 (<본체 Tailscale 주소>):8080  STRATA 서버
   scripts/client/*.ps1                                --access tailscale, API 키
 ```
 
@@ -97,7 +97,7 @@ New-NetFirewallRule -DisplayName "STRATA 8080 (Tailscale only)" -Direction Inbou
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File C:\strata-lab\scripts\serve-ctx.ps1 -Context 32768                         # 본체 측정용, 127.0.0.1
-powershell -ExecutionPolicy Bypass -File C:\strata-lab\scripts\serve-ctx.ps1 -Context 32768 -Host_ 100.121.174.83   # X4: 노트북에서 부를 때
+powershell -ExecutionPolicy Bypass -File C:\strata-lab\scripts\serve-ctx.ps1 -Context 32768 -Host_ <본체 Tailscale 주소>   # X4: 노트북에서 부를 때
 powershell -ExecutionPolicy Bypass -File C:\strata-lab\scripts\serve-ctx.ps1 -Stop
 ```
 

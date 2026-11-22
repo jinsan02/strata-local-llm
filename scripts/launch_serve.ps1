@@ -8,7 +8,7 @@
 #   powershell -ExecutionPolicy Bypass -File C:\strata-lab\scripts\serve-ctx.ps1 -Stop               # 내리기 (밤에는 user-mode.ps1)
 param(
   [int]$Context = 32768,
-  [string]$Host_ = '100.121.174.83',
+  [string]$Host_ = $((Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias 'Tailscale*' -ErrorAction SilentlyContinue | Select-Object -First 1).IPAddress),
   [switch]$LlmMode,
   [int]$WaitSec = 180
 )

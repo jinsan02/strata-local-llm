@@ -5,7 +5,7 @@
 # 예:  .\codex-local.ps1
 #      .\codex-local.ps1 exec --skip-git-repo-check "이 함수에 테스트를 써 줘"
 param([Parameter(ValueFromRemainingArguments = $true)][string[]]$CodexArgs)
-$base = if ($env:STRATA_BASE_URL) { $env:STRATA_BASE_URL } else { 'http://100.121.174.83:8080' }
+$base = if ($env:STRATA_BASE_URL) { $env:STRATA_BASE_URL } else { throw 'STRATA_BASE_URL 을 설정하세요 (예: http://<본체 Tailscale 주소>:8080)' }
 $ctx  = if ($env:STRATA_CONTEXT) { $env:STRATA_CONTEXT } else { '32768' }   # 서버의 --context 와 같게
 $home2 = Join-Path $env:USERPROFILE '.codex-strata'
 New-Item -ItemType Directory -Force $home2 | Out-Null
