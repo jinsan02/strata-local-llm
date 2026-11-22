@@ -5,8 +5,10 @@
 (H3 · 채택 확인 뒤 채택안으로 바꾼다).
 
 흐름: 서버 확인 → 대상 저장소의 커밋을 별도 작업 트리로 꺼냄(원본 작업 트리는 건드리지 않음) → 탐색 · 수정 루프 →
-(test_cmd 가 있으면) 테스트 → 실패하면 로그를 주고 1회 보완 → diff · 테스트 결과 · 통계 반환. 원시 기록은
+(test_cmd 가 있으면) 테스트 → 실패하면 다시 시도 → diff · 테스트 결과 · 통계 반환. 원시 기록은
 work/worker/logs/<id>.json (git 제외).
+다시 시도(11-22, docs/effort-20261122.md): retry=escalate 이면 노력치를 한 단계 올려 처음부터(실패한 변경은 버림),
+retry=repair 이면 같은 노력치로 이전 diff · 테스트 로그를 주고 1회 보완(예전 방식).
 
     python scripts/worker/strata_worker.py --repo C:\\path\\to\\repo --task "..." [--files a.py b.py] [--test-cmd "..."]
     python scripts/worker/strata_worker.py --status
@@ -43,14 +45,39 @@ LOG_TAIL = 4000
 DIFF_LIMIT = 60000
 
 DEFAULTS = {"harness": "H0", "tool_out": "chars", "reasoning_echo": "none", "final_turn": "none", "max_steps": 20,
-            "ctx": 32768, "budget": 8192, "timeout": 1800, "test_timeout": 600, "repair": 1}
+            "ctx": 32768, "budget": 8192, "timeout": 1800, "test_timeout": 600, "repair": 1,
+            # 11-22: 채택 하네스 · 노력치(docs/effort-20261122.md). 파일에 없으면 예전과 같은 값
+            "sampling": "card-general", "edit_apply": "strict", "effort": None, "max_effort": "xhigh", "retry": "repair",
+            "syntax_check": "off", "code_tools": "off"}
 
 
-def load_cfg() -> dict:
+def load_cfg(override: dict | None = None) -> dict:
     cfg = dict(DEFAULTS)
     if CFG_PATH.is_file():
         cfg.update(json.loads(CFG_PATH.read_text(encoding="utf-8")))
+    cfg.update(override or {})
     return cfg
+
+
+def server_ctx(base: str) -> int | None:
+    """서버 /health 의 max_context (노력치 high · xhigh 문턱을 실제 서버 크기에 맞춘다). 모르면 None."""
+    try:
+        with urllib.request.urlopen(base + "/health", timeout=5) as r:
+            return int(json.loads(r.read().decode("utf-8")).get("max_context") or 0) or None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def effort_ladder(start: str | None, cfg: dict, test_cmd: str | None, repair: bool | None) -> list:
+    """시도마다 쓸 노력치. 재시도는 테스트가 있을 때만. escalate = 한 단계씩 올려 처음부터, repair = 같은 노력치로 보완(예전 방식)."""
+    retry_on = bool(test_cmd) and (repair if repair is not None else bool(int(cfg["repair"])))
+    if not retry_on:
+        return [start]
+    if cfg["retry"] == "escalate" and start is not None:
+        lv = list(x3.EFFORT_LEVELS)
+        top = max(lv.index(start), lv.index(cfg["max_effort"]))
+        return lv[lv.index(start): top + 1] if top > lv.index(start) else [start]
+    return [start] * (1 + max(1, int(cfg["repair"])))
 
 
 def api_key() -> str:
@@ -63,7 +90,7 @@ def api_key() -> str:
 
 def find_server(key: str) -> tuple[str | None, str]:
     """STRATA_BASE_URL → 루프백 → Tailscale 주소 순서로 /v1/models 를 확인한다 (serve-ctx -Host_ 로 띄웠으면 루프백이 안 열림)."""
-    cands = [os.environ.get("STRATA_BASE_URL", ""), "http://127.0.0.1:8080", "http://100.121.174.83:8080"]
+    cands = [os.environ.get("STRATA_BASE_URL", ""), "http://127.0.0.1:8080"]
     last = ""
     for base in [c.rstrip("/") for c in cands if c]:
         try:
@@ -177,9 +204,10 @@ def run_tests(root: Path, cmd: str, timeout: int) -> dict:
 
 
 # ── 프롬프트 ──────────────────────────────────────────────────────────────
-def build_msgs(repo_name: str, task: str, files: list[str], test_cmd: str | None, extra: str = "") -> list:
+def build_msgs(repo_name: str, task: str, files: list[str], test_cmd: str | None, extra: str = "", code_tools: bool = False) -> list:
+    read_tools = "list_files · grep · read_file" + (" · outline · read_symbol" if code_tools else "")
     sys_txt = (f"너는 로컬 코딩 워커다. 저장소 {repo_name} 의 작업 트리에서 주어진 작업 하나만 한다. 파일은 미리 주어지지 않는다. "
-               "list_files · grep · read_file 도구로 필요한 코드를 찾아 읽고, edit_file 도구로 직접 고쳐라. "
+               f"{read_tools} 도구로 필요한 코드를 찾아 읽고, edit_file 도구로 직접 고쳐라. "
                "작업에 필요한 파일만 고치고, 관계없는 정리 · 리팩터링 · 서식 변경은 하지 마라.")
     parts = ["### 작업\n" + task.strip()]
     if files:
@@ -188,17 +216,39 @@ def build_msgs(repo_name: str, task: str, files: list[str], test_cmd: str | None
         parts.append(f"### 확인\n수정이 끝나면 하네스가 `{test_cmd}` 를 돌려 확인한다. 너는 명령을 실행할 수 없다.")
     if extra:
         parts.append(extra)
-    parts.append("수정은 edit_file 도구로 직접 하라(필요하면 여러 번). 사용할 수 있는 도구는 list_files · grep · read_file · edit_file 뿐이다. "
+    parts.append(f"수정은 edit_file 도구로 직접 하라(필요하면 여러 번). 사용할 수 있는 도구는 {read_tools} · edit_file 뿐이다. "
                  "수정을 마쳤으면 도구 없이 무엇을 바꿨는지 짧게 답하고 끝내라.")
+    if code_tools:
+        parts.append(x3.CODE_TOOLS_NOTE)
     return [{"role": "system", "content": sys_txt}, {"role": "user", "content": "\n\n".join(parts)}]
 
 
-def loop_args(cfg: dict, base: str, max_steps: int | None) -> types.SimpleNamespace:
-    a = types.SimpleNamespace(base_url=base, ctx=cfg["ctx"], budget=cfg["budget"], timeout=cfg["timeout"],
-                              max_steps=max_steps or cfg["max_steps"], tool_out=cfg["tool_out"],
-                              reasoning_echo=cfg["reasoning_echo"], final_turn=cfg["final_turn"])
-    a.force_at = cfg["ctx"] - cfg["budget"] - 2048        # 32K 에서 22,272 (X3 와 같음)
+def loop_args(cfg: dict, base: str, max_steps: int | None, ctx: int | None = None, effort: str | None = None) -> types.SimpleNamespace:
+    """effort 가 있으면 run_x3.resolve_effort 로 문턱 · 호출 상한을 정한다(X3 측정과 같은 규칙). max_steps 를 직접 주면 호출 상한만 덮는다."""
+    a = types.SimpleNamespace(base_url=base, ctx=ctx or cfg["ctx"], budget=cfg["budget"], timeout=cfg["timeout"],
+                              max_steps=None, force_at=None, effort=effort or "none", tool_out=cfg["tool_out"],
+                              reasoning_echo=cfg["reasoning_echo"], final_turn=cfg["final_turn"], code_tools=cfg["code_tools"])
+    if effort is None:
+        a.max_steps = cfg["max_steps"]
+        a.force_at = a.ctx - cfg["budget"] - 2048        # 예전 워커와 같음 (노력치를 안 쓸 때)
+    else:
+        x3.resolve_effort(a)
+    if max_steps:
+        a.max_steps = max_steps
     return a
+
+
+def apply_harness(cfg: dict) -> None:
+    """X3 모듈 전역 설정을 워커 설정에 맞춘다(샘플링 · 편집 적용 · 문법 검사)."""
+    x3.apply_sampling(cfg["sampling"])
+    x3.EDIT_APPLY = cfg["edit_apply"]
+    x3.SYNTAX_CHECK = cfg["syntax_check"] == "on"
+
+
+def reset_tree(root: Path) -> None:
+    """자동 올리기: 실패한 시도의 변경을 버리고 기준 커밋 상태로 (처음부터 새로)."""
+    git(root, "checkout", "-q", "--", ".")
+    git(root, "clean", "-fdq")
 
 
 def stats(nr: dict) -> dict:
@@ -232,20 +282,27 @@ def _lock():
 
 
 def delegate(task: str, repo: str, ref: str | None = None, files: list[str] | None = None, test_cmd: str | None = None,
-             max_steps: int | None = None, repair: bool | None = None, keep_worktree: bool = True, chat=None, counter=None) -> dict:
-    cfg = load_cfg()
+             max_steps: int | None = None, repair: bool | None = None, keep_worktree: bool = True, chat=None, counter=None,
+             effort: str | None = None, cfg_override: dict | None = None) -> dict:
+    cfg = load_cfg(cfg_override)
     key = api_key()
     files = files or []
+    effort = effort or cfg.get("effort")
+    if effort is not None and effort not in x3.EFFORT_LEVELS:
+        return {"status": "error", "error": f"effort 는 {', '.join(x3.EFFORT_LEVELS)} 중 하나 ({effort!r})"}
+    ctx = None
     if chat is None:
         base, why = find_server(key)
         if not base:
             return {"status": "server_down", "error": f"STRATA 서버에 닿지 않는다 ({why}). 본체에서 "
-                    "`powershell -File C:\\strata-lab\\scripts\\serve-ctx.ps1 -Context 32768` 로 띄운다."}
+                    f"`powershell -File C:\\strata-lab\\scripts\\serve-ctx.ps1 -Context {cfg['ctx']}` 로 띄운다."}
         bench = measuring()
         if bench:
             return {"status": "busy", "error": f"측정 체인이 돌고 있어 워커를 쓰지 않는다(측정값이 흔들림): {bench}"}
+        ctx = server_ctx(base)
     else:
         base = "http://fake"
+    apply_harness(cfg)
     try:
         _lock()
     except Busy as ex:
@@ -256,27 +313,35 @@ def delegate(task: str, repo: str, ref: str | None = None, files: list[str] | No
     try:
         root, base_commit, kind = make_tree(repo, ref, wid)
         rec.update(base_commit=base_commit, tree_kind=kind)
-        a = loop_args(cfg, base, max_steps)
         name = Path(repo.rstrip("/\\")).name.removesuffix(".git")
-        msgs = build_msgs(name, task, files, test_cmd)
-        tries = 1 + (int(cfg["repair"]) if repair is None else int(bool(repair)))
+        code_tools = cfg["code_tools"] == "on"
+        msgs = build_msgs(name, task, files, test_cmd, code_tools=code_tools)
+        ladder = effort_ladder(effort, cfg, test_cmd, repair)
+        escalate = cfg["retry"] == "escalate" and effort is not None
+        rec.update(effort=effort, ladder=ladder, server_ctx=ctx)
         test = None
-        for n in range(tries):
+        for n, lvl in enumerate(ladder):
+            if n and escalate:   # 자동 올리기: 실패한 시도는 버리고 한 단계 높은 노력치로 처음부터
+                reset_tree(root)
+                msgs = build_msgs(name, task, files, test_cmd, code_tools=code_tools)
+            a = loop_args(cfg, base, max_steps, ctx, lvl)
             nr = x3.navigate_loop(root, msgs, a, key, deny=(), chat=chat, counter=counter)
             read = x3.nav_read_ok(nr["tool_log"])
             applied, errs, fmt = x3.nav_apply_final(root, nr, sorted(p for p in read if p), ())
-            att = {"n": n + 1, "stats": stats(nr), "applied": applied, "apply_errors": errs, "format": fmt,
+            att = {"n": n + 1, "effort": lvl, "force_at": a.force_at, "max_steps": a.max_steps, "ctx": a.ctx,
+                   "stats": stats(nr), "applied": applied, "apply_errors": errs, "format": fmt,
                    "final": nr["final"][-2000:], "turns": nr["turns"], "tool_log": nr["tool_log"]}
             if test_cmd:
                 test = run_tests(root, test_cmd, cfg["test_timeout"])
                 att["test"] = {k: v for k, v in test.items() if k != "_full"}
             rec["attempts"].append(att)
-            if not test_cmd or test["passed"] or n + 1 >= tries or nr["status"] != "ok":
+            if not test_cmd or test["passed"] or n + 1 >= len(ladder) or nr["status"] != "ok":
                 break
-            cur, _ = diff_of(root)
-            msgs = build_msgs(name, task, files, test_cmd, extra=(
-                "### 이전 시도\n이미 아래 변경이 작업 트리에 적용돼 있다. 테스트가 실패했다. 한 번만 더 고칠 기회가 있다.\n\n"
-                f"```diff\n{cur[-6000:]}\n```\n\n테스트 출력 끝부분:\n```\n{test['tail']}\n```"))
+            if not escalate:
+                cur, _ = diff_of(root)
+                msgs = build_msgs(name, task, files, test_cmd, code_tools=code_tools, extra=(
+                    "### 이전 시도\n이미 아래 변경이 작업 트리에 적용돼 있다. 테스트가 실패했다. 한 번만 더 고칠 기회가 있다.\n\n"
+                    f"```diff\n{cur[-6000:]}\n```\n\n테스트 출력 끝부분:\n```\n{test['tail']}\n```"))
         diff, stat = diff_of(root)
         last = rec["attempts"][-1]
         status = ("error" if last["stats"]["status"] != "ok" else "no_change" if not diff.strip()
@@ -284,6 +349,7 @@ def delegate(task: str, repo: str, ref: str | None = None, files: list[str] | No
         out = {"status": status, "worker_id": wid, "base_commit": base_commit, "diff_stat": stat,
                "diff": diff if len(diff) <= DIFF_LIMIT else diff[:DIFF_LIMIT] + "\n... (잘림, 전체는 log 의 diff)",
                "tests": last.get("test"), "attempts": len(rec["attempts"]), "summary": last["final"][-1500:],
+               "effort": last["effort"], "efforts_tried": [x["effort"] for x in rec["attempts"]],
                "stats": {"wall_s": round(time.perf_counter() - t_wall), **last["stats"]},
                "worktree": str(root), "log": str(LOGS / f"{wid}.json"),
                "apply_hint": "지휘자 쪽에서 diff 를 검토한 뒤 `git apply` 로 반영한다 (base_commit 기준)."}
@@ -319,7 +385,8 @@ def main() -> int:
     ap.add_argument("--files", nargs="*")
     ap.add_argument("--test-cmd")
     ap.add_argument("--max-steps", type=int)
-    ap.add_argument("--no-repair", action="store_true")
+    ap.add_argument("--effort", choices=list(x3.EFFORT_LEVELS), help="노력치 (기본: configs/worker.json 의 effort)")
+    ap.add_argument("--no-repair", action="store_true", help="테스트가 실패해도 다시 시도하지 않음")
     ap.add_argument("--diff-only", action="store_true", help="diff 만 표준 출력으로 (나머지는 표준 오류)")
     a = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
@@ -332,7 +399,7 @@ def main() -> int:
     task = Path(a.task_file).read_text(encoding="utf-8") if a.task_file else a.task
     if not (a.repo and task):
         ap.error("--repo 와 --task(또는 --task-file)가 필요하다")
-    r = delegate(task, a.repo, a.ref, a.files, a.test_cmd, a.max_steps, False if a.no_repair else None)
+    r = delegate(task, a.repo, a.ref, a.files, a.test_cmd, a.max_steps, False if a.no_repair else None, effort=a.effort)
     if a.diff_only:
         print(json.dumps({k: v for k, v in r.items() if k != "diff"}, ensure_ascii=False, indent=1), file=sys.stderr)
         print(r.get("diff", ""), end="")

@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 PROTO = "2025-06-18"
 TOOLS = [
     {"name": "delegate_code_task",
-     "description": ("작은 코딩 작업 하나를 본체 로컬 LLM(Qwen3.6-35B-A3B, STRATA, 32K)에 맡긴다. 맞는 크기: 파일 1~3개, 수십 줄, "
+     "description": ("작은 코딩 작업 하나를 본체 로컬 LLM(Qwen3.6-35B-A3B, STRATA)에 맡긴다. 맞는 크기: 파일 1~3개(큰 파일 하나도 됨), 수십 줄, "
                      "할 일 · 경계 조건 · 확인 방법이 분명한 티켓. 설계 · 여러 모듈 리팩터링 · 디버깅 조사는 맡기지 말 것. "
                      "저장소의 커밋된 상태(ref)를 별도 작업 트리로 꺼내 수정하고 unified diff 를 돌려준다. 원본 작업 트리는 바뀌지 않으므로 "
                      "결과를 검토한 뒤 직접 git apply 한다. 한 번에 한 작업만 돌고 수 분이 걸릴 수 있다."),
@@ -29,9 +29,13 @@ TOOLS = [
          "repo": {"type": "string", "description": "본체(desktop-5070)의 git 저장소 경로(예: C:\\strata-lab) 또는 clone 할 git URL"},
          "ref": {"type": "string", "description": "기준 커밋 · 브랜치 (기본 HEAD). 노트북 변경은 먼저 push 해야 보인다"},
          "files": {"type": "array", "items": {"type": "string"}, "description": "먼저 볼 파일 (저장소 루트 기준)"},
-         "test_cmd": {"type": "string", "description": "작업 트리에서 돌릴 확인 명령(cmd.exe). 0 으로 끝나면 통과. 실패하면 로그로 1회 보완"},
-         "max_steps": {"type": "integer", "description": "도구 루프 최대 턴 (기본 20)"},
-         "repair": {"type": "boolean", "description": "테스트 실패 시 1회 보완 (기본 true)"},
+         "test_cmd": {"type": "string", "description": "작업 트리에서 돌릴 확인 명령(cmd.exe). 0 으로 끝나면 통과. 실패하면 다시 시도"},
+         "effort": {"type": "string", "enum": ["low", "medium", "high", "xhigh"],
+                    "description": ("노력치 (기본 설정값 high). 11-22 측정: high 21/30 · 64K 의 medium 13/30 · xhigh 20/30(시간 1.7배). low = 쉬운 한두 곳 수정 · 빠름(측정 안 함), medium = 짧은 문맥, "
+                                    "high = 큰 파일을 많이 읽어야 하는 일(64K 문맥, 약 2배 느림), xhigh = high + 도구 호출 30번. "
+                                    "test_cmd 가 실패하면 한 단계씩 올려 처음부터 다시 한다")},
+         "max_steps": {"type": "integer", "description": "도구 루프 최대 턴 (기본: 노력치가 정함)"},
+         "repair": {"type": "boolean", "description": "테스트 실패 시 다시 시도 (기본 true)"},
          "keep_worktree": {"type": "boolean", "description": "끝난 뒤 작업 트리를 남길지 (기본 true)"}},
          "required": ["task", "repo"]}},
     {"name": "worker_status", "description": "STRATA 서버 연결 · 작업 중 여부 · 워커 설정 · 남은 작업 트리",
@@ -48,7 +52,7 @@ def log(*a):
 def call_tool(name: str, args: dict) -> tuple[dict, bool]:
     import strata_worker as w
     if name == "delegate_code_task":
-        allowed = {"task", "repo", "ref", "files", "test_cmd", "max_steps", "repair", "keep_worktree"}
+        allowed = {"task", "repo", "ref", "files", "test_cmd", "max_steps", "repair", "keep_worktree", "effort"}
         r = w.delegate(**{k: v for k, v in args.items() if k in allowed})
         return r, r.get("status") not in ("done", "no_change", "tests_failed")
     if name == "worker_status":

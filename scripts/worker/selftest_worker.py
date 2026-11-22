@@ -78,7 +78,7 @@ def main() -> int:
         text("sub 도 고쳤다"),
     ])
     r2 = w.delegate("calc.py 의 add 와 sub 를 고쳐라.", str(src), test_cmd=TEST, chat=chat, counter=lambda m, t: 500,
-                    keep_worktree=False)
+                    keep_worktree=False, cfg_override={"retry": "repair"})
     repair_msg = seen[2][1]["content"] if len(seen) > 2 else ""
     ok2 = (r2["status"] == "done" and r2["attempts"] == 2 and "이전 시도" in repair_msg and "AssertionError" in repair_msg
            and r2["worktree"] == "삭제")
@@ -123,6 +123,41 @@ def main() -> int:
     fails += [] if ok5 else ["5"]
     if not ok5:
         print(pr.stdout[-1500:], pr.stderr[-1500:])
+
+    # 6) 자동 올리기: medium 실패 → 변경을 버리고 high 로 처음부터 → 성공 (11-22)
+    esc = {"ctx": 65536, "effort": "medium", "max_effort": "xhigh", "retry": "escalate", "repair": 1,
+           "sampling": "card-coding", "edit_apply": "lenient"}
+    chat, seen = scripted([
+        call("edit_file", {"path": "calc.py", "old_string": "return a - b", "new_string": "return a + b"}),
+        text("add 를 고쳤다"),
+        call("read_file", {"path": "calc.py"}),
+        call("edit_file", {"path": "calc.py", "old_string": "return a - b", "new_string": "return a + b"}),
+        call("edit_file", {"path": "calc.py", "old_string": "    return a + b\n\n\ndef sub(a, b):\n    return a + b",
+                           "new_string": "    return a + b\n\n\ndef sub(a, b):\n    return a - b"}),
+        text("둘 다 고쳤다"),
+    ])
+    r6 = w.delegate("calc.py 의 add 와 sub 를 고쳐라.", str(src), test_cmd=TEST, chat=chat, counter=lambda m, t: 500,
+                    keep_worktree=False, cfg_override=esc)
+    log6 = json.loads(Path(r6["log"]).read_text(encoding="utf-8")) if r6.get("log") else {}
+    att = log6.get("attempts", [])
+    second_first = seen[2][1]["content"] if len(seen) > 2 else ""
+    read_back = next((m["content"] for m in seen[3] if m.get("role") == "tool"), "") if len(seen) > 3 else ""
+    ok6 = (r6["status"] == "done" and r6["efforts_tried"] == ["medium", "high"] and "이전 시도" not in second_first
+           and "return a - b" in read_back and [x["force_at"] for x in att] == [22272, 55296]
+           and [x["max_steps"] for x in att] == [20, 20] and log6.get("ladder") == ["medium", "high", "xhigh"])
+    print("6 자동 올리기:", ok6, r6["status"], r6.get("efforts_tried"), [x.get("force_at") for x in att])
+    fails += [] if ok6 else ["6"]
+
+    # 7) 설정 반영 · 잘못된 노력치 · 테스트 없으면 다시 시도 안 함
+    r7 = w.delegate("x", str(src), chat=lambda *a: None, effort="ultra")
+    ladder_none = w.effort_ladder("low", w.load_cfg(esc), None, None)
+    ladder_top = w.effort_ladder("xhigh", w.load_cfg(esc), "t", None)
+    ok7 = (r7["status"] == "error" and "effort" in r7["error"] and w.x3.EDIT_APPLY == "lenient"
+           and ladder_none == ["low"] and ladder_top == ["xhigh"]
+           and w.effort_ladder("medium", w.load_cfg({**esc, "max_effort": "high"}), "t", None) == ["medium", "high"]
+           and w.effort_ladder("medium", w.load_cfg(esc), "t", False) == ["medium"])
+    print("7 설정 · 사다리:", ok7, r7.get("status"), ladder_none, ladder_top)
+    fails += [] if ok7 else ["7"]
 
     # 정리
     w.drop_tree(r["worker_id"])

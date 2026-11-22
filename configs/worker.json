@@ -1,13 +1,20 @@
 {
- "_note": "로컬 LLM 워커 하네스 설정 (scripts/worker/strata_worker.py). H0 유지(11-19 채택 확인에서 H3 기각, 6200224). 하네스를 바꾸면 같은 커밋에 근거를 남긴다. ctx 는 서버 --context 와 같게.",
- "harness": "H0",
+ "_note": "로컬 LLM 워커 하네스 설정 (scripts/worker/strata_worker.py). 11-22: 채택 조합 H7(--edit-apply lenient) + card-coding, 서버 64K 하나 + 노력치 high(docs/effort-20261122.md 4절: medium(64K) 13/30 · xhigh 20/30 은 기준 미달). 자동 올리기(retry escalate)는 max_effort 까지만이라 지금은 올리지 않는다. syntax_check · code_tools 는 측정으로 채택되면 on. 하네스를 바꾸면 같은 커밋에 근거를 남긴다.",
+ "harness": "H7",
  "tool_out": "chars",
  "reasoning_echo": "none",
  "final_turn": "none",
+ "sampling": "card-coding",
+ "edit_apply": "lenient",
  "max_steps": 20,
- "ctx": 32768,
+ "ctx": 65536,
  "budget": 8192,
+ "effort": "high",
+ "max_effort": "high",
+ "retry": "escalate",
+ "repair": 1,
+ "syntax_check": "off",
+ "code_tools": "off",
  "timeout": 1800,
- "test_timeout": 600,
- "repair": 1
+ "test_timeout": 600
 }
