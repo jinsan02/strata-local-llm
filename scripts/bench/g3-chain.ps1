@@ -5,7 +5,7 @@
 # 순서: M0 PP → M1b(PP · X3) → M1a(PP · X3). 모델마다 서버는 한 번만 띄운다. 끝나면 서버 종료 · 밤 모드. 끝 표시 '[g3] done'.
 param([int]$Context = 32768, [int]$Reps = 2, [string[]]$Only = @(), [int]$RepStart = 1,   # 11-21 G4: -RepStart 3 -Reps 5 = G3 의 1 · 2회차에 3~5회차를 더해 30회(두 번 안 돌림)
       [string]$Harness = 'H0', [string]$Prefix = 'x3g3', [ValidateSet('strict', 'lenient')][string]$EditApply = 'strict', [switch]$ForceX3, [switch]$Mask,
-      [ValidateSet('none', 'low', 'medium', 'high', 'xhigh')][string]$Effort = 'none', [switch]$SyntaxCheck, [switch]$CodeTools, [ValidateSet('E0', 'E1')][string]$Engine = 'E0', [string[]]$Tasks = @())   # 11-22 노력치 · T1 · T2(STATE 26)   # 11-21 H7: -Only M0 -ForceX3 -Harness H7 -Prefix x3h7 -EditApply lenient -Reps 5
+      [ValidateSet('none', 'low', 'medium', 'high', 'xhigh')][string]$Effort = 'none', [switch]$SyntaxCheck, [switch]$CodeTools, [ValidateSet('E0', 'E1')][string]$Engine = 'E0', [string[]]$TaskList = @())   # 11-22 노력치 · T1 · T2(STATE 26)   # 11-21 H7: -Only M0 -ForceX3 -Harness H7 -Prefix x3h7 -EditApply lenient -Reps 5
 $ErrorActionPreference = 'Continue'
 $R = 'C:\strata-lab'; $D = "$R\data\models"
 $py = 'C:\ProgramData\anaconda3\envs\strata_local_llm\python.exe'
@@ -66,7 +66,9 @@ if (Get-Process llama-quantize, llama-imatrix, llama-perplexity -ErrorAction Sil
 $gpu = Start-Process nvidia-smi -ArgumentList "--query-gpu=timestamp,temperature.gpu,clocks.sm,clocks.mem,power.draw,memory.used,clocks_event_reasons.active --format=csv -l 60 -f $R\engine\gpu-g3.csv" -WindowStyle Hidden -PassThru
 & powershell -NoProfile -ExecutionPolicy Bypass -File "$R\scripts\llm-mode.ps1" | Select-Object -Last 1
 $tasks = @('dg_group_names', 'marker_extras', 'version_bump', 'tags_platform_filter', 'metadata_extra_dupes', 'specifier_bounds')
-if ($Tasks.Count) { $tasks = $Tasks }   # 11-22 E1 V3: 일부 과제만
+# -TaskList: 일부 과제만. 이름을 $Tasks 로 하면 PowerShell 이 대소문자를 안 가려 위 줄의 $tasks 가 덮어쓴다(C-028)
+if ($TaskList.Count) { $tasks = $TaskList }
+"[g3] tasks: $($tasks -join ', ')"
 $hb = @('--harness', $Harness, '--tool-out', 'chars', '--reasoning-echo', 'none', '--final-turn', 'none', '--seed-per-rep', '--sampling', 'card-coding', '--edit-apply', $EditApply, '--ctx', $Context)   # 11-21 25-4: --ctx 를 넘김(전에는 run_x3 기본 32768)
 if ($Mask) { $hb += @('--mask', 'on') }   # 11-21 25-4 L2
 if ($Effort -ne 'none') { $hb += @('--effort', $Effort) }   # 11-22 노력치
