@@ -30,7 +30,7 @@
 | XB · B1 출력 예산 | 서버가 max_tokens 의 1/4 을 답변 몫으로 두고 thinking 을 닫는다 → 운영 8K | [`reports/xb2-summary.md`](reports/xb2-summary.md), T-007 |
 | X3 하네스 | 읽기 도구만 0/5 → edit_file 도구 4/5. 30회 확인에서 채택은 card-coding(16 vs 9) · H7(17 vs 16) · 64K(21 vs 17)뿐 | [`reports/x3-harness-summary.md`](reports/x3-harness-summary.md), [`docs/h7-edit-apply-20261121.md`](docs/h7-edit-apply-20261121.md) |
 | 기각 | H2a thinking 재전송 8 vs 16, H3 12 vs 17, L2 마스킹 14 vs 17, run_tests 도구 · C1 효과 없음 | [`STATE.md`](STATE.md) 결정 기록 |
-| 캐시 | 후속 턴 재사용 0 — q36 은 정확히 이어질 때만 재사용. 엔진 패치 E1(턴 체크포인트) 작성, 검증 전 | T-013, [`docs/e1-turn-ckpt-plan-20261122.md`](docs/e1-turn-ckpt-plan-20261122.md) |
+| 캐시 | 후속 턴 재사용 0 — q36 은 정확히 이어질 때만 재사용. 엔진 패치 E1(턴 체크포인트)로 재사용 85% · prefill −76%, 다만 품질 관문 미달(17 vs 21/30)로 채택 보류 | T-013, [`docs/e1-turn-ckpt-plan-20261122.md`](docs/e1-turn-ckpt-plan-20261122.md) |
 | Q1 맞춤 양자화 | 커널 경로 문제를 풀어 PP +11%(M1e)까지 갔지만 X3 13/30 · 11/30 으로 탈락 → M0 유지 | [`docs/q1-plan-20261120.md`](docs/q1-plan-20261120.md), [`docs/engine-kernels-20261121.md`](docs/engine-kernels-20261121.md) |
 | 64K · 노력치 | 64K 는 생각이 아니라 도구 호출이 늘어 더 푼다(21 vs 17). 64K 서버의 medium 13/30 · xhigh 20/30 은 기준 미달 | [`docs/l2-mask-20261121.md`](docs/l2-mask-20261121.md), [`docs/effort-20261122.md`](docs/effort-20261122.md) |
 

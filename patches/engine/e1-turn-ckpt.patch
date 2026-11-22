@@ -1,0 +1,199 @@
+From d796c1529af1076e017c40d1ca71075ba421466a Mon Sep 17 00:00:00 2001
+From: strata-lab <strata-lab@local>
+Date: Sun, 22 Nov 2026 13:53:17 +0900
+Subject: [PATCH] q36: turn checkpoint (E1, opt-in STRATA_Q36_TURN_CKPT=1):
+ restore the GDN state at a prompt's last <|im_start|>
+
+---
+ src/qwen35/q36_engine.cu | 119 +++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 115 insertions(+), 4 deletions(-)
+
+diff --git a/src/qwen35/q36_engine.cu b/src/qwen35/q36_engine.cu
+index 29db5c4ed..099d7d5f3 100644
+--- a/src/qwen35/q36_engine.cu
++++ b/src/qwen35/q36_engine.cu
+@@ -1226,9 +1226,19 @@ struct Engine {
+         std::vector<ImgKey> imgs;           // the pictures among them
+         bool active = false;                // a batch slot is decoding in it
+         uint64_t used = 0;                  // when it was last used (the LRU pick)
++        // E1 turn checkpoint (STRATA_Q36_TURN_CKPT=1, one session only): the GDN layers' recurrent state, the conv
++        // history and hlast after the first ck_len cells of a prompt, where ck_len is the cell of the prompt's last turn
++        // token (<|im_start|>).  The next request of the same chat renders this history again but not the reply as it
++        // was decoded (a client that drops the reasoning), so it agrees with live[] up to there: the state comes back
++        // from here and the attention layers' cells below ck_len are still the ones written (later cells are rewritten).
++        std::vector<float*> ck_conv, ck_S;  // per state index, null for the attention layers (as conv / S)
++        float* ck_hlast = nullptr;
++        int64_t ck_len = 0;                 // 0: no checkpoint
+     };
+     std::vector<Sess> sess;
+     int n_sess = 1, cur = 0;
++    bool turn_ckpt = false;         // E1: STRATA_Q36_TURN_CKPT=1 and one session (no --batch, no --vision)
++    int32_t turn_token = 248045;    // <|im_start|> (STRATA_Q36_TURN_TOKEN overrides), as the general engine's --turn-token
+     uint64_t use_clock = 0;
+     // device tables for batch rows: per state index (layer, then the MTP block) the session pointers
+     float **d_conv_tab = nullptr, **d_S_tab = nullptr, **d_kc_tab = nullptr, **d_vc_tab = nullptr;
+@@ -1333,6 +1343,56 @@ struct Engine {
+             ss.vc.push_back(dalloc((size_t) g.n_head_kv * ctx * g.head_dim));
+         }
+         ss.hlast = dalloc((size_t) g.n_embd);
++        if (turn_ckpt) {   // E1: the checkpoint's copies of the GDN state, conv history and hlast
++            for (size_t l = 0; l < ss.conv.size(); ++l) {
++                ss.ck_conv.push_back(ss.conv[l] ? dalloc(C * (g.ssm_d_conv - 1)) : nullptr);
++                ss.ck_S.push_back(ss.S[l] ? dalloc((size_t) g.ssm_v_heads * g.ssm_state_size * g.ssm_state_size) : nullptr);
++            }
++            ss.ck_hlast = dalloc((size_t) g.n_embd);
++        }
++    }
++
++    /// E1: bytes of one session's turn checkpoint (the GDN state, the conv history, hlast).
++    size_t ckpt_bytes() const {
++        const auto& g = m->g;
++        size_t n_gdn = 0;
++        for (const Layer& L : m->layers) n_gdn += L.attn ? 0 : 1;
++        return n_gdn * ((size_t) g.ssm_v_heads * g.ssm_state_size * g.ssm_state_size +
++                        (size_t) g.ssm_conv_channels * (g.ssm_d_conv - 1)) * 4 + (size_t) g.n_embd * 4;
++    }
++    /// E1: the current session's state after `k` cells (pos == k) becomes its turn checkpoint.
++    void save_ckpt(int64_t k) {
++        const auto& g = m->g;
++        Sess& ss = sess[(size_t) cur];
++        for (size_t l = 0; l < conv.size(); ++l) {
++            if (!conv[l]) continue;
++            CK(cudaMemcpyAsync(ss.ck_conv[l], conv[l], (size_t) g.ssm_conv_channels * (g.ssm_d_conv - 1) * 4,
++                               cudaMemcpyDeviceToDevice, st));
++            CK(cudaMemcpyAsync(ss.ck_S[l], S[l], (size_t) g.ssm_v_heads * g.ssm_state_size * g.ssm_state_size * 4,
++                               cudaMemcpyDeviceToDevice, st));
++        }
++        CK(cudaMemcpyAsync(ss.ck_hlast, hlast, (size_t) g.n_embd * 4, cudaMemcpyDeviceToDevice, st));
++        CK(cudaStreamSynchronize(st));
++        ss.ck_len = k;
++    }
++    /// E1: the current session goes back to its turn checkpoint: the state, conv history and hlast it saved, the
++    /// position ck_len (the attention layers' cells below it are unchanged; the ones above are rewritten before read).
++    void restore_ckpt() {
++        const auto& g = m->g;
++        Sess& ss = sess[(size_t) cur];
++        for (size_t l = 0; l < conv.size(); ++l) {
++            if (!conv[l]) continue;
++            CK(cudaMemcpyAsync(conv[l], ss.ck_conv[l], (size_t) g.ssm_conv_channels * (g.ssm_d_conv - 1) * 4,
++                               cudaMemcpyDeviceToDevice, st));
++            CK(cudaMemcpyAsync(S[l], ss.ck_S[l], (size_t) g.ssm_v_heads * g.ssm_state_size * g.ssm_state_size * 4,
++                               cudaMemcpyDeviceToDevice, st));
++        }
++        CK(cudaMemcpyAsync(hlast, ss.ck_hlast, (size_t) g.n_embd * 4, cudaMemcpyDeviceToDevice, st));
++        CK(cudaStreamSynchronize(st));
++        pos = ss.ck_len;
++        ss.pos = ss.ck_len;
++        ss.live.resize((size_t) ss.ck_len);
++        ss.imgs.clear();
+     }
+ 
+     /// The current session: `i`'s state, cache and position become the engine's (conv / S / kc / vc / pos / hlast).
+@@ -1579,7 +1639,18 @@ struct Engine {
+                 }
+             }
+         }
++        {   // E1 turn checkpoint: opt-in, one text session (the batch slots and the picture path are as before)
++            const char* e = std::getenv("STRATA_Q36_TURN_CKPT");
++            const bool want = e && std::strcmp(e, "1") == 0;
++            turn_ckpt = want && n_sess == 1 && !vision;
++            if (const char* tt = std::getenv("STRATA_Q36_TURN_TOKEN")) turn_token = (int32_t) std::atol(tt);
++            if (want && !turn_ckpt)
++                std::fprintf(stderr, "strata-q36: STRATA_Q36_TURN_CKPT ignored (it needs one session and no --vision)\n");
++        }
+         for (Sess& ss : sess) alloc_session(ss);
++        if (turn_ckpt)
++            std::fprintf(stderr, "strata-q36: turn checkpoint on (token %d): %.1f MiB of VRAM\n", (int) turn_token,
++                         (double) ckpt_bytes() / (1 << 20));
+         if (n_sess > 1) {   // the batch rows' tables: per state index the session pointers, on the device
+             const size_t ns = sess[0].conv.size();
+             std::vector<float*> hc(ns * (size_t) n_sess), hs(hc), hk(hc), hv(hc);
+@@ -2581,7 +2652,9 @@ struct Engine {
+     /// token's logits stay in `logits` (its greedy pick in `pick`), hlast its normed hidden.  With the MTP block the
+     /// prompt also runs through it (its K / V for every position: row q reads h_{q-1} and token q).  on_chunk(done) runs
+     /// after every chunk; false ends the read there (a cancelled request): the tokens processed are returned.
+-    template <class F> int64_t process(const int32_t* toks, int64_t n, F on_chunk_) {
++    /// `rebalance_end` false (E1: the first part of a prompt read in two, up to its turn checkpoint) skips the expert
++    /// rebalance after the read, so the prompt's second part sees the slots as one unsplit read would.
++    template <class F> int64_t process(const int32_t* toks, int64_t n, F on_chunk_, bool rebalance_end = true) {
+         const int N = (int) m->g.n_embd;
+         auto on_chunk = [&](int64_t done) -> bool {   // a callback returning void never cancels
+             if constexpr (std::is_void_v<decltype(on_chunk_(done))>) {
+@@ -2638,7 +2711,7 @@ struct Engine {
+                 return i + T;
+             }
+         }
+-        if (m->hybrid) rebalance(hybrid_swaps_after_prompt);
++        if (m->hybrid && rebalance_end) rebalance(hybrid_swaps_after_prompt);
+         return n;
+     }
+ 
+@@ -3674,17 +3747,40 @@ struct Serve {
+             }
+         }
+         E.select(s);
++        // E1: the held tokens are not a start of this prompt, but their first ck_len are (the same chat with its last
++        // reply rendered differently): the state goes back to the turn checkpoint and only the rest is read
++        int64_t ck_restored = 0;
++        const bool ck_req = E.turn_ckpt && !adm && !geni;
++        if (reuse == 0 && ck_req && ss.ck_len > 0 && (size_t) ss.ck_len < ids.size() &&
++            ss.live.size() >= (size_t) ss.ck_len && std::equal(ss.live.begin(), ss.live.begin() + ss.ck_len, ids.begin())) {
++            E.restore_ckpt();
++            reuse = (size_t) ss.ck_len;
++            ck_restored = ss.ck_len;
++        }
+         if (reuse == 0) {
+             E.reset();
+             ss.live.clear();
+             ss.imgs.clear();
++            ss.ck_len = 0;
+         }
+         if (geni) E.set_images(ir.rows, ir.cell_row, ir.mrope, (int64_t) ids.size(), ir.delta);
+         else E.clear_images();
++        // E1: the prompt's last turn token, when it lies in the part read now (at least two cells in, so the first part
++        // takes the chunked read with its MTP rows): the read stops there once and the state there becomes the checkpoint
++        int64_t ck_at = 0;
++        if (ck_req) {
++            for (size_t i = ids.size(); i-- > reuse;)
++                if (ids[i] == E.turn_token) {
++                    if (i >= reuse + 2) ck_at = (int64_t) i;
++                    break;
++                }
++        }
+         const auto t0 = Clock::now();
+         const int64_t fresh = (int64_t) (ids.size() - reuse);
+         bool cancelled = false;
+-        const int64_t got = E.process(ids.data() + reuse, fresh, [&](int64_t done) -> bool {
++        int64_t pp_base = 0;   // E1: cells of this read done before the current process() call
++        auto pp_chunk = [&](int64_t part_done) -> bool {
++            const int64_t done = pp_base + part_done;
+             std::printf("PP %lld %lld %.0f %.1f\n", (long long) done, (long long) fresh, ms_since(t0),
+                         (double) done / std::max(1e-9, ms_since(t0) / 1000.0));
+             std::fflush(stdout);
+@@ -3697,7 +3793,22 @@ struct Serve {
+             }
+             if (stop.load() && done < fresh) { cancelled = true; return false; }
+             return true;
+-        });
++        };
++        int64_t got = 0;
++        if (ck_at > 0) {
++            const int64_t first = ck_at - (int64_t) reuse;
++            got = E.process(ids.data() + reuse, first, pp_chunk, false);
++            if (got == first && !cancelled) {
++                E.save_ckpt(ck_at);
++                pp_base = first;
++                got = first + E.process(ids.data() + ck_at, fresh - first, pp_chunk);
++            }
++        } else {
++            got = E.process(ids.data() + reuse, fresh, pp_chunk);
++        }
++        if (ck_restored > 0 || ck_at > 0)
++            std::fprintf(stderr, "strata-q36: turn checkpoint: restored %lld, saved at %lld (prompt %zu)\n",
++                         (long long) ck_restored, (long long) (ck_at > 0 && ss.ck_len == ck_at ? ck_at : 0), ids.size());
+         ss.live.insert(ss.live.end(), ids.begin() + (long) reuse, ids.begin() + (long) reuse + (long) got);
+         ss.imgs.clear();
+         bool cut = false;
+-- 
+2.55.0.windows.3
+
