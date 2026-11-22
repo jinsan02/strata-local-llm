@@ -1,6 +1,6 @@
 # STRUCTURE.md — 폴더 지도와 실험 큰 틀
 
-2026-11-18 기준. 사람과 AI 에이전트가 **어디에 무엇을 만들고, 무엇을 기준으로 삼는지** 적습니다. 진행 상태는 `STATE.md`, 규칙은 `docs/RULES.md`.
+2026-11-18 작성, 11-22 갱신. 사람과 AI 에이전트가 **어디에 무엇을 만들고, 무엇을 기준으로 삼는지** 적습니다. 진행 상태는 `STATE.md`, 규칙은 `docs/RULES.md`.
 
 ## 1. 읽는 순서
 
@@ -34,7 +34,8 @@ strata-lab/                     C:\strata-lab (desktop-5070)
 │  ├─ COMMIT_CONVENTION.md       커밋 type·scope·트레일러·브랜치·태그
 │  ├─ WORKFLOW.md                실험 1건의 수명, 두 에이전트 교대
 │  ├─ LEDGER_SCHEMA.md           원장 열 정의
-│  └─ ENVIRONMENT.md             하드웨어·conda·빌드 툴체인
+│  ├─ ENVIRONMENT.md             하드웨어·conda·빌드 툴체인
+│  └─ …                          실험 설계 · 결과 문서 (문서별 상태는 docs/README.md)
 │
 ├─ env/                         환경 기록 (env/README.md)
 │  ├─ hw-20261118.md             본체 실측 사양, 정리 효과
@@ -50,22 +51,28 @@ strata-lab/                     C:\strata-lab (desktop-5070)
 │  ├─ install-buildtools.ps1     VS Build Tools · CUDA · CMake · Ninja
 │  ├─ build-strata.ps1           고정 커밋 소스 빌드 (E0 → engine/build-e0)
 │  ├─ strata.cmd                 STRATA CLI 를 conda 환경으로 실행
-│  ├─ bench/                     (예정) 측정 러너
+│  ├─ bench/                     측정 러너 · 자체 점검 · 측정 체인 (bench/README.md)
+│  ├─ analysis/                  원장 분석 (x3_combo.py)
+│  ├─ quant/                     Q1 양자화 보정 · 생성 · 관문 체인
+│  ├─ worker/                    로컬 LLM 워커 · MCP 서버 (docs/WORKER.md)
+│  ├─ serve-ctx.ps1 · launch_serve.ps1  서버 기동 (측정용 · 운영용 WMI)
 │  └─ client/                    노트북에서 Tailscale 로 부르는 스크립트 (연결 확인 · Claude Code · Codex)
 │
 ├─ configs/                     실행 설정 · 양자화 레시피 (configs/README.md)
-│  ├─ settings/                  (예정) S0, S1 …
-│  └─ quant/                     (예정) M1 텐서별 타입 표
+│  ├─ eval/                      X3 과제 정의 (6과제 + 확인 전용)
+│  ├─ quant/                     양자화 레시피 (M1a~M2)
+│  └─ worker.json                워커 기본 설정
 │
 ├─ experiments/                 원장과 run 기록 (experiments/README.md, AGENTS.md)
 │  ├─ LEDGER.tsv                 append-only 원장
 │  └─ runs/<run_id>/             config·env JSON, 요약 (raw/ 는 git 밖)
 │
-├─ reports/                     (예정) 단계별 결과 보고, 결과 요약표
+├─ reports/                     단계별 요약 · 진행 요약(progress-*.md) · 그림(figures/)
 ├─ tools/                       훅 본체 · 원장 검사 (tools/README.md)
 ├─ tests/                       훅 본체 단위 테스트 (tests/README.md)
 │
-├─ engine/                      git 밖 — STRATA 체크아웃 (고정 커밋, E1 패치는 브랜치)
+├─ engine/                      git 밖 — STRATA 체크아웃 (고정 커밋 c775728)
+├─ work/                        git 밖 — 작업 복사본, 측정 중 준비물(stage/), E1 엔진 작업 폴더(engine-e1/)
 ├─ data/                        git 밖 — Strata-data, 모델·팩
 ├─ downloads/                   git 밖 — 설치 파일
 └─ final_eval/                  git 밖 — 최종 평가 50문항 (후보 고정 전 열지 않음)
