@@ -9,6 +9,7 @@ param(
   [string]$EnvSet = '',             # 서버 · 엔진 환경 변수 'K=V;K2=V2' (예: STRATA_Q36_NO_MMQ=1)
   [string]$Tag = '',                # 엔진 로그 이름 꼬리 (ctx<N>-<tag>.log)
   [string]$Model = '',              # 11-21 Q1: 모델 GGUF 경로 바꾸기 (빈 값 = 원본 M0). 러너는 --model-id 로 파일 이름을 확인한다
+  [string]$Exe = '',                # 11-22 E1: 엔진 실행 파일 바꾸기 (빈 값 = E0 engine\engine\strata.exe). 턴 체크포인트는 -EnvSet STRATA_Q36_TURN_CKPT=1
   [switch]$Stop
 )
 $ErrorActionPreference = 'Continue'
@@ -34,6 +35,10 @@ if ($Stop) { return }
 $src = Join-Path $eng 'strata-qwen36-ud-q4_k_xl.json'
 $dst = Join-Path $eng "strata-qwen36-ctx$Context.json"
 $cfg = Get-Content $src -Raw | ConvertFrom-Json
+if ($Exe) {
+  if (-not (Test-Path $Exe)) { "[serve] 거부: 실행 파일 없음 $Exe"; exit 2 }
+  $cfg.exe = $Exe
+}
 # 11-19 설정 고정: 출력에 영향을 주는 서버 기본값을 config 에 그대로 적는다(행동 불변, 엔진 버전이 바뀌어도 같은 값)
 $pin = [ordered]@{answer_room = $true; repeat_stop_tokens = 256; tool_call_recovery = $true; undeclared_tool_calls = 'text';
   fit_max_tokens = $true; reasoning_loop_recovery = $false; reasoning_close_retry = $false}
@@ -51,7 +56,7 @@ foreach ($key in 'args','args_written') {
 }
 $cfg.log = Join-Path $eng ("strata-qwen36-ctx$Context" + $(if ($CacheMib -ge 0) { "-cm$CacheMib" } else { '' }) + $(if ($Tag) { "-$Tag" } else { '' }) + '.log')
 [IO.File]::WriteAllText($dst, ($cfg | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding($false)))
-"[serve] config $dst  (--max-context $Context, host $Host_, conversation-cache-mib $(if ($CacheMib -ge 0) { $CacheMib } else { 'auto' }))"
+"[serve] config $dst  (--max-context $Context, host $Host_, conversation-cache-mib $(if ($CacheMib -ge 0) { $CacheMib } else { 'auto' }), exe $($cfg.exe))"
 $env:PYTHONUTF8 = '1'
 # 11-19 설정 고정: 웹 UI 의 Chat 공유 설정이 모든 요청 기본값을 바꾸지 않게 한다
 $shared = Join-Path $eng ("strata-qwen36-ctx$Context" + '.shared-settings.json')
