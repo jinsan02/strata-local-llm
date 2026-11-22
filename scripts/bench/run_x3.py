@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import fnmatch
 import json
 import os
@@ -201,6 +202,46 @@ def text_edit_calls(answer: str) -> list[tuple[str | None, str, str]]:
     return out
 
 
+def _apply_one(text: str | None, search: str, replace: str) -> str | None:
+    """마지막 답 블록 하나를 apply_edits 와 같은 규칙으로 적용한 결과(안 맞으면 None)."""
+    if not search.strip():
+        return replace + "\n"
+    if text is None:
+        return None
+    if EDIT_APPLY == "lenient":
+        return lenient_replace(text, search, replace)[0]
+    pairs = [(search, replace)] + ([dd] if (dd := _dedent_pair(search, replace)) is not None else [])
+    for s, r in pairs:
+        if text.count(s) == 1:
+            return text.replace(s, r, 1)
+    return None
+
+
+def _final_syntax_guard(root: Path, snap: dict, order: list) -> int:
+    """T1 (마지막 답): 다 적용한 뒤 파싱이 안 되는 .py 는 적용 전으로 되돌리고, 블록을 순서대로 다시 적용하되
+    파싱을 깨는 블록만 뺀다(블록 두 개가 같이 있어야 맞는 경우도 있어 처음에는 전부 적용해 본다). 뺀 블록 수."""
+    dropped = 0
+    for p, before in snap.items():
+        rel = p.relative_to(root.resolve()).as_posix() if root.resolve() in p.parents else p.name
+        if not rel.endswith(".py") or not p.exists() or syntax_problem(rel, p.read_text(encoding="utf-8")) is None:
+            continue
+        text = before
+        for q, s, r in order:
+            if q != p:
+                continue
+            nt = _apply_one(text, s, r)
+            if nt is None or syntax_problem(rel, nt) is not None:
+                dropped += 1
+                continue
+            text = nt
+        if text is None:
+            p.unlink()
+        else:
+            p.write_text(text, encoding="utf-8", newline="\n")
+        SYNTAX_REJECTS[0] += 1
+    return dropped
+
+
 def apply_edits(root: Path, answer: str, candidates: list[str] | None = None,
                 deny: tuple[str, ...] = ("tests",)) -> tuple[int, list[str]]:
     """(적용한 블록 수, 오류 목록). 형식 판정은 LAST_FORMAT 에 남긴다.
@@ -226,6 +267,13 @@ def apply_edits(root: Path, answer: str, candidates: list[str] | None = None,
             blocks = tc
             flags.add("text_call")
     errors, applied = [], 0
+    snap: dict = {}      # T1: 파일별 마지막 답 적용 전 내용 (None = 새 파일)
+    order: list = []     # T1: 적용 순서 (경로, search, replace)
+
+    def _mark(p: Path, s: str, r: str):
+        snap.setdefault(p, p.read_text(encoding="utf-8") if p.exists() else None)
+        order.append((p, s, r))
+
     for path, search, replace in blocks:
         targets = [path] if path else list(candidates or [])
         if not path:
@@ -237,6 +285,7 @@ def apply_edits(root: Path, answer: str, candidates: list[str] | None = None,
                 continue
             if not search.strip():
                 if path:
+                    _mark(p, search, replace)
                     p.parent.mkdir(parents=True, exist_ok=True)
                     p.write_text(replace + "\n", encoding="utf-8", newline="\n")
                     applied += 1
@@ -248,6 +297,7 @@ def apply_edits(root: Path, answer: str, candidates: list[str] | None = None,
             if EDIT_APPLY == "lenient":
                 nt, how, _ = lenient_replace(text, search, replace)
                 if nt is not None:
+                    _mark(p, search, replace)
                     p.write_text(nt, encoding="utf-8", newline="\n")
                     applied += 1
                     done = True
@@ -260,6 +310,7 @@ def apply_edits(root: Path, answer: str, candidates: list[str] | None = None,
                 pairs.append(dd)
             for k, (s, r) in enumerate(pairs):
                 if text.count(s) == 1:
+                    _mark(p, search, replace)
                     p.write_text(text.replace(s, r, 1), encoding="utf-8", newline="\n")
                     applied += 1
                     done = True
@@ -273,6 +324,12 @@ def apply_edits(root: Path, answer: str, candidates: list[str] | None = None,
             errors.append(f"{where}: SEARCH 가 파일 내용과 정확히 한 번 일치하지 않음")
     if not blocks:
         errors.append("편집 블록 없음")
+    if SYNTAX_CHECK and snap:
+        dropped = _final_syntax_guard(root, snap, order)
+        if dropped:
+            applied -= dropped
+            flags.add(f"syntax_drop{dropped}")
+            errors.append(f"문법 오류가 나는 편집 블록 {dropped}개를 빼고 적용함")
     LAST_FORMAT.clear()
     LAST_FORMAT.update({"strict": bool(strict) and not flags and not errors, "flags": sorted(flags)})
     return applied, errors
@@ -422,6 +479,38 @@ def _closest_region(text: str, old: str) -> str:
     return "\n".join(src[best_i:best_i + n])
 
 
+SYNTAX_CHECK = False        # T1 (--syntax-check on, 11-22): .py 편집 결과가 파싱되지 않으면 쓰지 않고 줄 번호 · 주변을 알려 준다
+SYNTAX_CONTEXT = 3
+SYNTAX_REJECTS = [0]        # 실행마다 navigate_loop 가 0 으로 되돌림
+
+
+def syntax_problem(path: str, text: str) -> str | None:
+    """T1: .py 이고 파싱이 안 되면 모델에게 줄 설명(줄 번호 · 메시지 · 편집 후 주변 줄). 아니면 None."""
+    if not SYNTAX_CHECK or not path.endswith(".py"):
+        return None
+    try:
+        ast.parse(text, filename=path)
+        return None
+    except SyntaxError as ex:
+        n = ex.lineno or 1
+        lines = text.splitlines()
+        s, e = max(1, n - SYNTAX_CONTEXT), min(len(lines), n + SYNTAX_CONTEXT)
+        ctx = "\n".join(f"{i:5d}{'>' if i == n else ' '} {lines[i - 1]}" for i in range(s, e + 1))
+        return (f"오류: 이 편집을 적용하면 {path} 에 문법 오류가 생겨 적용하지 않았다(파일은 그대로다). "
+                f"줄 {n}: {ex.msg}\n편집을 적용했을 때 그 부근(> 가 오류 줄):\n```\n{ctx}\n```\n"
+                "들여쓰기 · 괄호 · 콜론을 확인해 old_string · new_string 을 고쳐 다시 호출하라.")
+
+
+def _write_checked(p: Path, path: str, new_text: str) -> str | None:
+    """T1 검사를 통과하면 쓰고 None, 아니면 쓰지 않고 오류 메시지."""
+    bad = syntax_problem(path, new_text)
+    if bad:
+        SYNTAX_REJECTS[0] += 1
+        return bad
+    p.write_text(new_text, encoding="utf-8", newline="\n")
+    return None
+
+
 def edit_file(root: Path, args: dict, deny: tuple[str, ...]) -> tuple[bool, str]:
     path = args.get("path") or ""
     old, new = args.get("old_string"), args.get("new_string")
@@ -433,6 +522,9 @@ def edit_file(root: Path, args: dict, deny: tuple[str, ...]) -> tuple[bool, str]
     if old == "":
         if p.exists():
             return False, f"오류: {path} 는 이미 있다. 바꿀 부분을 old_string 으로 줘라"
+        if (bad := syntax_problem(path, new)):
+            SYNTAX_REJECTS[0] += 1
+            return False, bad
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(new, encoding="utf-8", newline="\n")
         return True, f"새 파일 {path} 를 만들었다 ({len(new.splitlines())}줄)"
@@ -444,7 +536,8 @@ def edit_file(root: Path, args: dict, deny: tuple[str, ...]) -> tuple[bool, str]
         nt, how, lines = lenient_replace(text, old, new)
         LAST_EDIT_HOW[0] = how
         if nt is not None:
-            p.write_text(nt, encoding="utf-8", newline="\n")
+            if (bad := _write_checked(p, path, nt)):
+                return False, bad
             note = {"exact": "", "rstrip": " (줄 끝 공백 차이는 무시하고 맞췄다)"}.get(
                 how, f" (old_string 전체를 {how[6:]}칸 옮겨야 맞았다 - 들여쓰기를 맞춰 적용했다)")
             return True, f"{path} 를 고쳤다 (-{len(old.splitlines())}줄 +{len(new.splitlines())}줄){note}"
@@ -460,8 +553,100 @@ def edit_file(root: Path, args: dict, deny: tuple[str, ...]) -> tuple[bool, str]
             if near:
                 msg += f"\n가장 비슷한 현재 원문(공백 그대로, 줄 번호 없음 - old_string 은 이것을 그대로 복사해 만들어라):\n```\n{near}\n```"
         return False, msg
-    p.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
+    if (bad := _write_checked(p, path, text.replace(old, new, 1))):
+        return False, bad
     return True, f"{path} 를 고쳤다 (-{len(old.splitlines())}줄 +{len(new.splitlines())}줄)"
+
+
+# T2 (--code-tools on, 11-22): 큰 파일을 처음부터 넘겨 읽는 대신 구조를 보고 필요한 정의만 읽는 도구.
+# metadata · specifier 실패 실행은 read_file 로 12,000자씩 4~6번 넘겨 읽느라 호출 상한 · 문맥을 썼다(l2 문서 1절, effort 문서).
+OUTLINE_MAX = 300
+SYMBOL_MAX_LINES = 400
+CODE_TOOLS = [
+    {"type": "function", "function": {"name": "outline",
+     "description": "파이썬 파일의 구조: 클래스 · 함수 · 메서드 이름과 줄 범위(시작-끝), 함수 인자. 큰 파일은 먼저 이것으로 위치를 찾아라",
+     "parameters": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}}},
+    {"type": "function", "function": {"name": "read_symbol",
+     "description": "파이썬 파일에서 정의 하나의 전체 소스를 줄 번호와 함께 읽기. name 은 함수 · 클래스 이름이거나 '클래스.메서드' (최대 400줄)",
+     "parameters": {"type": "object", "properties": {"path": {"type": "string"}, "name": {"type": "string", "description": "예: Metadata.from_raw 또는 _parse_marker"}},
+                    "required": ["path", "name"]}}},
+]
+CODE_TOOL_NAMES = {"outline", "read_symbol"}
+CODE_TOOLS_NOTE = ("outline · read_symbol 도구도 쓸 수 있다. 큰 파이썬 파일은 처음부터 넘겨 읽지 말고 outline 으로 구조를 본 뒤 "
+                   "read_symbol 이나 read_file(start_line · end_line)로 필요한 부분만 읽어라.")
+
+
+def _defs(tree: ast.AST):
+    """(점 이름, 노드, 깊이) - 모듈 최상위와 클래스 안(중첩 클래스 포함)만. 함수 안의 함수는 뺀다."""
+    def walk(body, prefix, depth):
+        for n in body:
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                name = f"{prefix}{n.name}"
+                yield name, n, depth
+                if isinstance(n, ast.ClassDef):
+                    yield from walk(n.body, name + ".", depth + 1)
+    yield from walk(tree.body, "", 0)
+
+
+def _start(n) -> int:
+    return min([n.lineno] + [d.lineno for d in getattr(n, "decorator_list", [])])
+
+
+def _code_file(root: Path, args: dict) -> tuple[Path | None, str]:
+    path = args.get("path") or ""
+    p = (root / path).resolve()
+    if not path or root.resolve() not in p.parents or ".git" in p.parts or not p.is_file():
+        return None, "오류: 읽을 수 없는 경로"
+    if not path.endswith(".py"):
+        return None, "오류: 파이썬 파일(.py)만 된다. read_file 을 써라"
+    return p, path
+
+
+def code_tool(root: Path, name: str, args: dict) -> str:
+    try:
+        p, path = _code_file(root, args)
+        if p is None:
+            return path
+        text = p.read_text(encoding="utf-8", errors="replace")
+        try:
+            tree = ast.parse(text, filename=path)
+        except SyntaxError as ex:
+            return f"오류: {path} 를 파싱할 수 없다(줄 {ex.lineno}: {ex.msg}). read_file 을 써라"
+        defs = list(_defs(tree))
+        nlines = len(text.splitlines())
+        if name == "outline":
+            out = [f"{path} ({nlines}줄)"]
+            for qual, n, depth in defs[:OUTLINE_MAX]:
+                kind = "class" if isinstance(n, ast.ClassDef) else "def"
+                sig = ""
+                if kind == "def":
+                    a = n.args
+                    names = [x.arg for x in a.posonlyargs + a.args] + ([f"*{a.vararg.arg}"] if a.vararg else []) \
+                        + [x.arg for x in a.kwonlyargs] + ([f"**{a.kwarg.arg}"] if a.kwarg else [])
+                    sig = f"({', '.join(names)})"
+                out.append(f"{'  ' * depth}{_start(n)}-{n.end_lineno}  {kind} {qual.rsplit('.', 1)[-1]}{sig}")
+            if len(defs) > OUTLINE_MAX:
+                out.append(f"... ({len(defs)}개 중 {OUTLINE_MAX}개)")
+            return "\n".join(out)
+        if name == "read_symbol":
+            want = (args.get("name") or "").strip()
+            hits = [(q, n) for q, n, _ in defs if q == want] or [(q, n) for q, n, _ in defs if q.rsplit(".", 1)[-1] == want]
+            if not hits:
+                import difflib
+                near = difflib.get_close_matches(want, [q for q, _, _ in defs], n=5, cutoff=0.5)
+                return f"오류: {path} 에 {want!r} 정의가 없다." + (f" 비슷한 이름: {', '.join(near)}" if near else " outline 으로 이름을 확인하라")
+            if len(hits) > 1:
+                return f"오류: {want!r} 가 여러 곳에 있다: " + ", ".join(f"{q} (줄 {_start(n)})" for q, n in hits) + ". '클래스.메서드' 로 골라라"
+            q, n = hits[0]
+            lines = text.splitlines()
+            s, e = _start(n), n.end_lineno
+            cut = e - s + 1 > SYMBOL_MAX_LINES
+            e2 = s + SYMBOL_MAX_LINES - 1 if cut else e
+            body = "\n".join(f"{i:5d}  {lines[i - 1]}" for i in range(s, e2 + 1))
+            return f"{path} {q} (줄 {s}-{e})\n{body}" + (f"\n... ({e - s + 1}줄 중 {SYMBOL_MAX_LINES}줄. 나머지는 read_file start_line={e2 + 1})" if cut else "")
+        return f"오류: 알 수 없는 도구 {name}"
+    except Exception as ex:  # noqa: BLE001
+        return f"오류: {ex}"
 
 
 TOOL_OUT_LIMIT = 12000      # 기준선(H0): 글자 수로 끝을 자른다. 잘린 글자 수는 도구 로그에 남긴다.
@@ -670,8 +855,11 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
     run_tests_fn = getattr(a, "run_tests_fn", None)   # Q15: 있으면 run_tests 도구를 준다(H0 = 없음)
     reread_guard = getattr(a, "reread_guard", "off") == "on"   # C1: 같은 범위 · 같은 내용 재읽기는 안내만
     seen_reads: dict = {}
-    nav_tools = NAV_TOOLS + [RUN_TESTS_TOOL] if run_tests_fn is not None else NAV_TOOLS
-    tool_names = "list_files · grep · read_file · edit_file" + (" · run_tests" if run_tests_fn is not None else "")
+    code_tools = getattr(a, "code_tools", "off") == "on"   # T2: outline · read_symbol
+    nav_tools = NAV_TOOLS + (CODE_TOOLS if code_tools else []) + ([RUN_TESTS_TOOL] if run_tests_fn is not None else [])
+    tool_names = ("list_files · grep · read_file · edit_file" + (" · outline · read_symbol" if code_tools else "")
+                  + (" · run_tests" if run_tests_fn is not None else ""))
+    SYNTAX_REJECTS[0] = 0
     counter = counter or (lambda m, t: count_exact(a.base_url, api_key, m, t))
     echo = getattr(a, "reasoning_echo", "none")     # H2 (T-013): none = H0 / all = 모든 assistant 턴 / last = 직전 턴만
     r = {"tool_log": [], "turns": [], "model_ms": 0.0, "tool_ms": 0.0, "out_tok": 0, "last_in": 0, "final": "", "status": "ok",
@@ -793,7 +981,10 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
                 out, ok, logged = (f"오류: 도구 인자가 올바른 JSON 객체가 아니다 ({ex.msg}). 같은 도구를 올바른 JSON 인자로 다시 호출하라.",
                                    False, {"raw_head": raw[:200]})
             else:
-                if fn == "run_tests" and run_tests_fn is not None:
+                if fn in CODE_TOOL_NAMES and code_tools:
+                    out = code_tool(root, fn, args)
+                    ok, logged = not out.startswith("오류:"), args
+                elif fn == "run_tests" and run_tests_fn is not None:
                     ok, out = run_tests_fn(root, args)
                     r["tests_runs"] += 1
                     logged = args
@@ -824,6 +1015,8 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
             r["tool_log"].append({"step": step, "tool": fn, "args": logged, "ok": ok, "out_chars": len(out), "truncated": cut})
             tool_meta.append((len(msgs), fn, logged))
             msgs.append({"role": "tool", "tool_call_id": c.get("id", ""), "content": out[:TOOL_OUT_LIMIT]})
+    r["syntax_rejects"] = SYNTAX_REJECTS[0]
+    r["code_tool_calls"] = sum(1 for t in r["tool_log"] if t["tool"] in CODE_TOOL_NAMES) if code_tools else 0
     return r
 
 
@@ -849,7 +1042,9 @@ def nav_summary(nr: dict, wall_ms: float, grade_ms: float) -> str:
             f"wall_ms {wall_ms:.0f}; grade_ms {grade_ms:.0f}"
             + (f"; tests_runs {nr['tests_runs']}" if nr.get("tests_runs") else "")
             + (f"; reread_skips {nr['reread_skips']}" if nr.get("reread_skips") else "")
-            + (f"; masks {nr['masks']}; masked_outputs {nr['masked_outputs']}; masked_chars {nr['masked_chars']}" if nr.get("masks") else ""))
+            + (f"; masks {nr['masks']}; masked_outputs {nr['masked_outputs']}; masked_chars {nr['masked_chars']}" if nr.get("masks") else "")
+            + (f"; syntax_rejects {nr['syntax_rejects']}" if SYNTAX_CHECK else "")
+            + (f"; code_tool_calls {nr['code_tool_calls']}" if nr.get("code_tool_calls") else ""))
 
 
 def nav_apply_final(root: Path, r: dict, candidates: list[str], deny: tuple[str, ...]) -> tuple[int, list[str], str]:
@@ -999,6 +1194,8 @@ def main() -> int:
     ap.add_argument("--edit-hint", choices=["off", "on"], default="off", help="H6: edit_file 0회 일치 때 가장 비슷한 원문을 돌려줌 (H0 = off)")
     ap.add_argument("--edit-apply", choices=["strict", "lenient"], default="strict",
                     help="H7: lenient = 들여쓰기 이동 · 줄 끝 공백 무시 · 텍스트 edit_file 호출 받기 · 여러 곳 일치 줄 번호 (H0 = strict)")
+    ap.add_argument("--syntax-check", choices=["off", "on"], default="off", help="T1 (11-22): .py 편집이 파싱되지 않으면 쓰지 않고 줄 번호를 알려 줌 (H7 = off)")
+    ap.add_argument("--code-tools", choices=["off", "on"], default="off", help="T2 (11-22): outline · read_symbol 도구를 줌 (H7 = off)")
     ap.add_argument("--mask", choices=["off", "on"], default="off",
                     help="L2 (25-4): 입력이 MASK_AT 를 넘으면 오래된 큰 도구 결과를 자리표시로 바꿈 (H0 = off)")
     ap.add_argument("--run-tests", choices=["off", "on"], default="off", help="Q15: 공개 테스트 도구 run_tests 를 줌 (H0 = off)")
@@ -1028,9 +1225,10 @@ def main() -> int:
     force_note = {} if (a.ctx == 32768 and a.force_at == 24320 - 2048) else {"force_at": a.force_at}
     if a.effort != "none":
         force_note.update({"effort": a.effort, "force_at": a.force_at})
-    global EDIT_HINT, EDIT_APPLY
+    global EDIT_HINT, EDIT_APPLY, SYNTAX_CHECK
     EDIT_HINT = a.edit_hint == "on"
     EDIT_APPLY = a.edit_apply
+    SYNTAX_CHECK = a.syntax_check == "on"
 
     api_key = os.environ.get("STRATA_API_KEY", "strata-local")
     engine_dir = Path(r"C:\strata-lab\engine")
@@ -1144,11 +1342,11 @@ def main() -> int:
                     task_txt = (TASKS / task / "prompt.md").read_text(encoding="utf-8")
                     sys_txt = ("너는 pypa/packaging 저장소(고정 커밋)에서 작업하는 코딩 에이전트다. 파일은 미리 주어지지 않는다. "
                                "list_files · grep · read_file 도구로 필요한 코드를 찾아 읽고, edit_file 도구로 직접 고쳐라.")
-                    msgs = [{"role": "system", "content": sys_txt}, {"role": "user", "content": "### 과제\n" + task_txt + "\n\n" + NAV_FORMAT + ("\n" + RUN_TESTS_NOTE if a.run_tests == "on" else "")}]
+                    msgs = [{"role": "system", "content": sys_txt}, {"role": "user", "content": "### 과제\n" + task_txt + "\n\n" + NAV_FORMAT + ("\n" + CODE_TOOLS_NOTE if a.code_tools == "on" else "") + ("\n" + RUN_TESTS_NOTE if a.run_tests == "on" else "")}]
                     cfg = {"task": task, "mode": "navigate", "harness": a.harness, "commit": COMMIT, "tool_out_limit": TOOL_OUT_LIMIT,
                            "tool_out": a.tool_out, "reasoning_echo": a.reasoning_echo, "reasoning_budget": a.reasoning_budget or "answer_room", "final_turn": a.final_turn, "force_edit_turns": FORCE_EDIT_TURNS, **({"page_tokens": PAGE_TOKENS, "chars_per_token": CHARS_PER_TOKEN, "grep_hits": GREP_HITS,
                                                        "list_files": LIST_FILES} if a.tool_out == "paged" else {}),
-                           "tools": NAV_TOOLS + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, **({"seed_policy": SEED_POLICY} if a.seed_per_rep else {}), "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {}), **({"edit_hint": "on", "edit_hint_lines": EDIT_HINT_LINES} if a.edit_hint == "on" else {}), **({"edit_apply": "lenient", "indent_shift_max": INDENT_SHIFT_MAX} if a.edit_apply == "lenient" else {}), **({"mask": "on", "mask_at": MASK_AT, "mask_to": MASK_TO, "mask_keep": MASK_KEEP, "mask_min_chars": MASK_MIN_CHARS} if a.mask == "on" else {}),**force_note, **({"reread_guard": "on"} if a.reread_guard == "on" else {})}
+                           "tools": NAV_TOOLS + (CODE_TOOLS if a.code_tools == "on" else []) + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, **({"seed_policy": SEED_POLICY} if a.seed_per_rep else {}), "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {}), **({"edit_hint": "on", "edit_hint_lines": EDIT_HINT_LINES} if a.edit_hint == "on" else {}), **({"edit_apply": "lenient", "indent_shift_max": INDENT_SHIFT_MAX} if a.edit_apply == "lenient" else {}), **({"mask": "on", "mask_at": MASK_AT, "mask_to": MASK_TO, "mask_keep": MASK_KEEP, "mask_min_chars": MASK_MIN_CHARS} if a.mask == "on" else {}),**force_note, **({"reread_guard": "on"} if a.reread_guard == "on" else {}), **({"syntax_check": "on", "syntax_context": SYNTAX_CONTEXT} if a.syntax_check == "on" else {}), **({"code_tools": "on", "code_tools_note": CODE_TOOLS_NOTE, "outline_max": OUTLINE_MAX, "symbol_max_lines": SYMBOL_MAX_LINES} if a.code_tools == "on" else {})}
                     cfg_sha = rb.sha256_bytes(rb.canon(cfg))
                     (run_dir / "config.json").write_bytes(rb.canon(cfg))
                     (run_dir / "env.json").write_bytes(rb.canon(env))
@@ -1188,7 +1386,7 @@ def main() -> int:
                                       "bad_json": nr["bad_json"], "tool_errors": nr["tool_errors"], "wall_s": round(wall_ms / 1000),
                                       "error_type": et, "hidden": row["tests_passed"], "last_input": last_in,
                                       "think_wraps": nr["think_wraps"], "think_tok_est": think_est(nr)[0],
-                                      **({"masks": nr["masks"], "masked_chars": nr["masked_chars"]} if nr.get("masks") else {})}, ensure_ascii=False), flush=True)
+                                      **({"masks": nr["masks"], "masked_chars": nr["masked_chars"]} if nr.get("masks") else {}), **({"syntax_rejects": nr["syntax_rejects"]} if SYNTAX_CHECK else {}), **({"code_tool_calls": nr["code_tool_calls"]} if nr.get("code_tool_calls") else {})}, ensure_ascii=False), flush=True)
     return 0
 
 
