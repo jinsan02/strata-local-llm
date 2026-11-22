@@ -1,0 +1,1 @@
+`src/packaging/specifiers.py` 파일의 import 문에 `NEG_INF`, `POS_INF`, `LowerBound`, `UpperBound`를 추가하고, `SpecifierSet` 클래스에 `bounds()` 메서드를 구현했습니다. 이 메서드는 specifier 집합의 경계를 종합해 `(lower, upper)` 튜플로 반환하며, `===` 연산자가 포함되면 `ValueError`를 발생시킵니다. 기존 테스트 파일은 수정하지 않았습니다.
