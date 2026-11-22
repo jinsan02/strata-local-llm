@@ -1,0 +1,13 @@
+<tool_call>
+<function=read_file>
+<parameter=end_line>
+1561
+</parameter>
+<parameter=path>
+src/packaging/specifiers.py
+</parameter>
+<parameter=start_line>
+1560
+</parameter>
+</function>
+</tool_call>

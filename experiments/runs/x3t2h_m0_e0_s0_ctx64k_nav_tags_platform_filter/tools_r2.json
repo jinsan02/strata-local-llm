@@ -1,0 +1,184 @@
+[
+ {
+  "step": 0,
+  "tool": "list_files",
+  "args": {
+   "pattern": "packaging/*.py"
+  },
+  "ok": true,
+  "out_chars": 4,
+  "truncated": 0
+ },
+ {
+  "step": 1,
+  "tool": "list_files",
+  "args": {
+   "pattern": "**/*.py"
+  },
+  "ok": true,
+  "out_chars": 2293,
+  "truncated": 0
+ },
+ {
+  "step": 2,
+  "tool": "outline",
+  "args": {
+   "path": "src/packaging/utils.py"
+  },
+  "ok": true,
+  "out_chars": 395,
+  "truncated": 0
+ },
+ {
+  "step": 2,
+  "tool": "outline",
+  "args": {
+   "path": "src/packaging/tags.py"
+  },
+  "ok": true,
+  "out_chars": 1778,
+  "truncated": 0
+ },
+ {
+  "step": 2,
+  "tool": "outline",
+  "args": {
+   "path": "src/packaging/errors.py"
+  },
+  "ok": true,
+  "out_chars": 213,
+  "truncated": 0
+ },
+ {
+  "step": 3,
+  "tool": "read_symbol",
+  "args": {
+   "path": "src/packaging/utils.py",
+   "name": "parse_wheel_filename"
+  },
+  "ok": true,
+  "out_chars": 4632,
+  "truncated": 0
+ },
+ {
+  "step": 3,
+  "tool": "read_symbol",
+  "args": {
+   "path": "src/packaging/tags.py",
+   "name": "_parse_wheel_filename"
+  },
+  "ok": false,
+  "out_chars": 79,
+  "truncated": 0
+ },
+ {
+  "step": 4,
+  "tool": "read_symbol",
+  "args": {
+   "path": "src/packaging/tags.py",
+   "name": "parse_tag"
+  },
+  "ok": true,
+  "out_chars": 3792,
+  "truncated": 0
+ },
+ {
+  "step": 4,
+  "tool": "read_symbol",
+  "args": {
+   "path": "src/packaging/tags.py",
+   "name": "_normalize_string"
+  },
+  "ok": true,
+  "out_chars": 180,
+  "truncated": 0
+ },
+ {
+  "step": 5,
+  "tool": "read_file",
+  "args": {
+   "end_line": 30,
+   "path": "src/packaging/utils.py",
+   "start_line": 1
+  },
+  "ok": true,
+  "out_chars": 983,
+  "truncated": 0
+ },
+ {
+  "step": 5,
+  "tool": "read_file",
+  "args": {
+   "end_line": 305,
+   "path": "src/packaging/utils.py",
+   "start_line": 202
+  },
+  "ok": true,
+  "out_chars": 4590,
+  "truncated": 0
+ },
+ {
+  "step": 5,
+  "tool": "read_file",
+  "args": {
+   "end_line": 56,
+   "path": "src/packaging/utils.py",
+   "start_line": 48
+  },
+  "ok": true,
+  "out_chars": 275,
+  "truncated": 0
+ },
+ {
+  "step": 5,
+  "tool": "read_file",
+  "args": {
+   "end_line": 339,
+   "path": "src/packaging/tags.py",
+   "start_line": 338
+  },
+  "ok": true,
+  "out_chars": 143,
+  "truncated": 0
+ },
+ {
+  "step": 5,
+  "tool": "read_file",
+  "args": {
+   "end_line": 305,
+   "path": "src/packaging/utils.py",
+   "start_line": 202
+  },
+  "ok": true,
+  "out_chars": 4590,
+  "truncated": 0
+ },
+ {
+  "step": 6,
+  "tool": "edit_file",
+  "args": {
+   "path": "src/packaging/utils.py",
+   "old_chars": 97,
+   "new_chars": 126,
+   "how": "exact",
+   "old_string": "from typing import NewType, cast\n\nfrom .tags import InvalidTag, Tag, UnsortedTagsError, parse_tag"
+  },
+  "ok": true,
+  "out_chars": 38,
+  "truncated": 0
+ },
+ {
+  "step": 7,
+  "tool": "edit_file",
+  "args": {
+   "path": "src/packaging/utils.py",
+   "old_chars": 3848,
+   "new_chars": 5272,
+   "how": "exact",
+   "old_string": "def parse_wheel_filename(\n    filename: str,\n    *,\n    validate_order: bool = False,\n) -> tuple[NormalizedName, Version, BuildTag, frozenset[Tag]]:\n    \"\"\"\n    This function takes the filename of a wheel file, and parses it,\n    returning a tuple of name, version, build number, and tags.\n\n    The name part of the tuple is normalized and typed as\n    :class:`NormalizedName`. The version portion is an instance of\n    :class:`~packaging.version.Version`. The build number is ``()`` if\n    there is no build number in the wheel filename, otherwise a\n    two-item tuple of an integer for the leading digits and\n    a string for the rest of the build number. The tags portion is a\n    frozen set of :class:`~packaging.tags.Tag` instances (as the tag\n    string format allows multiple tags to be combined into a single\n    string).\n\n    If **validate_order** is true, compressed tag set components are\n    checked to be in sorted order as required by PEP 425.\n\n    :param str filename: The name of the wheel file.\n    :param bool validate_order: Check whether compressed tag set components\n        are in sorted order.\n    :raises InvalidWheelFilename: If the filename in question\n        does not follow the :ref:`wheel specification\n        <pypug:binary-distribution-format>`.\n\n    >>> from packaging.utils import parse_wheel_filename\n    >>> from packaging.tags import Tag\n    >>> from packaging.version import Version\n    >>> name, ver, build, tags = parse_wheel_filename(\"foo-1.0-py3-none-any.whl\")\n    >>> name\n    'foo'\n    >>> ver == Version('1.0')\n    True\n    >>> tags == {Tag(\"py3\", \"none\", \"any\")}\n    True\n    >>> not build\n    True\n\n    .. versionadded:: 20.9\n\n    .. versionchanged:: 23.2\n       Raises :class:`InvalidWheelFilename` when the version component is invalid.\n\n    .. versionadded:: 26.1\n       The *validate_order* parameter.\n\n    .. versionchanged:: 26.3\n       Raises :class:`InvalidWheelFilename` when an interpreter component is\n       not an identifier, a tag set component is empty, or the project name is\n       empty.\n    \"\"\"\n    if not filename.endswith(\".whl\"):\n        raise InvalidWheelFilename(\n            f\"Invalid wheel filename (extension must be '.whl'): {filename!r}\"\n        )\n\n    filename = filename[:-4]\n    dashes = filename.count(\"-\")\n    if dashes not in (4, 5):\n        raise InvalidWheelFilename(\n            f\"Invalid wheel filename (wrong number of parts): {filename!r}\"\n        )\n\n    parts = filename.split(\"-\", dashes - 2)\n    name_part = parts[0]\n    # See PEP 427 for the rules on escaping the project name.\n    if \"__\" in name_part or _wheel_name_regex.match(name_part) is None:\n        raise InvalidWheelFilename(f\"Invalid project name: {filename!r}\")\n    name = canonicalize_name(name_part)\n\n    try:\n        version = Version(parts[1])\n    except InvalidVersion as e:\n        raise InvalidWheelFilename(\n            f\"Invalid wheel filename (invalid version): {filename!r}\"\n        ) from e\n\n    if dashes == 5:\n        build_part = parts[2]\n        build_match = _build_tag_regex.match(build_part)\n        if build_match is None:\n            raise InvalidWheelFilename(\n                f\"Invalid build number: {build_part} in {filename!r}\"\n            )\n        build = cast(\"BuildTag\", (int(build_match.group(1)), build_match.group(2)))\n    else:\n        build = ()\n    tag_str = parts[-1]\n    try:\n        tags = parse_tag(tag_str, validate_order=validate_order)\n    except UnsortedTagsError:\n        raise InvalidWheelFilename(\n            f\"Invalid wheel filename (compressed tag set components must be in \"\n            f\"sorted order per PEP 425): {filename!r}\"\n        ) from None\n    except InvalidTag:\n        raise InvalidWheelFilename(\n            f\"Invalid wheel filename (invalid tag component): {filename!r}\"\n        ) from None\n    return (name, version, build, tags)"
+  },
+  "ok": true,
+  "out_chars": 42,
+  "truncated": 0
+ }
+]
