@@ -150,6 +150,8 @@ def _dedent_pair(search: str, replace: str) -> tuple[str, str] | None:
 # docs/h7-edit-apply-20261121.md: 강제 턴 블록 전체를 2~3칸 더 들여 쓰는 실패가 가장 많았다(오프라인 재현 15건 적용 · 5건 통과).
 EDIT_APPLY = "strict"
 EDIT_STRIP = False   # H9 (11-23, --edit-strip on): lenient 의 마지막 단계로, 줄마다 앞뒤 공백을 무시하고 정확히 한 곳만 맞으면 적용한다(docs/h9-edit-strip-20261123.md)
+H10 = False   # 11-24 H10 (--h10 on): 이미 적용된 블록 · 관대한 적용의 문법 깨짐 거절 · 자기가 만든 파일 다시 쓰기 (docs/h10-apply-guard-20261124.md)
+CREATED_FILES: set[str] = set()   # H10 c: 이번 실행에서 edit_file 로 만든 파일(실행마다 비운다)
 INDENT_SHIFT_MAX = 16
 LAST_EDIT_HOW = ["exact"]   # 마지막 edit_file 의 적용 방법(도구 기록용)
 TEXT_CALL_RE = re.compile(r"<function=edit_file>(.*?)</function>", re.S)
@@ -328,6 +330,36 @@ def _final_syntax_guard(root: Path, snap: dict, order: list) -> int:
     return dropped
 
 
+def _py_breaks(path, before: str, after: str) -> bool:
+    """H10 b: .py 가 before 에서는 파싱되는데 after 에서는 안 되면 True. T1(SYNTAX_CHECK) 설정과 무관하다."""
+    if not str(path).endswith(".py"):
+        return False
+    try:
+        ast.parse(before)
+    except SyntaxError:
+        return False
+    try:
+        ast.parse(after)
+        return False
+    except SyntaxError:
+        return True
+
+
+def _block_count(text: str, block: str) -> int:
+    """block 의 줄들(앞뒤 빈 줄 제외)을 앞뒤 공백 없이 비교해 text 에서 몇 곳 맞는지."""
+    nlc = chr(10)
+    bl = [x.strip() for x in block.split(nlc)]
+    while bl and not bl[-1]:
+        bl.pop()
+    while bl and not bl[0]:
+        bl.pop(0)
+    if not bl:
+        return 0
+    tl = [x.strip() for x in text.split(nlc)]
+    k = len(bl)
+    return sum(1 for j in range(len(tl) - k + 1) if tl[j:j + k] == bl)
+
+
 def apply_edits(root: Path, answer: str, candidates: list[str] | None = None,
                 deny: tuple[str, ...] = ("tests",)) -> tuple[int, list[str]]:
     """(적용한 블록 수, 오류 목록). 형식 판정은 LAST_FORMAT 에 남긴다.
@@ -382,6 +414,9 @@ def apply_edits(root: Path, answer: str, candidates: list[str] | None = None,
             text = p.read_text(encoding="utf-8")
             if EDIT_APPLY == "lenient":
                 nt, how, _ = lenient_replace(text, search, replace)
+                if H10 and nt is not None and how != "exact" and _py_breaks(tgt, text, nt):
+                    flags.add("h10_syntax_reject")   # H10 b
+                    nt = None
                 if nt is not None:
                     _mark(p, search, replace)
                     p.write_text(nt, encoding="utf-8", newline="\n")
@@ -405,6 +440,15 @@ def apply_edits(root: Path, answer: str, candidates: list[str] | None = None,
                     break
             if done:
                 break
+        if not done and H10 and search.strip() and replace.strip() and search.strip() != replace.strip():   # H10 a
+            for tgt in targets:
+                q = (root / tgt).resolve() if tgt else None
+                if q is not None and q.is_file():
+                    t = q.read_text(encoding="utf-8")
+                    if _block_count(t, replace) == 1 and _block_count(t, search) == 0:
+                        flags.add("already_applied")
+                        done = True
+                        break
         if not done:
             where = path or f"경로 없음(후보 {len(targets)}개)"
             errors.append(f"{where}: SEARCH 가 파일 내용과 정확히 한 번 일치하지 않음")
@@ -647,13 +691,17 @@ def edit_file(root: Path, args: dict, deny: tuple[str, ...]) -> tuple[bool, str]
     if not path or root.resolve() not in p.parents or ".git" in p.parts or (path not in WRITE_ALLOW and any(d in Path(path).parts for d in deny)):
         return False, f"오류: 수정할 수 없는 경로 {path} (테스트 파일 · 저장소 밖 금지)"
     if old == "":
-        if p.exists():
+        if p.exists() and not (H10 and path in CREATED_FILES):
             return False, f"오류: {path} 는 이미 있다. 바꿀 부분을 old_string 으로 줘라"
         if (bad := syntax_problem(path, new)):
             SYNTAX_REJECTS[0] += 1
             return False, bad
+        rewrote = p.exists()
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(new, encoding="utf-8", newline="\n")
+        CREATED_FILES.add(path)
+        if rewrote:   # H10 c
+            return True, f"{path} 를 통째로 다시 썼다 ({len(new.splitlines())}줄)"
         return True, f"새 파일 {path} 를 만들었다 ({len(new.splitlines())}줄)"
     if not p.is_file():
         return False, f"오류: {path} 파일이 없다"
@@ -662,6 +710,10 @@ def edit_file(root: Path, args: dict, deny: tuple[str, ...]) -> tuple[bool, str]
     if EDIT_APPLY == "lenient":
         nt, how, lines = lenient_replace(text, old, new)
         LAST_EDIT_HOW[0] = how
+        if H10 and nt is not None and how != "exact" and _py_breaks(path, text, nt):   # H10 b
+            LAST_EDIT_HOW[0] = how + "_syntax_reject"
+            return False, (f"오류: old_string 을 들여쓰기 · 공백을 맞춰 찾았지만({how}) 그대로 바꾸면 {path} 의 문법이 깨진다. "
+                           "read_file 로 원문을 다시 보고 old_string · new_string 의 들여쓰기를 정확히 맞춰라")
         if nt is not None:
             if (bad := _write_checked(p, path, nt)):
                 return False, bad
@@ -1374,6 +1426,7 @@ def main() -> int:
     ap.add_argument("--edit-apply", choices=["strict", "lenient"], default="strict",
                     help="H7: lenient = 들여쓰기 이동 · 줄 끝 공백 무시 · 텍스트 edit_file 호출 받기 · 여러 곳 일치 줄 번호 (H0 = strict)")
     ap.add_argument("--edit-strip", choices=["on", "off"], default="off", help="H9: lenient 마지막 단계로 줄마다 앞뒤 공백 무시 한 곳 일치(--edit-apply lenient 와 함께)")
+    ap.add_argument("--h10", choices=["on", "off"], default="off", help="H10 (11-24): 이미 적용된 블록 · 관대한 적용 문법 깨짐 거절 · 자기가 만든 파일 다시 쓰기")
     ap.add_argument("--syntax-check", choices=["off", "on"], default="off", help="T1 (11-22): .py 편집이 파싱되지 않으면 쓰지 않고 줄 번호를 알려 줌 (H7 = off)")
     ap.add_argument("--code-tools", choices=["off", "on"], default="off", help="T2 (11-22): outline · read_symbol 도구를 줌 (H7 = off)")
     ap.add_argument("--h8", choices=["off", "on"], default="off",
@@ -1409,11 +1462,12 @@ def main() -> int:
     force_note = {} if (a.ctx == 32768 and a.force_at == 24320 - 2048) else {"force_at": a.force_at}
     if a.effort != "none":
         force_note.update({"effort": a.effort, "force_at": a.force_at})
-    global EDIT_HINT, EDIT_APPLY, SYNTAX_CHECK, H8, EDIT_STRIP, TASKS, WRITE_ALLOW, SRC, COMMIT, PYX, REPO_LABEL
+    global EDIT_HINT, EDIT_APPLY, SYNTAX_CHECK, H8, EDIT_STRIP, TASKS, WRITE_ALLOW, SRC, COMMIT, PYX, REPO_LABEL, H10
     TASKS = TASK_SETS[a.task_set]
     EDIT_HINT = a.edit_hint == "on"
     EDIT_APPLY = a.edit_apply
     EDIT_STRIP = a.edit_strip == "on"
+    H10 = a.h10 == "on"
     if EDIT_STRIP and EDIT_APPLY != "lenient":
         raise SystemExit("--edit-strip on 은 --edit-apply lenient 와 함께만")
     SYNTAX_CHECK = a.syntax_check == "on"
@@ -1554,7 +1608,7 @@ def main() -> int:
                     cfg = {"task": task, "mode": "navigate", "harness": a.harness, "commit": COMMIT, "tool_out_limit": TOOL_OUT_LIMIT,
                            "tool_out": a.tool_out, "reasoning_echo": a.reasoning_echo, "reasoning_budget": a.reasoning_budget or "answer_room", "final_turn": a.final_turn, "force_edit_turns": FORCE_EDIT_TURNS, **({"page_tokens": PAGE_TOKENS, "chars_per_token": CHARS_PER_TOKEN, "grep_hits": GREP_HITS,
                                                        "list_files": LIST_FILES} if a.tool_out == "paged" else {}),
-                           "tools": NAV_TOOLS + (CODE_TOOLS if a.code_tools == "on" else []) + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, **({"seed_policy": SEED_POLICY} if a.seed_per_rep else {}), "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {}), **({"edit_hint": "on", "edit_hint_lines": EDIT_HINT_LINES} if a.edit_hint == "on" else {}), **({"edit_apply": "lenient", "indent_shift_max": INDENT_SHIFT_MAX} if a.edit_apply == "lenient" else {}), **({"edit_strip": "on"} if a.edit_strip == "on" else {}), **({"mask": "on", "mask_at": MASK_AT, "mask_to": MASK_TO, "mask_keep": MASK_KEEP, "mask_min_chars": MASK_MIN_CHARS} if a.mask == "on" else {}),**force_note, **({"reread_guard": "on"} if a.reread_guard == "on" else {}), **({"syntax_check": "on", "syntax_context": SYNTAX_CONTEXT} if a.syntax_check == "on" else {}), **({"code_tools": "on", "code_tools_note": CODE_TOOLS_NOTE, "outline_max": OUTLINE_MAX, "symbol_max_lines": SYMBOL_MAX_LINES} if a.code_tools == "on" else {}), **({"h8": "on", "h8_extra": H8G.H8_EXTRA, "h8_notice_left": H8G.H8_NOTICE_LEFT, "h8_test_timeout": H8G.TEST_TIMEOUT, "syntax_check": "on", "syntax_context": SYNTAX_CONTEXT} if a.h8 == "on" else {})}
+                           "tools": NAV_TOOLS + (CODE_TOOLS if a.code_tools == "on" else []) + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, **({"seed_policy": SEED_POLICY} if a.seed_per_rep else {}), "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {}), **({"edit_hint": "on", "edit_hint_lines": EDIT_HINT_LINES} if a.edit_hint == "on" else {}), **({"edit_apply": "lenient", "indent_shift_max": INDENT_SHIFT_MAX} if a.edit_apply == "lenient" else {}), **({"edit_strip": "on"} if a.edit_strip == "on" else {}), **({"h10": "on"} if a.h10 == "on" else {}), **({"mask": "on", "mask_at": MASK_AT, "mask_to": MASK_TO, "mask_keep": MASK_KEEP, "mask_min_chars": MASK_MIN_CHARS} if a.mask == "on" else {}),**force_note, **({"reread_guard": "on"} if a.reread_guard == "on" else {}), **({"syntax_check": "on", "syntax_context": SYNTAX_CONTEXT} if a.syntax_check == "on" else {}), **({"code_tools": "on", "code_tools_note": CODE_TOOLS_NOTE, "outline_max": OUTLINE_MAX, "symbol_max_lines": SYMBOL_MAX_LINES} if a.code_tools == "on" else {}), **({"h8": "on", "h8_extra": H8G.H8_EXTRA, "h8_notice_left": H8G.H8_NOTICE_LEFT, "h8_test_timeout": H8G.TEST_TIMEOUT, "syntax_check": "on", "syntax_context": SYNTAX_CONTEXT} if a.h8 == "on" else {})}
                     if a.task_set == "y":
                         cfg.update({"task_set": "y", "repo": tcfg.get("repo", "packaging"), "setup_patch": tcfg.get("setup_patch"),
                                     "grade": tcfg.get("grade", "hidden"), "write_allow": sorted(WRITE_ALLOW)})
@@ -1564,6 +1618,7 @@ def main() -> int:
                     t_wall = time.perf_counter()
                     a.run_tests_fn = make_run_tests(tcfg["regress"]) if a.run_tests == "on" else None
                     a.h8_task, a.h8_regress = task_txt, list(tcfg["regress"])   # H8 끝 검사: 지시문 원문 · 공개 회귀 테스트 파일
+                    CREATED_FILES.clear()   # H10 c: 실행마다
                     nr = navigate_loop(root, msgs, a, api_key, deny=("tests",))
                     tool_log, final, last_in = nr["tool_log"], nr["final"], nr["last_in"]
                     read = nav_read_ok(tool_log)
