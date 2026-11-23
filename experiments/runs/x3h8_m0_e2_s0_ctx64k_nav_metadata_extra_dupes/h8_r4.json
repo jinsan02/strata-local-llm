@@ -1,0 +1,22 @@
+{
+ "state": "check",
+ "trigger": "budget",
+ "trigger_step": 19,
+ "gate_flags": 1,
+ "gate": {
+  "changed": [
+   "src/packaging/metadata.py"
+  ],
+  "lint": [],
+  "api_missing": [],
+  "unused": [
+   "src/packaging/metadata.py:_extract_extras_from_markers"
+  ],
+  "tests": "기존 테스트: 모두 통과 (2854 passed in 1.60s)",
+  "flags": 1
+ },
+ "gate_ms": 2046,
+ "extra_tool_turns": 2,
+ "edit_warnings": 0,
+ "notice": true
+}

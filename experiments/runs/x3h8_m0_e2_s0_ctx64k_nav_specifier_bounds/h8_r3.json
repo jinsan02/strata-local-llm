@@ -1,0 +1,21 @@
+{
+ "state": "check",
+ "trigger": "early",
+ "trigger_step": 17,
+ "gate_flags": 0,
+ "gate": {
+  "changed": [
+   "src/packaging/_ranges.py",
+   "src/packaging/specifiers.py"
+  ],
+  "lint": [],
+  "api_missing": [],
+  "unused": [],
+  "tests": "기존 테스트: 모두 통과 (2108 passed, 2 skipped in 1.55s)",
+  "flags": 0
+ },
+ "gate_ms": 2055,
+ "extra_tool_turns": 0,
+ "edit_warnings": 0,
+ "notice": true
+}

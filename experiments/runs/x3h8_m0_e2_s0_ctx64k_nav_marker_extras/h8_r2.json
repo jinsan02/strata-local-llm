@@ -1,0 +1,21 @@
+{
+ "state": "check",
+ "trigger": "budget",
+ "trigger_step": 19,
+ "gate_flags": 2,
+ "gate": {
+  "changed": [],
+  "lint": [],
+  "api_missing": [
+   "Marker.referenced_extras",
+   "Requirement.marker_extras"
+  ],
+  "unused": [],
+  "tests": "기존 테스트: 바뀐 파일이 없어 돌리지 않음",
+  "flags": 2
+ },
+ "gate_ms": 130,
+ "extra_tool_turns": 2,
+ "edit_warnings": 0,
+ "notice": true
+}

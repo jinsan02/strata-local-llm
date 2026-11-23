@@ -1,0 +1,20 @@
+{
+ "state": "check",
+ "trigger": "early",
+ "trigger_step": 15,
+ "gate_flags": 0,
+ "gate": {
+  "changed": [
+   "src/packaging/dependency_groups.py"
+  ],
+  "lint": [],
+  "api_missing": [],
+  "unused": [],
+  "tests": "기존 테스트: 모두 통과 (129 passed in 0.30s)",
+  "flags": 0
+ },
+ "gate_ms": 692,
+ "extra_tool_turns": 0,
+ "edit_warnings": 0,
+ "notice": false
+}

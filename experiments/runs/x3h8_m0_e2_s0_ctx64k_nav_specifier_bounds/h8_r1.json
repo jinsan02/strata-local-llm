@@ -1,0 +1,22 @@
+{
+ "state": "check",
+ "trigger": "budget",
+ "trigger_step": 19,
+ "gate_flags": 1,
+ "gate": {
+  "changed": [
+   "src/packaging/specifiers.py"
+  ],
+  "lint": [],
+  "api_missing": [
+   "bounds"
+  ],
+  "unused": [],
+  "tests": "기존 테스트: 모두 통과 (2108 passed, 2 skipped in 1.52s)",
+  "flags": 1
+ },
+ "gate_ms": 1947,
+ "extra_tool_turns": 2,
+ "edit_warnings": 0,
+ "notice": true
+}

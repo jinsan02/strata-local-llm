@@ -1,0 +1,18 @@
+{
+ "state": "check",
+ "trigger": "budget",
+ "trigger_step": 19,
+ "gate_flags": 0,
+ "gate": {
+  "changed": [],
+  "lint": [],
+  "api_missing": [],
+  "unused": [],
+  "tests": "기존 테스트: 바뀐 파일이 없어 돌리지 않음",
+  "flags": 0
+ },
+ "gate_ms": 127,
+ "extra_tool_turns": 2,
+ "edit_warnings": 0,
+ "notice": true
+}
