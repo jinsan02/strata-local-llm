@@ -48,7 +48,7 @@ DEFAULTS = {"harness": "H0", "tool_out": "chars", "reasoning_echo": "none", "fin
             "ctx": 32768, "budget": 8192, "timeout": 1800, "test_timeout": 600, "repair": 1,
             # 11-22: 채택 하네스 · 노력치(docs/effort-20261122.md). 파일에 없으면 예전과 같은 값
             "sampling": "card-general", "edit_apply": "strict", "effort": None, "max_effort": "xhigh", "retry": "repair",
-            "syntax_check": "off", "code_tools": "off"}
+            "syntax_check": "off", "code_tools": "off", "edit_strip": "off"}
 
 
 def load_cfg(override: dict | None = None) -> dict:
@@ -239,10 +239,11 @@ def loop_args(cfg: dict, base: str, max_steps: int | None, ctx: int | None = Non
 
 
 def apply_harness(cfg: dict) -> None:
-    """X3 모듈 전역 설정을 워커 설정에 맞춘다(샘플링 · 편집 적용 · 문법 검사)."""
+    """X3 모듈 전역 설정을 워커 설정에 맞춘다(샘플링 · 편집 적용 · H9 · 문법 검사)."""
     x3.apply_sampling(cfg["sampling"])
     x3.EDIT_APPLY = cfg["edit_apply"]
     x3.SYNTAX_CHECK = cfg["syntax_check"] == "on"
+    x3.EDIT_STRIP = cfg["edit_strip"] == "on" and cfg["edit_apply"] == "lenient"   # 11-23 H9: lenient 마지막 단계로 줄마다 앞뒤 공백 무시 한 곳 일치
 
 
 def reset_tree(root: Path) -> None:
