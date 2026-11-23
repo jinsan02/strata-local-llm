@@ -131,6 +131,7 @@ def _dedent_pair(search: str, replace: str) -> tuple[str, str] | None:
 # H7 (11-21, --edit-apply lenient): 적용 쪽만 너그럽게. H0 = strict (위 dedent 까지만).
 # docs/h7-edit-apply-20261121.md: 강제 턴 블록 전체를 2~3칸 더 들여 쓰는 실패가 가장 많았다(오프라인 재현 15건 적용 · 5건 통과).
 EDIT_APPLY = "strict"
+EDIT_STRIP = False   # H9 (11-23, --edit-strip on): lenient 의 마지막 단계로, 줄마다 앞뒤 공백을 무시하고 정확히 한 곳만 맞으면 적용한다(docs/h9-edit-strip-20261123.md)
 INDENT_SHIFT_MAX = 16
 LAST_EDIT_HOW = ["exact"]   # 마지막 edit_file 의 적용 방법(도구 기록용)
 TEXT_CALL_RE = re.compile(r"<function=edit_file>(.*?)</function>", re.S)
@@ -154,6 +155,68 @@ def _shift(s: str, d: int) -> str | None:
 
 def _line_no(text: str, pos: int) -> int:
     return text.count("\n", 0, pos) + 1
+
+
+def _indent(ln: str) -> int:
+    return len(ln) - len(ln.lstrip(" "))
+
+
+def strip_replace(text: str, old: str, new: str) -> str | None:
+    """H9 R1: old 의 줄들을 앞뒤 공백 없이 비교해 정확히 한 곳만 맞으면 그 구간을 바꾼다.
+    들여쓰기는 파일을 따른다: 줄마다 (파일 - old) 칸 차이의 최빈값만큼 new 를 옮기고, old 의 어떤 줄과 글자 그대로 같은 new 줄은
+    그 줄의 차이만큼 옮긴다(첫 줄만 2칸 더 들여 쓴 경우 등). 빼야 할 공백이 없거나 탭이 섞이면 None."""
+    nlc = chr(10)
+    if chr(9) in old or chr(9) in new:
+        return None
+    ol = old.split(nlc)
+    while ol and not ol[-1].strip():
+        ol.pop()
+    while ol and not ol[0].strip():
+        ol.pop(0)
+    if not ol:
+        return None
+    tl = text.split(nlc)
+    sl = [x.strip() for x in ol]
+    k = len(sl)
+    found = [j for j in range(len(tl) - k + 1) if [x.strip() for x in tl[j:j + k]] == sl]
+    if len(found) != 1:
+        return None
+    j = found[0]
+    deltas = {}
+    counts: dict[int, int] = {}
+    for o, t in zip(ol, tl[j:j + k]):
+        if o.strip():
+            dd = _indent(t) - _indent(o)
+            deltas.setdefault(o, dd)
+            counts[dd] = counts.get(dd, 0) + 1
+    top = max(counts.values())
+    mode = min((x for x in counts if counts[x] == top), key=lambda x: (abs(x), x))   # 동률이면 0 에 가까운 쪽(첫 줄만 틀린 경우)
+    nl_ = new.split(nlc)
+    if new.endswith(nlc) and old.endswith(nlc):
+        nl_ = nl_[:-1]
+    out = []
+    for ln in nl_:
+        if not ln.strip():
+            out.append("")
+            continue
+        dd = deltas.get(ln, mode)
+        if dd < 0:
+            if ln[:-dd] != " " * (-dd):
+                return None
+            out.append(ln[-dd:])
+        else:
+            out.append(" " * dd + ln)
+    res = nlc.join(tl[:j] + out + tl[j + k:])
+    import ast as _ast
+    try:
+        _ast.parse(text)
+    except SyntaxError:
+        return res
+    try:
+        _ast.parse(res)
+    except SyntaxError:
+        return None   # 공백을 무시하고 맞춘 결과가 문법을 깨면 받지 않는다(원래 파싱되던 파일만)
+    return res
 
 
 def lenient_replace(text: str, old: str, new: str) -> tuple[str | None, str, list[int]]:
@@ -190,6 +253,10 @@ def lenient_replace(text: str, old: str, new: str) -> tuple[str | None, str, lis
         if len(found) == 1:
             i = found[0]
             return "\n".join(tl[:i] + nl.split("\n") + tl[i + k:]), "rstrip", []
+    if EDIT_STRIP:
+        nt = strip_replace(text, old, new)
+        if nt is not None:
+            return nt, "strip", []
     return None, "none", []
 
 
@@ -540,7 +607,7 @@ def edit_file(root: Path, args: dict, deny: tuple[str, ...]) -> tuple[bool, str]
         if nt is not None:
             if (bad := _write_checked(p, path, nt)):
                 return False, bad
-            note = {"exact": "", "rstrip": " (줄 끝 공백 차이는 무시하고 맞췄다)"}.get(
+            note = {"exact": "", "rstrip": " (줄 끝 공백 차이는 무시하고 맞췄다)", "strip": " (줄마다 앞뒤 공백 차이는 무시하고 파일 들여쓰기에 맞춰 적용했다)"}.get(
                 how, f" (old_string 전체를 {how[6:]}칸 옮겨야 맞았다 - 들여쓰기를 맞춰 적용했다)")
             return True, f"{path} 를 고쳤다 (-{len(old.splitlines())}줄 +{len(new.splitlines())}줄){note}"
         if how == "multi":
@@ -1247,6 +1314,7 @@ def main() -> int:
     ap.add_argument("--edit-hint", choices=["off", "on"], default="off", help="H6: edit_file 0회 일치 때 가장 비슷한 원문을 돌려줌 (H0 = off)")
     ap.add_argument("--edit-apply", choices=["strict", "lenient"], default="strict",
                     help="H7: lenient = 들여쓰기 이동 · 줄 끝 공백 무시 · 텍스트 edit_file 호출 받기 · 여러 곳 일치 줄 번호 (H0 = strict)")
+    ap.add_argument("--edit-strip", choices=["on", "off"], default="off", help="H9: lenient 마지막 단계로 줄마다 앞뒤 공백 무시 한 곳 일치(--edit-apply lenient 와 함께)")
     ap.add_argument("--syntax-check", choices=["off", "on"], default="off", help="T1 (11-22): .py 편집이 파싱되지 않으면 쓰지 않고 줄 번호를 알려 줌 (H7 = off)")
     ap.add_argument("--code-tools", choices=["off", "on"], default="off", help="T2 (11-22): outline · read_symbol 도구를 줌 (H7 = off)")
     ap.add_argument("--h8", choices=["off", "on"], default="off",
@@ -1282,9 +1350,12 @@ def main() -> int:
     force_note = {} if (a.ctx == 32768 and a.force_at == 24320 - 2048) else {"force_at": a.force_at}
     if a.effort != "none":
         force_note.update({"effort": a.effort, "force_at": a.force_at})
-    global EDIT_HINT, EDIT_APPLY, SYNTAX_CHECK, H8
+    global EDIT_HINT, EDIT_APPLY, SYNTAX_CHECK, H8, EDIT_STRIP
     EDIT_HINT = a.edit_hint == "on"
     EDIT_APPLY = a.edit_apply
+    EDIT_STRIP = a.edit_strip == "on"
+    if EDIT_STRIP and EDIT_APPLY != "lenient":
+        raise SystemExit("--edit-strip on 은 --edit-apply lenient 와 함께만")
     SYNTAX_CHECK = a.syntax_check == "on"
     H8 = a.h8 == "on"
     if H8:
@@ -1411,7 +1482,7 @@ def main() -> int:
                     cfg = {"task": task, "mode": "navigate", "harness": a.harness, "commit": COMMIT, "tool_out_limit": TOOL_OUT_LIMIT,
                            "tool_out": a.tool_out, "reasoning_echo": a.reasoning_echo, "reasoning_budget": a.reasoning_budget or "answer_room", "final_turn": a.final_turn, "force_edit_turns": FORCE_EDIT_TURNS, **({"page_tokens": PAGE_TOKENS, "chars_per_token": CHARS_PER_TOKEN, "grep_hits": GREP_HITS,
                                                        "list_files": LIST_FILES} if a.tool_out == "paged" else {}),
-                           "tools": NAV_TOOLS + (CODE_TOOLS if a.code_tools == "on" else []) + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, **({"seed_policy": SEED_POLICY} if a.seed_per_rep else {}), "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {}), **({"edit_hint": "on", "edit_hint_lines": EDIT_HINT_LINES} if a.edit_hint == "on" else {}), **({"edit_apply": "lenient", "indent_shift_max": INDENT_SHIFT_MAX} if a.edit_apply == "lenient" else {}), **({"mask": "on", "mask_at": MASK_AT, "mask_to": MASK_TO, "mask_keep": MASK_KEEP, "mask_min_chars": MASK_MIN_CHARS} if a.mask == "on" else {}),**force_note, **({"reread_guard": "on"} if a.reread_guard == "on" else {}), **({"syntax_check": "on", "syntax_context": SYNTAX_CONTEXT} if a.syntax_check == "on" else {}), **({"code_tools": "on", "code_tools_note": CODE_TOOLS_NOTE, "outline_max": OUTLINE_MAX, "symbol_max_lines": SYMBOL_MAX_LINES} if a.code_tools == "on" else {}), **({"h8": "on", "h8_extra": H8G.H8_EXTRA, "h8_notice_left": H8G.H8_NOTICE_LEFT, "h8_test_timeout": H8G.TEST_TIMEOUT, "syntax_check": "on", "syntax_context": SYNTAX_CONTEXT} if a.h8 == "on" else {})}
+                           "tools": NAV_TOOLS + (CODE_TOOLS if a.code_tools == "on" else []) + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, **({"seed_policy": SEED_POLICY} if a.seed_per_rep else {}), "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {}), **({"edit_hint": "on", "edit_hint_lines": EDIT_HINT_LINES} if a.edit_hint == "on" else {}), **({"edit_apply": "lenient", "indent_shift_max": INDENT_SHIFT_MAX} if a.edit_apply == "lenient" else {}), **({"edit_strip": "on"} if a.edit_strip == "on" else {}), **({"mask": "on", "mask_at": MASK_AT, "mask_to": MASK_TO, "mask_keep": MASK_KEEP, "mask_min_chars": MASK_MIN_CHARS} if a.mask == "on" else {}),**force_note, **({"reread_guard": "on"} if a.reread_guard == "on" else {}), **({"syntax_check": "on", "syntax_context": SYNTAX_CONTEXT} if a.syntax_check == "on" else {}), **({"code_tools": "on", "code_tools_note": CODE_TOOLS_NOTE, "outline_max": OUTLINE_MAX, "symbol_max_lines": SYMBOL_MAX_LINES} if a.code_tools == "on" else {}), **({"h8": "on", "h8_extra": H8G.H8_EXTRA, "h8_notice_left": H8G.H8_NOTICE_LEFT, "h8_test_timeout": H8G.TEST_TIMEOUT, "syntax_check": "on", "syntax_context": SYNTAX_CONTEXT} if a.h8 == "on" else {})}
                     cfg_sha = rb.sha256_bytes(rb.canon(cfg))
                     (run_dir / "config.json").write_bytes(rb.canon(cfg))
                     (run_dir / "env.json").write_bytes(rb.canon(env))
