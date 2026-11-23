@@ -483,7 +483,8 @@ def grade_mutants(root: Path, task_cfg: dict) -> dict:
     full = summary + nlc + nlc.join(detail) + ((nlc + base["log"]) if base["rc"] else "")
     return {"ok": ok, "hidden": f"{killed}/{len(muts)}", "regress_ok": g["rc"] == 0,
             "regress": f"{g['passed']} passed, {g['failed']} failed, {g['errors']} errors",
-            "tools_ms": ms, "log": public, "log_full": full[-LOG_LIMIT:]}
+            "tools_ms": ms, "log": public, "log_full": full[-LOG_LIMIT:],
+            "mutants": True, "collect_error": base["rc"] not in (0, 1)}   # pytest 1 = 테스트 실패, 그 밖(2 · 4 · 5 · 파일 없음)은 수집 · 문법 오류
 
 
 def grade(root: Path, task_cfg: dict, hidden_total: int) -> dict:
@@ -513,6 +514,8 @@ def error_type(applied: int, errs: list[str], gr: dict | None) -> str:
         return "apply_fail"
     if gr["ok"]:
         return "pass" if not errs else "pass_partial_apply"
+    if gr.get("mutants"):   # 11-23 Y3: 쓴 테스트의 기대값이 틀려 원본에서 실패하면 test_fail (y9 원장 5행은 import_or_syntax 로 찍힘)
+        return "import_or_syntax" if gr["collect_error"] else ("regress_fail" if not gr["regress_ok"] else "test_fail")
     if "error" in gr.get("log_full", gr["log"]).lower() and gr["hidden"].startswith("0/"):
         return "import_or_syntax"
     return "regress_fail" if not gr["regress_ok"] and gr["hidden"].split("/")[0] == gr["hidden"].split("/")[1] else "test_fail"

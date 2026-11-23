@@ -85,6 +85,13 @@ outs = [str(m.get("content")) for m in []]
 check("Y3: 다른 tests 파일은 거절, 허용 경로는 만들기 성공", nr["edit_fail"] == 1 and nr["edit_ok"] == 1 and (r3 / t3["test_file"]).is_file(), f"ok {nr['edit_ok']} fail {nr['edit_fail']}")
 g3 = X.grade(r3, t3, 10)
 check("Y3: 참조 테스트 → 돌연변이 10/10 · 통과", g3["ok"] and g3["hidden"] == "10/10", g3["hidden"])
+wrong = "from packaging.utils import canonicalize_version" + NL + NL + NL + "def test_wrong():" + NL + '    assert canonicalize_version("1.0.0a1") == "1.0.0a1"' + NL
+(r3 / t3["test_file"]).write_text(wrong, encoding="utf-8", newline=NL)
+gw = X.grade(r3, t3, 10)
+check("Y3 분류: 기대값이 틀린 테스트 → test_fail", X.error_type(1, [], gw) == "test_fail", X.error_type(1, [], gw))
+(r3 / t3["test_file"]).write_text("def test_x(:" + NL, encoding="utf-8", newline=NL)
+gs = X.grade(r3, t3, 10)
+check("Y3 분류: 문법이 깨진 테스트 → import_or_syntax", X.error_type(1, [], gs) == "import_or_syntax", X.error_type(1, [], gs))
 X.WRITE_ALLOW = set()
 check("Y3: 허용 목록을 비우면 같은 경로도 거절", not X.edit_file(r3, {"path": "tests/test_y_other.py", "old_string": "", "new_string": "x = 1" + NL}, ("tests",))[0])
 
