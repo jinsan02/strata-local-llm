@@ -1,0 +1,16 @@
+{
+ "task": "y1_version_postdev_order",
+ "type": "Y1 버그 고치기(보고서)",
+ "repo": "packaging",
+ "setup_patch": "private/setup.patch",
+ "required_files": [
+  "src/packaging/version.py"
+ ],
+ "regress": [
+  "tests/test_version.py",
+  "tests/test_specifiers.py"
+ ],
+ "hidden_test": "private/test_x3_hidden.py",
+ "ref_patch": "private/ref.patch",
+ "bug_task": true
+}

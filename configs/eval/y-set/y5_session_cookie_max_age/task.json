@@ -1,0 +1,23 @@
+{
+ "task": "y5_session_cookie_max_age",
+ "type": "Y5 여러 곳 연결",
+ "repo": "flask",
+ "required_files": [
+  "src/flask/app.py",
+  "src/flask/sessions.py"
+ ],
+ "regress": [
+  "tests/test_session_interface.py",
+  "tests/test_basic.py",
+  "tests/test_config.py",
+  "--deselect",
+  "tests/test_basic.py::test_session_using_server_name",
+  "--deselect",
+  "tests/test_basic.py::test_session_using_server_name_and_port",
+  "--deselect",
+  "tests/test_basic.py::test_session_using_session_settings"
+ ],
+ "_regress_note": "deselect 3개는 기준 커밋에서도 실패(환경 werkzeug 2.3.7 의 쿠키 domain 표기 차이, 과제와 무관)",
+ "hidden_test": "private/test_x3_hidden.py",
+ "ref_patch": "private/ref.patch"
+}

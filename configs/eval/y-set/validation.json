@@ -1,0 +1,115 @@
+{
+ "tasks": {
+  "y1_version_postdev_order": {
+   "repo": "packaging",
+   "commit": "6a69a83d8d89c6a01d554a8ad1b420cbb45fb4bc",
+   "hidden_total": 32,
+   "base_hidden": "22/32",
+   "base_regress": "52996 passed, 636 failed, 0 errors",
+   "ref_apply": true,
+   "ref_hidden": "32/32",
+   "ref_regress": "53632 passed, 0 failed, 0 errors",
+   "ok": true
+  },
+  "y2_wheel_build_number": {
+   "repo": "packaging",
+   "commit": "6a69a83d8d89c6a01d554a8ad1b420cbb45fb4bc",
+   "hidden_total": 12,
+   "base_hidden": "5/12",
+   "base_regress": "76 passed, 3 failed, 0 errors",
+   "ref_apply": true,
+   "ref_hidden": "12/12",
+   "ref_regress": "79 passed, 0 failed, 0 errors",
+   "ok": true
+  },
+  "y3_tests_canonicalize_version": {
+   "repo": "packaging",
+   "commit": "6a69a83d8d89c6a01d554a8ad1b420cbb45fb4bc",
+   "ref_test": {
+    "ok": true,
+    "killed": "10/10",
+    "regress": "79 passed, 0 failed, 0 errors",
+    "detail": [
+     "m01_strip_default: 잡음",
+     "m02_invalid_empty: 잡음",
+     "m03_ignore_flag: 잡음",
+     "m04_trim_all_zeros: 잡음",
+     "m05_drop_local: 잡음",
+     "m06_drop_pre: 잡음",
+     "m07_drop_post: 잡음",
+     "m08_drop_epoch: 잡음",
+     "m09_trim_one_zero: 잡음",
+     "m10_drop_dev: 잡음"
+    ]
+   },
+   "weak_test": {
+    "ok": false,
+    "killed": "2/10",
+    "regress": "79 passed, 0 failed, 0 errors",
+    "detail": [
+     "m01_strip_default: 잡음",
+     "m02_invalid_empty: 놓침",
+     "m03_ignore_flag: 놓침",
+     "m04_trim_all_zeros: 놓침",
+     "m05_drop_local: 놓침",
+     "m06_drop_pre: 놓침",
+     "m07_drop_post: 놓침",
+     "m08_drop_epoch: 놓침",
+     "m09_trim_one_zero: 잡음",
+     "m10_drop_dev: 놓침"
+    ]
+   },
+   "repo_test_utils": {
+    "ok": true,
+    "killed": "10/10",
+    "regress": "79 passed, 0 failed, 0 errors",
+    "detail": [
+     "m01_strip_default: 잡음",
+     "m02_invalid_empty: 잡음",
+     "m03_ignore_flag: 잡음",
+     "m04_trim_all_zeros: 잡음",
+     "m05_drop_local: 잡음",
+     "m06_drop_pre: 잡음",
+     "m07_drop_post: 잡음",
+     "m08_drop_epoch: 잡음",
+     "m09_trim_one_zero: 잡음",
+     "m10_drop_dev: 잡음"
+    ]
+   },
+   "ok": true
+  },
+  "y4_refactor_filename_version": {
+   "repo": "packaging",
+   "commit": "6a69a83d8d89c6a01d554a8ad1b420cbb45fb4bc",
+   "hidden_total": 10,
+   "base_hidden": "3/10",
+   "base_regress": "79 passed, 0 failed, 0 errors",
+   "ref_apply": true,
+   "ref_hidden": "10/10",
+   "ref_regress": "79 passed, 0 failed, 0 errors",
+   "ok": true
+  },
+  "y5_session_cookie_max_age": {
+   "repo": "flask",
+   "commit": "7ee9ceb71e868944a46e1ff00b506772a53a4f1d",
+   "hidden_total": 20,
+   "base_hidden": "2/20",
+   "base_regress": "146 passed, 0 failed, 0 errors",
+   "ref_apply": true,
+   "ref_hidden": "20/20",
+   "ref_regress": "146 passed, 0 failed, 0 errors",
+   "ok": true
+  },
+  "y6_config_require": {
+   "repo": "flask",
+   "commit": "7ee9ceb71e868944a46e1ff00b506772a53a4f1d",
+   "hidden_total": 14,
+   "base_hidden": "0/14",
+   "base_regress": "19 passed, 0 failed, 0 errors",
+   "ref_apply": true,
+   "ref_hidden": "14/14",
+   "ref_regress": "19 passed, 0 failed, 0 errors",
+   "ok": true
+  }
+ }
+}

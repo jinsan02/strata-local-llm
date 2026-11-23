@@ -1,0 +1,13 @@
+diff --git a/src/packaging/version.py b/src/packaging/version.py
+index 1c17a9d..57b04ca 100644
+--- a/src/packaging/version.py
++++ b/src/packaging/version.py
+@@ -1121,7 +1121,7 @@ class Version(_BaseVersion):
+         # This leaves one 0.
+         release = self._release
+         i = len(release)
+-        while i > 1 and release[i - 1] == 0:
++        if i > 1 and release[i - 1] == 0:
+             i -= 1
+         if i == len(release):
+             return self

@@ -1,0 +1,18 @@
+{
+ "task": "y3_tests_canonicalize_version",
+ "type": "Y3 테스트 쓰기(돌연변이 채점)",
+ "repo": "packaging",
+ "grade": "mutants",
+ "test_file": "tests/test_y_canonicalize_version.py",
+ "write_allow": [
+  "tests/test_y_canonicalize_version.py"
+ ],
+ "kill_min": 7,
+ "required_files": [
+  "src/packaging/utils.py"
+ ],
+ "regress": [
+  "tests/test_utils.py"
+ ],
+ "ref_test": "private/ref_test.py"
+}

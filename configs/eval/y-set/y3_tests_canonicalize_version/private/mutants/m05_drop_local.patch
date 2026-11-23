@@ -1,0 +1,13 @@
+diff --git a/src/packaging/version.py b/src/packaging/version.py
+index 1c17a9d..2ba6a04 100644
+--- a/src/packaging/version.py
++++ b/src/packaging/version.py
+@@ -1132,7 +1132,7 @@ class Version(_BaseVersion):
+         new_version._dev = self._dev
+         new_version._pre = self._pre
+         new_version._post = self._post
+-        new_version._local = self._local
++        new_version._local = None
+         new_version._key_cache = self._key_cache
+         new_version._hash_cache = self._hash_cache
+         return new_version

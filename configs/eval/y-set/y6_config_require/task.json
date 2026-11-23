@@ -1,0 +1,13 @@
+{
+ "task": "y6_config_require",
+ "type": "Y6 작은 기능(다른 저장소)",
+ "repo": "flask",
+ "required_files": [
+  "src/flask/config.py"
+ ],
+ "regress": [
+  "tests/test_config.py"
+ ],
+ "hidden_test": "private/test_x3_hidden.py",
+ "ref_patch": "private/ref.patch"
+}

@@ -1,0 +1,13 @@
+{
+ "task": "y4_refactor_filename_version",
+ "type": "Y4 리팩터링",
+ "repo": "packaging",
+ "required_files": [
+  "src/packaging/utils.py"
+ ],
+ "regress": [
+  "tests/test_utils.py"
+ ],
+ "hidden_test": "private/test_x3_hidden.py",
+ "ref_patch": "private/ref.patch"
+}

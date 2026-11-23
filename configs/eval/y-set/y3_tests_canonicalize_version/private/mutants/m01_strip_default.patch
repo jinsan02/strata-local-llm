@@ -1,0 +1,13 @@
+diff --git a/src/packaging/utils.py b/src/packaging/utils.py
+index bc31b32..f8080bf 100644
+--- a/src/packaging/utils.py
++++ b/src/packaging/utils.py
+@@ -154,7 +154,7 @@ def is_normalized_name(name: str) -> bool:
+ 
+ 
+ def canonicalize_version(
+-    version: Version | str, *, strip_trailing_zero: bool = True
++    version: Version | str, *, strip_trailing_zero: bool = False
+ ) -> str:
+     """Return a canonical form of a version as a string.
+ 

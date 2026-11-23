@@ -1,0 +1,26 @@
+diff --git a/src/flask/config.py b/src/flask/config.py
+index 5e48be33..bcede361 100644
+--- a/src/flask/config.py
++++ b/src/flask/config.py
+@@ -339,5 +339,21 @@ class Config(dict):
+             rv[key] = v
+         return rv
+ 
++    def require(self, *keys: str, allow_none: bool = False) -> dict[str, t.Any]:
++        """Return the values of the given keys, raising :exc:`KeyError` that
++        lists every missing key (sorted) if any are missing. A value of
++        ``None`` counts as missing unless **allow_none** is true.
++        """
++        if not keys:
++            raise TypeError("require() needs at least one key")
++        for key in keys:
++            if not isinstance(key, str):
++                raise TypeError(f"config keys must be str, not {type(key).__name__}")
++        missing = sorted(
++            {k for k in keys if k not in self or (self[k] is None and not allow_none)}
++        )
++        if missing:
++            raise KeyError(f"Missing required config keys: {', '.join(missing)}")
++        return {k: self[k] for k in keys}
+     def __repr__(self) -> str:
+         return f"<{type(self).__name__} {dict.__repr__(self)}>"

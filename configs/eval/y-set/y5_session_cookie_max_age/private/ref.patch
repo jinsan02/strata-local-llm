@@ -1,0 +1,53 @@
+diff --git a/src/flask/app.py b/src/flask/app.py
+index 3bbe1bb2..ffcc6114 100644
+--- a/src/flask/app.py
++++ b/src/flask/app.py
+@@ -320,6 +320,7 @@ class Flask(Scaffold):
+             "SESSION_COOKIE_HTTPONLY": True,
+             "SESSION_COOKIE_SECURE": False,
+             "SESSION_COOKIE_SAMESITE": None,
++            "SESSION_COOKIE_MAX_AGE": None,
+             "SESSION_REFRESH_EACH_REQUEST": True,
+             "MAX_CONTENT_LENGTH": None,
+             "SEND_FILE_MAX_AGE_DEFAULT": None,
+diff --git a/src/flask/sessions.py b/src/flask/sessions.py
+index 02b8cf76..70ad5b8e 100644
+--- a/src/flask/sessions.py
++++ b/src/flask/sessions.py
+@@ -266,6 +266,28 @@ class SessionInterface:
+         """
+         return app.config["SESSION_COOKIE_SAMESITE"]
+ 
++    def get_cookie_max_age(self, app: "Flask") -> t.Optional[int]:
++        """The ``Max-Age`` of the session cookie in seconds, from the
++        :data:`SESSION_COOKIE_MAX_AGE` config. ``None`` means the cookie has no
++        ``Max-Age``.
++        """
++        from datetime import timedelta
++
++        value = app.config["SESSION_COOKIE_MAX_AGE"]
++        if value is None:
++            return None
++        if isinstance(value, timedelta):
++            seconds = int(value.total_seconds())
++        elif isinstance(value, int) and not isinstance(value, bool):
++            seconds = value
++        else:
++            raise TypeError(
++                "SESSION_COOKIE_MAX_AGE must be an int, a timedelta, or None."
++            )
++        if seconds < 0:
++            raise ValueError("SESSION_COOKIE_MAX_AGE must not be negative.")
++        return seconds
++
+     def get_expiration_time(
+         self, app: "Flask", session: SessionMixin
+     ) -> t.Optional[datetime]:
+@@ -411,6 +433,7 @@ class SecureCookieSessionInterface(SessionInterface):
+             name,
+             val,  # type: ignore
+             expires=expires,
++            max_age=self.get_cookie_max_age(app),
+             httponly=httponly,
+             domain=domain,
+             path=path,
