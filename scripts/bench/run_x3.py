@@ -29,6 +29,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import run_bench as rb  # noqa: E402
+import h8_gate as H8G  # noqa: E402
 
 # 11-19 밤: thinking 관측. 서버는 thinking 이 상한에 닿으면 이 문장과 </think> 를 넣어 닫는다(engine serve/server.py REASONING_WRAP_UP).
 THINK_WRAP_MARK = "I have thought about this long enough; time to give my answer."
@@ -482,6 +483,7 @@ def _closest_region(text: str, old: str) -> str:
 SYNTAX_CHECK = False        # T1 (--syntax-check on, 11-22): .py 편집 결과가 파싱되지 않으면 쓰지 않고 줄 번호 · 주변을 알려 준다
 SYNTAX_CONTEXT = 3
 SYNTAX_REJECTS = [0]        # 실행마다 navigate_loop 가 0 으로 되돌림
+H8 = False                  # H8 (--h8 on, 11-23): 편집 검사 · 남은 턴 알림 · 끝 검사 + 요구사항 체크 턴(예산 밖 도구 턴 최대 2). T1 포함
 
 
 def syntax_problem(path: str, text: str) -> str | None:
@@ -843,6 +845,17 @@ def resolve_effort(a) -> None:
     assert a.force_at <= a.ctx - a.budget - 2048, f"문턱 {a.force_at} 이 ctx {a.ctx} 에 비해 크다"
 
 
+def _h8_text(root: Path, path) -> str | None:
+    """H8: 작업 복사본 안 파일의 현재 내용(없거나 밖이면 None)."""
+    try:
+        p = (root / str(path or "")).resolve()
+        if root.resolve() in p.parents and p.is_file():
+            return p.read_text(encoding="utf-8")
+    except (OSError, ValueError, UnicodeDecodeError):
+        pass
+    return None
+
+
 def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...], chat=None, counter=None) -> dict:
     """도구 탐색 루프(X3 · SWE 공용). 편집은 edit_file 로 작업 트리에 바로 적용된다.
 
@@ -860,11 +873,24 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
     tool_names = ("list_files · grep · read_file · edit_file" + (" · outline · read_symbol" if code_tools else "")
                   + (" · run_tests" if run_tests_fn is not None else ""))
     SYNTAX_REJECTS[0] = 0
+    h8_on = H8   # H8: 체크 턴은 한 번(예산 끝 또는 일찍 끝냈을 때), 그 뒤 도구 턴 최대 H8G.H8_EXTRA
+    h8_state, eff_max = "none", a.max_steps
+    r_h8 = {"state": "on" if h8_on else "off", "trigger": None, "trigger_step": None, "gate_flags": None, "gate": None,
+            "gate_ms": 0, "extra_tool_turns": 0, "edit_warnings": 0, "notice": False}
     counter = counter or (lambda m, t: count_exact(a.base_url, api_key, m, t))
     echo = getattr(a, "reasoning_echo", "none")     # H2 (T-013): none = H0 / all = 모든 assistant 턴 / last = 직전 턴만
     r = {"tool_log": [], "turns": [], "model_ms": 0.0, "tool_ms": 0.0, "out_tok": 0, "last_in": 0, "final": "", "status": "ok",
          "edit_ok": 0, "edit_fail": 0, "fake_calls": 0, "bad_json": 0, "tool_errors": 0, "truncated_chars": 0, "budget_cuts": 0,
          "echo_chars": 0, "tests_runs": 0, "reread_skips": 0, "think_wraps": 0, "reasoning": []}
+    r["h8"] = r_h8
+
+    def _h8_check(step_i: int, trigger: str) -> None:
+        t_g = time.perf_counter()
+        g = H8G.gate(root, getattr(a, "h8_task", ""), PYX, list(getattr(a, "h8_regress", []) or []))
+        r_h8.update({"state": "check", "trigger": trigger, "trigger_step": step_i, "gate_flags": g["flags"], "gate": g,
+                     "gate_ms": round((time.perf_counter() - t_g) * 1000)})
+        r["tool_ms"] += (time.perf_counter() - t_g) * 1000
+        msgs.append({"role": "user", "content": H8G.checklist_message(getattr(a, "h8_task", ""), g)})
 
     def add_assistant(m_out: dict, reasoning: str):
         if echo != "none" and reasoning:
@@ -886,8 +912,8 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
     final_turn = getattr(a, "final_turn", "none")
     forced, forced_steps = False, 0
     r["forced_turns"] = 0
-    for step in range(a.max_steps + FORCE_EDIT_TURNS):
-        if step >= a.max_steps and not forced:
+    for step in range(a.max_steps + FORCE_EDIT_TURNS + (H8G.H8_EXTRA + 2 if h8_on else 0)):
+        if step >= eff_max and not forced:
             break
         exact = counter(msgs, [EDIT_TOOL] if forced and final_turn == "edit" else (None if forced else nav_tools))
         in_now, src = (exact, "count_tokens") if exact is not None else (r["last_in"], "prev_prompt_tokens")
@@ -901,7 +927,13 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
                 exact = counter(msgs, nav_tools)
                 in_now, src = (exact, "count_tokens") if exact is not None else (int(in_now - freed / CHARS_PER_TOKEN), "mask_est")
                 r["mask_log"].append({"step": step, "in_before": before, "in_after": in_now, "n": n_m, "chars": freed})
-        if not forced and (step == a.max_steps - 1 or in_now > force_at):
+        if not forced and step == eff_max - 1 and h8_on and h8_state == "none" and in_now <= force_at:
+            h8_state = "check"   # H8: 예산 끝 - 강제 턴 대신 체크 턴(도구 그대로), 강제 턴은 H8G.H8_EXTRA 턴 뒤
+            eff_max = step + 1 + H8G.H8_EXTRA
+            _h8_check(step, "budget")
+            exact = counter(msgs, nav_tools)
+            in_now, src = (exact, "count_tokens") if exact is not None else (in_now, src)
+        if not forced and (step == eff_max - 1 or in_now > force_at):
             forced = True
             if final_turn == "edit":
                 msgs.append({"role": "user", "content": f"이제 읽기 도구(list_files · grep · read_file)는 쓸 수 없다. 남은 수정이 있으면 edit_file 로 하라"
@@ -965,6 +997,12 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
                     msgs.append({"role": "user", "content": "방금 답은 도구 호출이 아니라 텍스트로 처리됐다(없는 도구 이름이거나 형식 오류). "
                                  f"사용할 수 있는 도구는 {tool_names} 뿐이다. 파일 수정은 edit_file 로 하라."})
                     continue
+            if h8_on and h8_state == "none" and not force:   # H8: 일찍 끝냈으면 체크 턴 한 번(도구 턴 최대 H8G.H8_EXTRA)
+                add_assistant({"role": "assistant", "content": content}, msg.get("reasoning_content") or "")
+                h8_state = "check"
+                eff_max = step + 2 + H8G.H8_EXTRA
+                _h8_check(step, "early")
+                continue
             r["final"] = content
             break
         add_assistant({"role": "assistant", "content": content, "tool_calls": calls}, msg.get("reasoning_content") or "")
@@ -989,7 +1027,13 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
                     r["tests_runs"] += 1
                     logged = args
                 elif fn == "edit_file":
+                    pre_txt = _h8_text(root, args.get("path")) if h8_on else None
                     ok, out = edit_file(root, args, deny)
+                    if h8_on and ok:   # H8: 이 편집으로 새로 생긴 정의 안 된 이름 · 중복 정의를 경고
+                        w = H8G.edit_warning(str(args.get("path") or ""), pre_txt, _h8_text(root, args.get("path")) or "")
+                        if w:
+                            out += w
+                            r_h8["edit_warnings"] += 1
                     r["edit_ok" if ok else "edit_fail"] += 1
                     logged = {"path": args.get("path"), "old_chars": len(args.get("old_string") or ""),
                               "new_chars": len(args.get("new_string") or "")}
@@ -1015,6 +1059,12 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
             r["tool_log"].append({"step": step, "tool": fn, "args": logged, "ok": ok, "out_chars": len(out), "truncated": cut})
             tool_meta.append((len(msgs), fn, logged))
             msgs.append({"role": "tool", "tool_call_id": c.get("id", ""), "content": out[:TOOL_OUT_LIMIT]})
+        if h8_on and not forced:
+            if h8_state == "check":
+                r_h8["extra_tool_turns"] += 1
+            elif not r_h8["notice"] and (eff_max - 1) - (step + 1) == H8G.H8_NOTICE_LEFT and msgs and msgs[-1]["role"] == "tool":
+                msgs[-1]["content"] += H8G.notice_message(H8G.H8_NOTICE_LEFT)
+                r_h8["notice"] = True
     r["syntax_rejects"] = SYNTAX_REJECTS[0]
     r["code_tool_calls"] = sum(1 for t in r["tool_log"] if t["tool"] in CODE_TOOL_NAMES) if code_tools else 0
     return r
@@ -1044,7 +1094,10 @@ def nav_summary(nr: dict, wall_ms: float, grade_ms: float) -> str:
             + (f"; reread_skips {nr['reread_skips']}" if nr.get("reread_skips") else "")
             + (f"; masks {nr['masks']}; masked_outputs {nr['masked_outputs']}; masked_chars {nr['masked_chars']}" if nr.get("masks") else "")
             + (f"; syntax_rejects {nr['syntax_rejects']}" if SYNTAX_CHECK else "")
-            + (f"; code_tool_calls {nr['code_tool_calls']}" if nr.get("code_tool_calls") else ""))
+            + (f"; code_tool_calls {nr['code_tool_calls']}" if nr.get("code_tool_calls") else "")
+            + (f"; h8 {nr['h8']['state']} trigger {nr['h8']['trigger']} step {nr['h8']['trigger_step']} flags {nr['h8']['gate_flags']} "
+               f"extra_tool_turns {nr['h8']['extra_tool_turns']} edit_warnings {nr['h8']['edit_warnings']} notice {int(nr['h8']['notice'])} "
+               f"gate_ms {nr['h8']['gate_ms']}" if nr.get("h8") and nr["h8"]["state"] != "off" else ""))
 
 
 def nav_apply_final(root: Path, r: dict, candidates: list[str], deny: tuple[str, ...]) -> tuple[int, list[str], str]:
@@ -1196,6 +1249,8 @@ def main() -> int:
                     help="H7: lenient = 들여쓰기 이동 · 줄 끝 공백 무시 · 텍스트 edit_file 호출 받기 · 여러 곳 일치 줄 번호 (H0 = strict)")
     ap.add_argument("--syntax-check", choices=["off", "on"], default="off", help="T1 (11-22): .py 편집이 파싱되지 않으면 쓰지 않고 줄 번호를 알려 줌 (H7 = off)")
     ap.add_argument("--code-tools", choices=["off", "on"], default="off", help="T2 (11-22): outline · read_symbol 도구를 줌 (H7 = off)")
+    ap.add_argument("--h8", choices=["off", "on"], default="off",
+                    help="H8 (11-23): 편집 검사 · 남은 턴 알림 · 끝 검사 + 요구사항 체크 턴(예산 밖 도구 턴 최대 2), T1 포함 (H7 = off)")
     ap.add_argument("--mask", choices=["off", "on"], default="off",
                     help="L2 (25-4): 입력이 MASK_AT 를 넘으면 오래된 큰 도구 결과를 자리표시로 바꿈 (H0 = off)")
     ap.add_argument("--run-tests", choices=["off", "on"], default="off", help="Q15: 공개 테스트 도구 run_tests 를 줌 (H0 = off)")
@@ -1227,10 +1282,13 @@ def main() -> int:
     force_note = {} if (a.ctx == 32768 and a.force_at == 24320 - 2048) else {"force_at": a.force_at}
     if a.effort != "none":
         force_note.update({"effort": a.effort, "force_at": a.force_at})
-    global EDIT_HINT, EDIT_APPLY, SYNTAX_CHECK
+    global EDIT_HINT, EDIT_APPLY, SYNTAX_CHECK, H8
     EDIT_HINT = a.edit_hint == "on"
     EDIT_APPLY = a.edit_apply
     SYNTAX_CHECK = a.syntax_check == "on"
+    H8 = a.h8 == "on"
+    if H8:
+        SYNTAX_CHECK = True   # H8 은 T1(편집 직후 문법 검사)을 포함한다
 
     api_key = os.environ.get("STRATA_API_KEY", "strata-local")
     engine_dir = Path(r"C:\strata-lab\engine")
@@ -1353,12 +1411,13 @@ def main() -> int:
                     cfg = {"task": task, "mode": "navigate", "harness": a.harness, "commit": COMMIT, "tool_out_limit": TOOL_OUT_LIMIT,
                            "tool_out": a.tool_out, "reasoning_echo": a.reasoning_echo, "reasoning_budget": a.reasoning_budget or "answer_room", "final_turn": a.final_turn, "force_edit_turns": FORCE_EDIT_TURNS, **({"page_tokens": PAGE_TOKENS, "chars_per_token": CHARS_PER_TOKEN, "grep_hits": GREP_HITS,
                                                        "list_files": LIST_FILES} if a.tool_out == "paged" else {}),
-                           "tools": NAV_TOOLS + (CODE_TOOLS if a.code_tools == "on" else []) + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, **({"seed_policy": SEED_POLICY} if a.seed_per_rep else {}), "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {}), **({"edit_hint": "on", "edit_hint_lines": EDIT_HINT_LINES} if a.edit_hint == "on" else {}), **({"edit_apply": "lenient", "indent_shift_max": INDENT_SHIFT_MAX} if a.edit_apply == "lenient" else {}), **({"mask": "on", "mask_at": MASK_AT, "mask_to": MASK_TO, "mask_keep": MASK_KEEP, "mask_min_chars": MASK_MIN_CHARS} if a.mask == "on" else {}),**force_note, **({"reread_guard": "on"} if a.reread_guard == "on" else {}), **({"syntax_check": "on", "syntax_context": SYNTAX_CONTEXT} if a.syntax_check == "on" else {}), **({"code_tools": "on", "code_tools_note": CODE_TOOLS_NOTE, "outline_max": OUTLINE_MAX, "symbol_max_lines": SYMBOL_MAX_LINES} if a.code_tools == "on" else {})}
+                           "tools": NAV_TOOLS + (CODE_TOOLS if a.code_tools == "on" else []) + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, **({"seed_policy": SEED_POLICY} if a.seed_per_rep else {}), "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {}), **({"edit_hint": "on", "edit_hint_lines": EDIT_HINT_LINES} if a.edit_hint == "on" else {}), **({"edit_apply": "lenient", "indent_shift_max": INDENT_SHIFT_MAX} if a.edit_apply == "lenient" else {}), **({"mask": "on", "mask_at": MASK_AT, "mask_to": MASK_TO, "mask_keep": MASK_KEEP, "mask_min_chars": MASK_MIN_CHARS} if a.mask == "on" else {}),**force_note, **({"reread_guard": "on"} if a.reread_guard == "on" else {}), **({"syntax_check": "on", "syntax_context": SYNTAX_CONTEXT} if a.syntax_check == "on" else {}), **({"code_tools": "on", "code_tools_note": CODE_TOOLS_NOTE, "outline_max": OUTLINE_MAX, "symbol_max_lines": SYMBOL_MAX_LINES} if a.code_tools == "on" else {}), **({"h8": "on", "h8_extra": H8G.H8_EXTRA, "h8_notice_left": H8G.H8_NOTICE_LEFT, "h8_test_timeout": H8G.TEST_TIMEOUT, "syntax_check": "on", "syntax_context": SYNTAX_CONTEXT} if a.h8 == "on" else {})}
                     cfg_sha = rb.sha256_bytes(rb.canon(cfg))
                     (run_dir / "config.json").write_bytes(rb.canon(cfg))
                     (run_dir / "env.json").write_bytes(rb.canon(env))
                     t_wall = time.perf_counter()
                     a.run_tests_fn = make_run_tests(tcfg["regress"]) if a.run_tests == "on" else None
+                    a.h8_task, a.h8_regress = task_txt, list(tcfg["regress"])   # H8 끝 검사: 지시문 원문 · 공개 회귀 테스트 파일
                     nr = navigate_loop(root, msgs, a, api_key, deny=("tests",))
                     tool_log, final, last_in = nr["tool_log"], nr["final"], nr["last_in"]
                     read = nav_read_ok(tool_log)
@@ -1386,6 +1445,8 @@ def main() -> int:
                     rb.write_row(row)
                     (run_dir / f"answer_r{i}.md").write_text(final, encoding="utf-8")
                     (run_dir / f"tools_r{i}.json").write_text(json.dumps(tool_log, ensure_ascii=False, indent=1), encoding="utf-8")
+                    if nr.get("h8") and nr["h8"]["state"] != "off":
+                        (run_dir / f"h8_r{i}.json").write_text(json.dumps(nr["h8"], ensure_ascii=False, indent=1), encoding="utf-8")
                     if nr.get("mask_log"):
                         (run_dir / f"mask_r{i}.json").write_text(json.dumps(nr["mask_log"], ensure_ascii=False, indent=1), encoding="utf-8")
                     print(json.dumps({"run": rid, "tool_calls": len(tool_log), "required_read": f"{len(found)}/{len(tcfg['required_files'])}",
@@ -1393,7 +1454,7 @@ def main() -> int:
                                       "bad_json": nr["bad_json"], "tool_errors": nr["tool_errors"], "wall_s": round(wall_ms / 1000),
                                       "error_type": et, "hidden": row["tests_passed"], "last_input": last_in,
                                       "think_wraps": nr["think_wraps"], "think_tok_est": think_est(nr)[0],
-                                      **({"masks": nr["masks"], "masked_chars": nr["masked_chars"]} if nr.get("masks") else {}), **({"syntax_rejects": nr["syntax_rejects"]} if SYNTAX_CHECK else {}), **({"code_tool_calls": nr["code_tool_calls"]} if nr.get("code_tool_calls") else {})}, ensure_ascii=False), flush=True)
+                                      **({"masks": nr["masks"], "masked_chars": nr["masked_chars"]} if nr.get("masks") else {}), **({"syntax_rejects": nr["syntax_rejects"]} if SYNTAX_CHECK else {}), **({"code_tool_calls": nr["code_tool_calls"]} if nr.get("code_tool_calls") else {}), **({"h8": nr["h8"]["trigger"], "h8_flags": nr["h8"]["gate_flags"], "h8_extra": nr["h8"]["extra_tool_turns"], "h8_warn": nr["h8"]["edit_warnings"]} if nr.get("h8") and nr["h8"]["state"] != "off" else {})}, ensure_ascii=False), flush=True)
     return 0
 
 
