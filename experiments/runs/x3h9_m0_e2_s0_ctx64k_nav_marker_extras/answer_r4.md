@@ -1,0 +1,1 @@
+`src/packaging/markers.py`에 `Marker.referenced_extras()` 메서드와 내부 헬퍼 함수(`_collect_referenced_extras`, `_extract_extra_names`)를 추가했습니다. `src/packaging/requirements.py`에 `Requirement.marker_extras` 속성을 추가했습니다. `NormalizedName` 타입을 두 파일의 import에 반영했습니다.
