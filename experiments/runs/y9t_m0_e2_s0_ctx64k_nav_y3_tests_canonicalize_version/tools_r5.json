@@ -1,0 +1,235 @@
+[
+ {
+  "step": 0,
+  "tool": "list_files",
+  "args": {
+   "pattern": "**/*.py"
+  },
+  "ok": true,
+  "out_chars": 2293,
+  "truncated": 0
+ },
+ {
+  "step": 1,
+  "tool": "read_file",
+  "args": {
+   "path": "src/packaging/utils.py"
+  },
+  "ok": true,
+  "out_chars": 14867,
+  "truncated": 2867
+ },
+ {
+  "step": 2,
+  "tool": "read_file",
+  "args": {
+   "path": "src/packaging/version.py"
+  },
+  "ok": true,
+  "out_chars": 14566,
+  "truncated": 2566
+ },
+ {
+  "step": 3,
+  "tool": "read_file",
+  "args": {
+   "path": "src/packaging/version.py",
+   "start_line": 327
+  },
+  "ok": true,
+  "out_chars": 16010,
+  "truncated": 4010
+ },
+ {
+  "step": 4,
+  "tool": "read_file",
+  "args": {
+   "path": "src/packaging/version.py",
+   "start_line": 627
+  },
+  "ok": true,
+  "out_chars": 15206,
+  "truncated": 3206
+ },
+ {
+  "step": 5,
+  "tool": "grep",
+  "args": {
+   "path": "src/packaging/version.py",
+   "pattern": "_trim_release"
+  },
+  "ok": true,
+  "out_chars": 324,
+  "truncated": 0
+ },
+ {
+  "step": 6,
+  "tool": "read_file",
+  "args": {
+   "end_line": 1150,
+   "path": "src/packaging/version.py",
+   "start_line": 1112
+  },
+  "ok": true,
+  "out_chars": 1590,
+  "truncated": 0
+ },
+ {
+  "step": 7,
+  "tool": "read_file",
+  "args": {
+   "path": "tests/test_utils.py"
+  },
+  "ok": true,
+  "out_chars": 9712,
+  "truncated": 0
+ },
+ {
+  "step": 8,
+  "tool": "edit_file",
+  "args": {
+   "path": "tests/test_y_canonicalize_version.py",
+   "old_chars": 0,
+   "new_chars": 0,
+   "how": "exact",
+   "old_string": ""
+  },
+  "ok": true,
+  "out_chars": 53,
+  "truncated": 0
+ },
+ {
+  "step": 9,
+  "tool": "edit_file",
+  "args": {
+   "path": "tests/test_y_canonicalize_version.py",
+   "old_chars": 0,
+   "new_chars": 9609,
+   "how": "exact",
+   "old_string": ""
+  },
+  "ok": false,
+  "out_chars": 73,
+  "truncated": 0
+ },
+ {
+  "step": 10,
+  "tool": "read_file",
+  "args": {
+   "path": "tests/test_y_canonicalize_version.py"
+  },
+  "ok": true,
+  "out_chars": 0,
+  "truncated": 0
+ },
+ {
+  "step": 11,
+  "tool": "edit_file",
+  "args": {
+   "path": "tests/test_y_canonicalize_version.py",
+   "old_chars": 0,
+   "new_chars": 9609,
+   "how": "exact",
+   "old_string": ""
+  },
+  "ok": false,
+  "out_chars": 73,
+  "truncated": 0
+ },
+ {
+  "step": 12,
+  "tool": "edit_file",
+  "args": {
+   "path": "tests/test_y_canonicalize_version.py",
+   "old_chars": 0,
+   "new_chars": 9609,
+   "how": "exact",
+   "old_string": ""
+  },
+  "ok": false,
+  "out_chars": 73,
+  "truncated": 0
+ },
+ {
+  "step": 13,
+  "tool": "edit_file",
+  "args": {
+   "path": "tests/test_y_canonicalize_version.py",
+   "old_chars": 9609,
+   "new_chars": 9609,
+   "how": "none",
+   "old_string": "# This file is dual licensed under the terms of the Apache License, Version\n# 2.0, and the BSD License. See the LICENSE file in the root of this repository\n# for complete details.\n\n\"\"\"\nTests for canonicalize_version that pin its current behaviour.\n\nIf someone changes canonicalize_version (or the _trim_release helper it relies on),\nthese tests should fail, alerting the reviewer.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport pytest\nfrom packaging.utils import canonicalize_version\nfrom packaging.version import InvalidVersion, Version\n\n\n# ── Basic string input ──────────────────────────────────────────────────────\n\nclass TestBasicStringInput:\n    \"\"\"canonicalize_version('1.0.1') → '1.0.1' (doctest example).\"\"\"\n\n    def test_simple_version(self) -> None:\n        assert canonicalize_version(\"1.0.1\") == \"1.0.1\"\n\n    def test_two_part(self) -> None:\n        assert canonicalize_version(\"1.0\") == \"1\"\n\n    def test_single_part(self) -> None:\n        assert canonicalize_version(\"1\") == \"1\"\n\n    def test_three_part_no_trailing_zero(self) -> None:\n        assert canonicalize_version(\"1.2.3\") == \"1.2.3\"\n\n\n# ── strip_trailing_zero=True (default) ──────────────────────────────────────\n\nclass TestStripTrailingZeroDefault:\n    \"\"\"With strip_trailing_zero=True (the default), trailing zeros in the\n    release segment are removed, but at least one component is kept.\"\"\"\n\n    def test_1_0_0(self) -> None:\n        assert canonicalize_version(\"1.0.0\") == \"1\"\n\n    def test_1_4_0_0_0(self) -> None:\n        assert canonicalize_version(\"1.4.0.0.0\") == \"1.4\"\n\n    def test_1_40_0(self) -> None:\n        assert canonicalize_version(\"1.40.0\") == \"1.40\"\n\n    def test_0_0(self) -> None:\n        assert canonicalize_version(\"0.0\") == \"0\"\n\n    def test_0_0_0_0(self) -> None:\n        assert canonicalize_version(\"0.0.0.0\") == \"0\"\n\n    def test_100_0(self) -> None:\n        assert canonicalize_version(\"100.0\") == \"100\"\n\n\n# ── strip_trailing_zero=False ──────────────────────────────────────────────\n\nclass TestStripTrailingZeroFalse:\n    \"\"\"With strip_trailing_zero=False the full release segment is kept.\"\"\"\n\n    def test_1_4_0(self) -> None:\n        assert canonicalize_version(\"1.4.0\", strip_trailing_zero=False) == \"1.4.0\"\n\n    def test_1_0(self) -> None:\n        assert canonicalize_version(\"1.0\", strip_trailing_zero=False) == \"1.0\"\n\n    def test_1_4_0_0_0(self) -> None:\n        assert canonicalize_version(\"1.4.0.0.0\", strip_trailing_zero=False) == \"1.4.0.0.0\"\n\n    def test_0_0(self) -> None:\n        assert canonicalize_version(\"0.0\", strip_trailing_zero=False) == \"0.0\"\n\n\n# ── Invalid version strings ────────────────────────────────────────────────\n\nclass TestInvalidVersionStrings:\n    \"\"\"Invalid versions are returned unaltered (doctest example: 'foo bar baz').\"\"\"\n\n    def test_foo_bar_baz(self) -> None:\n        assert canonicalize_version(\"foo bar baz\") == \"foo bar baz\"\n\n    def test_lolwat(self) -> None:\n        assert canonicalize_version(\"lolwat\") == \"lolwat\"\n\n    def test_1_0_1_test7(self) -> None:\n        assert canonicalize_version(\"1.0.1-test7\") == \"1.0.1-test7\"\n\n    def test_empty_string(self) -> None:\n        assert canonicalize_version(\"\") == \"\"\n\n    def test_random_gibberish(self) -> None:\n        assert canonicalize_version(\"!!!\") == \"!!!\"\n\n    def test_invalid_with_strip_false(self) -> None:\n        assert canonicalize_version(\"lolwat\", strip_trailing_zero=False) == \"lolwat\"\n\n\n# ── Version object input ───────────────────────────────────────────────────\n\nclass TestVersionObjectInput:\n    \"\"\"When a Version instance is passed, it is used directly (no re-parse).\"\"\"\n\n    def test_version_object_default(self) -> None:\n        v = Version(\"1.4.0\")\n        assert canonicalize_version(v) == \"1.4\"\n\n    def test_version_object_strip_false(self) -> None:\n        v = Version(\"1.4.0\")\n        assert canonicalize_version(v, strip_trailing_zero=False) == \"1.4.0\"\n\n    def test_version_object_1_0_0(self) -> None:\n        v = Version(\"1.0.0\")\n        assert canonicalize_version(v) == \"1\"\n\n    def test_version_object_0_0(self) -> None:\n        v = Version(\"0.0\")\n        assert canonicalize_version(v) == \"0\"\n\n    def test_version_object_1_0_1(self) -> None:\n        v = Version(\"1.0.1\")\n        assert canonicalize_version(v) == \"1.0.1\"\n\n\n# ── Epoch handling ─────────────────────────────────────────────────────────\n\nclass TestEpoch:\n    \"\"\"Epochs are preserved in canonical form.\"\"\"\n\n    def test_epoch_100(self) -> None:\n        assert canonicalize_version(\"100!0.0\") == \"100!0\"\n\n    def test_epoch_100_strip_false(self) -> None:\n        assert canonicalize_version(\"100!0.0\", strip_trailing_zero=False) == \"100!0.0\"\n\n    def test_epoch_1(self) -> None:\n        assert canonicalize_version(\"1!1.0.0\") == \"1!1\"\n\n    def test_epoch_0_default(self) -> None:\n        \"\"\"Epoch 0 is omitted in the string representation.\"\"\"\n        assert canonicalize_version(\"0!1.0.0\") == \"1\"\n\n\n# ── Pre-release segments ───────────────────────────────────────────────────\n\nclass TestPreRelease:\n    \"\"\"Pre-release parts are kept as-is (they are not part of the release\n    segment that gets trimmed).\"\"\"\n\n    def test_alpha(self) -> None:\n        assert canonicalize_version(\"1.0a0\") == \"1a0\"\n\n    def test_alpha_strip_false(self) -> None:\n        assert canonicalize_version(\"1.0a0\", strip_trailing_zero=False) == \"1.0a0\"\n\n    def test_beta(self) -> None:\n        assert canonicalize_version(\"1.0b1\") == \"1b1\"\n\n    def test_rc(self) -> None:\n        assert canonicalize_version(\"1.0rc0\") == \"1rc0\"\n\n    def test_rc_with_release_zeros(self) -> None:\n        assert canonicalize_version(\"1.0.0rc0\") == \"1rc0\"\n\n    def test_pre_with_release_no_trailing_zero(self) -> None:\n        assert canonicalize_version(\"1.2.3a1\") == \"1.2.3a1\"\n\n\n# ── Post-release segments ──────────────────────────────────────────────────\n\nclass TestPostRelease:\n    \"\"\"Post-release parts are kept.\"\"\"\n\n    def test_post0(self) -> None:\n        assert canonicalize_version(\"1.0.post0\") == \"1.post0\"\n\n    def test_post0_strip_false(self) -> None:\n        assert canonicalize_version(\"1.0.post0\", strip_trailing_zero=False) == \"1.0.post0\"\n\n    def test_post1(self) -> None:\n        assert canonicalize_version(\"1.0.0.post1\") == \"1.post1\"\n\n\n# ── Development segments ───────────────────────────────────────────────────\n\nclass TestDevRelease:\n    \"\"\"Development release parts are kept.\"\"\"\n\n    def test_dev0(self) -> None:\n        assert canonicalize_version(\"1.0.dev0\") == \"1.dev0\"\n\n    def test_dev0_strip_false(self) -> None:\n        assert canonicalize_version(\"1.0.dev0\", strip_trailing_zero=False) == \"1.0.dev0\"\n\n    def test_dev1(self) -> None:\n        assert canonicalize_version(\"1.0.0.dev1\") == \"1.dev1\"\n\n\n# ── Local version segments ─────────────────────────────────────────────────\n\nclass TestLocalVersion:\n    \"\"\"Local version (+…) parts are kept.\"\"\"\n\n    def test_local_abc(self) -> None:\n        assert canonicalize_version(\"1.0+abc\") == \"1+abc\"\n\n    def test_local_abc_strip_false(self) -> None:\n        assert canonicalize_version(\"1.0+abc\", strip_trailing_zero=False) == \"1.0+abc\"\n\n    def test_local_complex(self) -> None:\n        assert canonicalize_version(\"1.0+local.123\") == \"1+local.123\"\n\n\n# ── Combined segments ──────────────────────────────────────────────────────\n\nclass TestCombinedSegments:\n    \"\"\"Versions with multiple segments (epoch, pre, post, dev, local) work\n    together correctly.\"\"\"\n\n    def test_epoch_pre_post_dev_local(self) -> None:\n        \"\"\"A version with every segment type.\"\"\"\n        assert canonicalize_version(\"1!2.0.0a1.post3.dev5+local.1\") == \"1!2a1.post3.dev5+local.1\"\n\n    def test_pre_post(self) -> None:\n        assert canonicalize_version(\"1.0a1.post1\") == \"1a1.post1\"\n\n    def test_post_dev(self) -> None:\n        assert canonicalize_version(\"1.0.post1.dev1\") == \"1.post1.dev1\"\n\n\n# ── Round-trip / consistency ───────────────────────────────────────────────\n\nclass TestRoundTrip:\n    \"\"\"Passing a Version object and passing its string should give the same\n    result (when the string is valid).\"\"\"\n\n    def test_roundtrip_string_vs_object(self) -> None:\n        s = \"1.4.0.0\"\n        v = Version(s)\n        assert canonicalize_version(v) == canonicalize_version(s)\n\n    def test_roundtrip_with_strip_false(self) -> None:\n        s = \"1.4.0.0\"\n        v = Version(s)\n        assert canonicalize_version(v, strip_trailing_zero=False) == canonicalize_version(\n            s, strip_trailing_zero=False\n        )\n\n    def test_roundtrip_invalid(self) -> None:\n        \"\"\"For invalid strings, there is no Version object, so this test\n        only checks the string path.\"\"\"\n        assert canonicalize_version(\"not a version\") == \"not a version\"\n\n\n# ── Edge cases ─────────────────────────────────────────────────────────────\n\nclass TestEdgeCases:\n    \"\"\"Various edge cases.\"\"\"\n\n    def test_release_all_zeros(self) -> None:\n        \"\"\"0.0.0.0.0 → 0.\"\"\"\n        assert canonicalize_version(\"0.0.0.0.0\") == \"0\"\n\n    def test_release_all_zeros_strip_false(self) -> None:\n        assert canonicalize_version(\"0.0.0.0.0\", strip_trailing_zero=False) == \"0.0.0.0.0\"\n\n    def test_large_release_numbers(self) -> None:\n        assert canonicalize_version(\"1.2.3.4.5.0\") == \"1.2.3.4.5\"\n\n    def test_no_release_zeros(self) -> None:\n        \"\"\"When there are no trailing zeros, the version is unchanged.\"\"\"\n        assert canonicalize_version(\"1.2.3\") == \"1.2.3\"\n\n    def test_single_digit(self) -> None:\n        assert canonicalize_version(\"42\") == \"42\"\n\n    def test_single_digit_strip_false(self) -> None:\n        assert canonicalize_version(\"42\", strip_trailing_zero=False) == \"42\"\n"
+  },
+  "ok": false,
+  "out_chars": 126,
+  "truncated": 0
+ },
+ {
+  "step": 14,
+  "tool": "edit_file",
+  "args": {
+   "path": "tests/test_y_canonicalize_version.py",
+   "old_chars": 9609,
+   "new_chars": 9609,
+   "how": "none",
+   "old_string": "# This file is dual licensed under the terms of the Apache License, Version\n# 2.0, and the BSD License. See the LICENSE file in the root of this repository\n# for complete details.\n\n\"\"\"\nTests for canonicalize_version that pin its current behaviour.\n\nIf someone changes canonicalize_version (or the _trim_release helper it relies on),\nthese tests should fail, alerting the reviewer.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport pytest\nfrom packaging.utils import canonicalize_version\nfrom packaging.version import InvalidVersion, Version\n\n\n# ── Basic string input ──────────────────────────────────────────────────────\n\nclass TestBasicStringInput:\n    \"\"\"canonicalize_version('1.0.1') → '1.0.1' (doctest example).\"\"\"\n\n    def test_simple_version(self) -> None:\n        assert canonicalize_version(\"1.0.1\") == \"1.0.1\"\n\n    def test_two_part(self) -> None:\n        assert canonicalize_version(\"1.0\") == \"1\"\n\n    def test_single_part(self) -> None:\n        assert canonicalize_version(\"1\") == \"1\"\n\n    def test_three_part_no_trailing_zero(self) -> None:\n        assert canonicalize_version(\"1.2.3\") == \"1.2.3\"\n\n\n# ── strip_trailing_zero=True (default) ──────────────────────────────────────\n\nclass TestStripTrailingZeroDefault:\n    \"\"\"With strip_trailing_zero=True (the default), trailing zeros in the\n    release segment are removed, but at least one component is kept.\"\"\"\n\n    def test_1_0_0(self) -> None:\n        assert canonicalize_version(\"1.0.0\") == \"1\"\n\n    def test_1_4_0_0_0(self) -> None:\n        assert canonicalize_version(\"1.4.0.0.0\") == \"1.4\"\n\n    def test_1_40_0(self) -> None:\n        assert canonicalize_version(\"1.40.0\") == \"1.40\"\n\n    def test_0_0(self) -> None:\n        assert canonicalize_version(\"0.0\") == \"0\"\n\n    def test_0_0_0_0(self) -> None:\n        assert canonicalize_version(\"0.0.0.0\") == \"0\"\n\n    def test_100_0(self) -> None:\n        assert canonicalize_version(\"100.0\") == \"100\"\n\n\n# ── strip_trailing_zero=False ──────────────────────────────────────────────\n\nclass TestStripTrailingZeroFalse:\n    \"\"\"With strip_trailing_zero=False the full release segment is kept.\"\"\"\n\n    def test_1_4_0(self) -> None:\n        assert canonicalize_version(\"1.4.0\", strip_trailing_zero=False) == \"1.4.0\"\n\n    def test_1_0(self) -> None:\n        assert canonicalize_version(\"1.0\", strip_trailing_zero=False) == \"1.0\"\n\n    def test_1_4_0_0_0(self) -> None:\n        assert canonicalize_version(\"1.4.0.0.0\", strip_trailing_zero=False) == \"1.4.0.0.0\"\n\n    def test_0_0(self) -> None:\n        assert canonicalize_version(\"0.0\", strip_trailing_zero=False) == \"0.0\"\n\n\n# ── Invalid version strings ────────────────────────────────────────────────\n\nclass TestInvalidVersionStrings:\n    \"\"\"Invalid versions are returned unaltered (doctest example: 'foo bar baz').\"\"\"\n\n    def test_foo_bar_baz(self) -> None:\n        assert canonicalize_version(\"foo bar baz\") == \"foo bar baz\"\n\n    def test_lolwat(self) -> None:\n        assert canonicalize_version(\"lolwat\") == \"lolwat\"\n\n    def test_1_0_1_test7(self) -> None:\n        assert canonicalize_version(\"1.0.1-test7\") == \"1.0.1-test7\"\n\n    def test_empty_string(self) -> None:\n        assert canonicalize_version(\"\") == \"\"\n\n    def test_random_gibberish(self) -> None:\n        assert canonicalize_version(\"!!!\") == \"!!!\"\n\n    def test_invalid_with_strip_false(self) -> None:\n        assert canonicalize_version(\"lolwat\", strip_trailing_zero=False) == \"lolwat\"\n\n\n# ── Version object input ───────────────────────────────────────────────────\n\nclass TestVersionObjectInput:\n    \"\"\"When a Version instance is passed, it is used directly (no re-parse).\"\"\"\n\n    def test_version_object_default(self) -> None:\n        v = Version(\"1.4.0\")\n        assert canonicalize_version(v) == \"1.4\"\n\n    def test_version_object_strip_false(self) -> None:\n        v = Version(\"1.4.0\")\n        assert canonicalize_version(v, strip_trailing_zero=False) == \"1.4.0\"\n\n    def test_version_object_1_0_0(self) -> None:\n        v = Version(\"1.0.0\")\n        assert canonicalize_version(v) == \"1\"\n\n    def test_version_object_0_0(self) -> None:\n        v = Version(\"0.0\")\n        assert canonicalize_version(v) == \"0\"\n\n    def test_version_object_1_0_1(self) -> None:\n        v = Version(\"1.0.1\")\n        assert canonicalize_version(v) == \"1.0.1\"\n\n\n# ── Epoch handling ─────────────────────────────────────────────────────────\n\nclass TestEpoch:\n    \"\"\"Epochs are preserved in canonical form.\"\"\"\n\n    def test_epoch_100(self) -> None:\n        assert canonicalize_version(\"100!0.0\") == \"100!0\"\n\n    def test_epoch_100_strip_false(self) -> None:\n        assert canonicalize_version(\"100!0.0\", strip_trailing_zero=False) == \"100!0.0\"\n\n    def test_epoch_1(self) -> None:\n        assert canonicalize_version(\"1!1.0.0\") == \"1!1\"\n\n    def test_epoch_0_default(self) -> None:\n        \"\"\"Epoch 0 is omitted in the string representation.\"\"\"\n        assert canonicalize_version(\"0!1.0.0\") == \"1\"\n\n\n# ── Pre-release segments ───────────────────────────────────────────────────\n\nclass TestPreRelease:\n    \"\"\"Pre-release parts are kept as-is (they are not part of the release\n    segment that gets trimmed).\"\"\"\n\n    def test_alpha(self) -> None:\n        assert canonicalize_version(\"1.0a0\") == \"1a0\"\n\n    def test_alpha_strip_false(self) -> None:\n        assert canonicalize_version(\"1.0a0\", strip_trailing_zero=False) == \"1.0a0\"\n\n    def test_beta(self) -> None:\n        assert canonicalize_version(\"1.0b1\") == \"1b1\"\n\n    def test_rc(self) -> None:\n        assert canonicalize_version(\"1.0rc0\") == \"1rc0\"\n\n    def test_rc_with_release_zeros(self) -> None:\n        assert canonicalize_version(\"1.0.0rc0\") == \"1rc0\"\n\n    def test_pre_with_release_no_trailing_zero(self) -> None:\n        assert canonicalize_version(\"1.2.3a1\") == \"1.2.3a1\"\n\n\n# ── Post-release segments ──────────────────────────────────────────────────\n\nclass TestPostRelease:\n    \"\"\"Post-release parts are kept.\"\"\"\n\n    def test_post0(self) -> None:\n        assert canonicalize_version(\"1.0.post0\") == \"1.post0\"\n\n    def test_post0_strip_false(self) -> None:\n        assert canonicalize_version(\"1.0.post0\", strip_trailing_zero=False) == \"1.0.post0\"\n\n    def test_post1(self) -> None:\n        assert canonicalize_version(\"1.0.0.post1\") == \"1.post1\"\n\n\n# ── Development segments ───────────────────────────────────────────────────\n\nclass TestDevRelease:\n    \"\"\"Development release parts are kept.\"\"\"\n\n    def test_dev0(self) -> None:\n        assert canonicalize_version(\"1.0.dev0\") == \"1.dev0\"\n\n    def test_dev0_strip_false(self) -> None:\n        assert canonicalize_version(\"1.0.dev0\", strip_trailing_zero=False) == \"1.0.dev0\"\n\n    def test_dev1(self) -> None:\n        assert canonicalize_version(\"1.0.0.dev1\") == \"1.dev1\"\n\n\n# ── Local version segments ─────────────────────────────────────────────────\n\nclass TestLocalVersion:\n    \"\"\"Local version (+…) parts are kept.\"\"\"\n\n    def test_local_abc(self) -> None:\n        assert canonicalize_version(\"1.0+abc\") == \"1+abc\"\n\n    def test_local_abc_strip_false(self) -> None:\n        assert canonicalize_version(\"1.0+abc\", strip_trailing_zero=False) == \"1.0+abc\"\n\n    def test_local_complex(self) -> None:\n        assert canonicalize_version(\"1.0+local.123\") == \"1+local.123\"\n\n\n# ── Combined segments ──────────────────────────────────────────────────────\n\nclass TestCombinedSegments:\n    \"\"\"Versions with multiple segments (epoch, pre, post, dev, local) work\n    together correctly.\"\"\"\n\n    def test_epoch_pre_post_dev_local(self) -> None:\n        \"\"\"A version with every segment type.\"\"\"\n        assert canonicalize_version(\"1!2.0.0a1.post3.dev5+local.1\") == \"1!2a1.post3.dev5+local.1\"\n\n    def test_pre_post(self) -> None:\n        assert canonicalize_version(\"1.0a1.post1\") == \"1a1.post1\"\n\n    def test_post_dev(self) -> None:\n        assert canonicalize_version(\"1.0.post1.dev1\") == \"1.post1.dev1\"\n\n\n# ── Round-trip / consistency ───────────────────────────────────────────────\n\nclass TestRoundTrip:\n    \"\"\"Passing a Version object and passing its string should give the same\n    result (when the string is valid).\"\"\"\n\n    def test_roundtrip_string_vs_object(self) -> None:\n        s = \"1.4.0.0\"\n        v = Version(s)\n        assert canonicalize_version(v) == canonicalize_version(s)\n\n    def test_roundtrip_with_strip_false(self) -> None:\n        s = \"1.4.0.0\"\n        v = Version(s)\n        assert canonicalize_version(v, strip_trailing_zero=False) == canonicalize_version(\n            s, strip_trailing_zero=False\n        )\n\n    def test_roundtrip_invalid(self) -> None:\n        \"\"\"For invalid strings, there is no Version object, so this test\n        only checks the string path.\"\"\"\n        assert canonicalize_version(\"not a version\") == \"not a version\"\n\n\n# ── Edge cases ─────────────────────────────────────────────────────────────\n\nclass TestEdgeCases:\n    \"\"\"Various edge cases.\"\"\"\n\n    def test_release_all_zeros(self) -> None:\n        \"\"\"0.0.0.0.0 → 0.\"\"\"\n        assert canonicalize_version(\"0.0.0.0.0\") == \"0\"\n\n    def test_release_all_zeros_strip_false(self) -> None:\n        assert canonicalize_version(\"0.0.0.0.0\", strip_trailing_zero=False) == \"0.0.0.0.0\"\n\n    def test_large_release_numbers(self) -> None:\n        assert canonicalize_version(\"1.2.3.4.5.0\") == \"1.2.3.4.5\"\n\n    def test_no_release_zeros(self) -> None:\n        \"\"\"When there are no trailing zeros, the version is unchanged.\"\"\"\n        assert canonicalize_version(\"1.2.3\") == \"1.2.3\"\n\n    def test_single_digit(self) -> None:\n        assert canonicalize_version(\"42\") == \"42\"\n\n    def test_single_digit_strip_false(self) -> None:\n        assert canonicalize_version(\"42\", strip_trailing_zero=False) == \"42\"\n"
+  },
+  "ok": false,
+  "out_chars": 126,
+  "truncated": 0
+ },
+ {
+  "step": 15,
+  "tool": "read_file",
+  "args": {
+   "end_line": 1,
+   "path": "tests/test_y_canonicalize_version.py",
+   "start_line": 1
+  },
+  "ok": true,
+  "out_chars": 0,
+  "truncated": 0
+ },
+ {
+  "step": 16,
+  "tool": "edit_file",
+  "args": {
+   "path": "tests/test_y_canonicalize_version.py",
+   "old_chars": 0,
+   "new_chars": 9609,
+   "how": "none",
+   "old_string": ""
+  },
+  "ok": false,
+  "out_chars": 73,
+  "truncated": 0
+ },
+ {
+  "step": 17,
+  "tool": "edit_file",
+  "args": {
+   "path": "tests/test_y_canonicalize_version.py",
+   "old_chars": 0,
+   "new_chars": 13,
+   "how": "none",
+   "old_string": ""
+  },
+  "ok": false,
+  "out_chars": 73,
+  "truncated": 0
+ },
+ {
+  "step": 18,
+  "tool": "edit_file",
+  "args": {
+   "path": "tests/test_y_canonicalize_version.py",
+   "old_chars": 13,
+   "new_chars": 9609,
+   "how": "none",
+   "old_string": "# placeholder"
+  },
+  "ok": false,
+  "out_chars": 126,
+  "truncated": 0
+ }
+]

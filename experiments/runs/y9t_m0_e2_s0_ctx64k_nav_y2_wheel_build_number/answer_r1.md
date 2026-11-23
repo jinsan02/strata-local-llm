@@ -1,0 +1,1 @@
+`src/packaging/utils.py`의 `_build_tag_regex` 패턴에서 lazy quantifier `\d+?`를 greedy quantifier `\d+`로 변경했습니다. 이로 인해 빌드 번호의 모든 선행 숫자가 하나로 캡처되어 올바르게 파싱됩니다.
