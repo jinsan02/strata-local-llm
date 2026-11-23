@@ -32,3 +32,19 @@ lenient 의 단계(정확히 → 여러 곳이면 거절 → 블록 전체 들�
 - `x3h9`: M0 · **E2** · 64K · high · H7 + card-coding + **H9**, 6과제 x 5회, seed 42~46. H8 · T1 없음(바뀐 것 하나만). 대조 x3k64h7 21/30.
 - 판정: 일반 변경(RULES 12절) — 30회에서 −1 이내 · 회귀 증가 없음. H9 는 원래 실패할 편집에서만 동작하므로 득이 있으면 작게(+1~3) 나올 것으로 본다.
 - 실행 `work/stage/h9/h9-start.ps1`(WMI), 끝나면 `engine/h9-summary.txt`(편집 수 · 실패 · strip 적용 수 포함).
+
+## 결과 (11-23 18:56, 기록 6f5f834)
+
+| 지표 | 대조 x3k64h7 | x3h9 |
+|---|---:|---:|
+| 통과 | 21/30 | **24/30** |
+| 짝(한쪽만 통과) | 1 | 4 (p=0.38) |
+| 숨은 테스트 합 / 550 | 510 | 516 |
+| 실패 종류 | test_fail 9 | test_fail 5 · pass_partial_apply 1 |
+| 모델 시간 · 호출 | 261.6분 · 507 | 234.7분 · 520 |
+| 편집 시도 · 실패 | 80 · 4 | 82 · 2 |
+
+- 과제별(대조 → H9): dg 5 → 5, marker 4 → 5, version 4 → 5, metadata 0 → 2(r3 · r4 20/20), specifier 3 → 3, tags 5 → 4(r5 는 숨은 19/19 지만 마지막 답 블록 하나가 내용이 틀려 안 맞아 pass_partial_apply).
+- strip 이 쓰인 실행 3: marker r1(도구 편집) · specifier r3(도구 + 마지막 답) 은 대조도 통과, **metadata r3 는 마지막 답 블록에 strip(indent-2 와 함께)이 쓰여 H9 만 통과**. 나머지 H9 만 통과 3건(marker r2 · metadata r4 · version r2)은 strip 을 쓰지 않았다 → 흔들림.
+- '같은 old_string 반복 실패' 는 30회에서 0번(x3h8 은 9번).
+- **판정: 채택**(11-23, 사용자 승인). 일반 변경 규칙 통과, 해가 없음. 실제 효과는 +1 정도로 보고, 이후 비교의 대조는 x3h9 24/30 으로 한다. 워커 설정 `configs/worker.json` harness H9 · edit_strip on.
