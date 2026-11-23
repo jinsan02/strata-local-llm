@@ -1,0 +1,1 @@
+새 파일 `tests/test_y_canonicalize_version.py`를 생성하여 `canonicalize_version`의 현재 동작을 고정했습니다. 테스트는 기본 후행 0 제거 동작, `strip_trailing_zero=False` 옵션, 유효하지 않은 버전 문자열의 원본 반환, `Version` 객체 입력 처리, 그리고 epoch/pre/post/dev/local 세그먼트가 결과에서 어떻게 반영되는지를 모두 커버합니다. 현재 구현 기준 모든 테스트가 통과하도록 작성되었습니다.
