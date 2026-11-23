@@ -2,12 +2,13 @@
 # 로컬 LLM 을 주 에이전트(노트북 claude-local · codex-local)나 워커(scripts/worker)로 쓸 때 이것으로 띄운다.
 # 키는 실행 시 .secrets 에서 읽는다(명령줄 · 로그에 값이 남지 않게).
 #
-#   powershell -ExecutionPolicy Bypass -File C:\strata-lab\scripts\launch_serve.ps1                 # 32K, Tailscale(노트북 · 본체 워커 둘 다)
+#   powershell -ExecutionPolicy Bypass -File C:\strata-lab\scripts\launch_serve.ps1                 # 64K · E2, Tailscale(노트북 · 본체 워커 둘 다)
 #   powershell -ExecutionPolicy Bypass -File C:\strata-lab\scripts\launch_serve.ps1 -Host_ 127.0.0.1 # 본체 안에서만
 #   powershell -ExecutionPolicy Bypass -File C:\strata-lab\scripts\launch_serve.ps1 -LlmMode         # 측정급: 백그라운드 정리 · 전원 고정 뒤 띄움
 #   powershell -ExecutionPolicy Bypass -File C:\strata-lab\scripts\serve-ctx.ps1 -Stop               # 내리기 (밤에는 user-mode.ps1)
 param(
-  [int]$Context = 32768,
+  [int]$Context = 65536,            # 11-22 운영 확정: 64K + 노력치 high
+  [ValidateSet('E0', 'E1', 'E2')][string]$Engine = 'E2',   # 11-23 E2a(출력 동일 · 긴 문맥 생성 최대 2배, RULES 12절 수치 검사 통과)
   [string]$Host_ = $((Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias 'Tailscale*' -ErrorAction SilentlyContinue | Select-Object -First 1).IPAddress),
   [switch]$LlmMode,
   [int]$WaitSec = 180
@@ -16,10 +17,10 @@ $lab = 'C:\strata-lab'
 $log = "$lab\engine\serve-detached.log"
 $pre = if ($LlmMode) { "& $lab\scripts\llm-mode.ps1; " } else { '' }
 $inner = "$pre`$env:STRATA_API_KEY = (Get-Content $lab\.secrets\strata-api-key.txt -Raw).Trim(); " +
-         "& $lab\scripts\serve-ctx.ps1 -Context $Context -Host_ $Host_ *>&1 | Out-File -FilePath $log -Encoding utf8"
+         "& $lab\scripts\serve-ctx.ps1 -Context $Context -Engine $Engine -Host_ $Host_ *>&1 | Out-File -FilePath $log -Encoding utf8"
 $cmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command `"$inner`""
 $r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine = $cmd; CurrentDirectory = $lab}
-"[launch] pid $($r.ProcessId) rc $($r.ReturnValue)  (context $Context, host $Host_, log $log)"
+"[launch] pid $($r.ProcessId) rc $($r.ReturnValue)  (context $Context, engine $Engine, host $Host_, log $log)"
 if ($r.ReturnValue -ne 0) { exit 1 }
 $key = (Get-Content "$lab\.secrets\strata-api-key.txt" -Raw).Trim()
 $t0 = Get-Date

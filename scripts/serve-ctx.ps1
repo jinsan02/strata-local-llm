@@ -10,6 +10,7 @@ param(
   [string]$Tag = '',                # 엔진 로그 이름 꼬리 (ctx<N>-<tag>.log)
   [string]$Model = '',              # 11-21 Q1: 모델 GGUF 경로 바꾸기 (빈 값 = 원본 M0). 러너는 --model-id 로 파일 이름을 확인한다
   [string]$Exe = '',                # 11-22 E1: 엔진 실행 파일 바꾸기 (빈 값 = E0 engine\engine\strata.exe). 턴 체크포인트는 -EnvSet STRATA_Q36_TURN_CKPT=1
+  [ValidateSet('E0', 'E1', 'E2')][string]$Engine = 'E0',   # 11-23 엔진 구성: E1 = 턴 체크포인트(보류), E2 = E2a 디코드 어텐션(E2 빌드의 E1 코드는 끔). -Exe 와 같이 쓰지 않는다
   [switch]$Stop
 )
 $ErrorActionPreference = 'Continue'
@@ -35,6 +36,13 @@ if ($Stop) { return }
 $src = Join-Path $eng 'strata-qwen36-ud-q4_k_xl.json'
 $dst = Join-Path $eng "strata-qwen36-ctx$Context.json"
 $cfg = Get-Content $src -Raw | ConvertFrom-Json
+$engines = @{ E1 = @('C:\strata-lab\work\engine-e1\build-e1\strata.exe', 'STRATA_Q36_TURN_CKPT=1')
+              E2 = @('C:\strata-lab\work\engine-e2\build-e2\strata.exe', 'STRATA_Q36_GQA_DECODE=1') }
+if ($Engine -ne 'E0') {
+  if ($Exe) { "[serve] 거부: -Engine 과 -Exe 를 같이 주지 않는다"; exit 2 }
+  $Exe = $engines[$Engine][0]
+  $EnvSet = (@($engines[$Engine][1]) + @($EnvSet -split ';' | Where-Object { $_ })) -join ';'
+}
 if ($Exe) {
   if (-not (Test-Path $Exe)) { "[serve] 거부: 실행 파일 없음 $Exe"; exit 2 }
   $cfg.exe = $Exe
@@ -56,7 +64,7 @@ foreach ($key in 'args','args_written') {
 }
 $cfg.log = Join-Path $eng ("strata-qwen36-ctx$Context" + $(if ($CacheMib -ge 0) { "-cm$CacheMib" } else { '' }) + $(if ($Tag) { "-$Tag" } else { '' }) + '.log')
 [IO.File]::WriteAllText($dst, ($cfg | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding($false)))
-"[serve] config $dst  (--max-context $Context, host $Host_, conversation-cache-mib $(if ($CacheMib -ge 0) { $CacheMib } else { 'auto' }), exe $($cfg.exe))"
+"[serve] config $dst  (--max-context $Context, host $Host_, conversation-cache-mib $(if ($CacheMib -ge 0) { $CacheMib } else { 'auto' }), exe $($cfg.exe), engine $Engine)"
 $env:PYTHONUTF8 = '1'
 # 11-19 설정 고정: 웹 UI 의 Chat 공유 설정이 모든 요청 기본값을 바꾸지 않게 한다
 $shared = Join-Path $eng ("strata-qwen36-ctx$Context" + '.shared-settings.json')
