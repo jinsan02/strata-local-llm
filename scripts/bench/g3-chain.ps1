@@ -5,7 +5,7 @@
 # 순서: M0 PP → M1b(PP · X3) → M1a(PP · X3). 모델마다 서버는 한 번만 띄운다. 끝나면 서버 종료 · 밤 모드. 끝 표시 '[g3] done'.
 param([int]$Context = 32768, [int]$Reps = 2, [string[]]$Only = @(), [int]$RepStart = 1,   # 11-21 G4: -RepStart 3 -Reps 5 = G3 의 1 · 2회차에 3~5회차를 더해 30회(두 번 안 돌림)
       [string]$Harness = 'H0', [string]$Prefix = 'x3g3', [ValidateSet('strict', 'lenient')][string]$EditApply = 'strict', [switch]$ForceX3, [switch]$Mask,
-      [ValidateSet('none', 'low', 'medium', 'high', 'xhigh')][string]$Effort = 'none', [switch]$SyntaxCheck, [switch]$CodeTools, [ValidateSet('E0', 'E1', 'E2')][string]$Engine = 'E0', [string[]]$TaskList = @(), [switch]$H8, [switch]$H9)   # 11-22 노력치 · T1 · T2(STATE 26)   # 11-21 H7: -Only M0 -ForceX3 -Harness H7 -Prefix x3h7 -EditApply lenient -Reps 5
+      [ValidateSet('none', 'low', 'medium', 'high', 'xhigh')][string]$Effort = 'none', [switch]$SyntaxCheck, [switch]$CodeTools, [ValidateSet('E0', 'E1', 'E2')][string]$Engine = 'E0', [string[]]$TaskList = @(), [switch]$H8, [switch]$H9, [ValidateSet('x3', 'y')][string]$TaskSet = 'x3')   # 11-22 노력치 · T1 · T2(STATE 26)   # 11-21 H7: -Only M0 -ForceX3 -Harness H7 -Prefix x3h7 -EditApply lenient -Reps 5
 $ErrorActionPreference = 'Continue'
 $R = 'C:\strata-lab'; $D = "$R\data\models"
 $py = 'C:\ProgramData\anaconda3\envs\strata_local_llm\python.exe'
@@ -66,6 +66,7 @@ if (Get-Process llama-quantize, llama-imatrix, llama-perplexity -ErrorAction Sil
 $gpu = Start-Process nvidia-smi -ArgumentList "--query-gpu=timestamp,temperature.gpu,clocks.sm,clocks.mem,power.draw,memory.used,clocks_event_reasons.active --format=csv -l 60 -f $R\engine\gpu-g3.csv" -WindowStyle Hidden -PassThru
 & powershell -NoProfile -ExecutionPolicy Bypass -File "$R\scripts\llm-mode.ps1" | Select-Object -Last 1
 $tasks = @('dg_group_names', 'marker_extras', 'version_bump', 'tags_platform_filter', 'metadata_extra_dupes', 'specifier_bounds')
+if ($TaskSet -eq 'y') { $tasks = @('y1_version_postdev_order', 'y2_wheel_build_number', 'y3_tests_canonicalize_version', 'y4_refactor_filename_version', 'y5_session_cookie_max_age', 'y6_config_require') }   # 11-23 Y 세트(docs/y-set-20261123.md)
 # -TaskList: 일부 과제만. 이름을 $Tasks 로 하면 PowerShell 이 대소문자를 안 가려 위 줄의 $tasks 가 덮어쓴다(C-028)
 if ($TaskList.Count) { $tasks = $TaskList }
 "[g3] tasks: $($tasks -join ', ')"
@@ -77,7 +78,8 @@ if ($CodeTools) { $hb += @('--code-tools', 'on') }   # 11-22 T2
 if ($H8) { $hb += @('--h8', 'on') }   # 11-23 H8: 편집 검사 · 남은 턴 알림 · 끝 검사 + 요구사항 체크 턴(T1 포함)
 if ($H9) { if ($EditApply -ne 'lenient') { throw '-H9 needs -EditApply lenient' }; $hb += @('--edit-strip', 'on') }   # 11-23 H9: lenient 마지막 단계로 줄마다 앞뒤 공백 무시 한 곳 일치
 $hb += @('--engine-id', $Engine)   # 11-22 E1
-"[g3] harness $Harness prefix $Prefix edit-apply $EditApply ctx $Context mask $([bool]$Mask) effort $Effort syntax $([bool]$SyntaxCheck) code-tools $([bool]$CodeTools) h8 $([bool]$H8) h9 $([bool]$H9)"
+if ($TaskSet -ne 'x3') { $hb += @('--task-set', $TaskSet) }   # 11-23 Y 세트
+"[g3] harness $Harness prefix $Prefix edit-apply $EditApply ctx $Context mask $([bool]$Mask) effort $Effort syntax $([bool]$SyntaxCheck) code-tools $([bool]$CodeTools) h8 $([bool]$H8) h9 $([bool]$H9) task-set $TaskSet"
 foreach ($id in $models.Keys) {
   if ($Only.Count -and $id -notin $Only) { continue }
   $m = $models[$id]

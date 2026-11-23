@@ -79,6 +79,20 @@ SRC = Path(r"C:\strata-lab\work\packaging-src")
 RUNS = Path(r"C:\strata-lab\work\x3-runs")
 PYX = r"C:\ProgramData\anaconda3\envs\x3_packaging\python.exe"
 COMMIT = "6a69a83d8d89c6a01d554a8ad1b420cbb45fb4bc"
+# 11-23 Y 세트(docs/new-tasks-plan-20261122.md · docs/y-set-20261123.md): 과제 세트 · 과제별 저장소 · setup_patch · 쓰기 허용 · 돌연변이 채점.
+# x3 세트는 예전과 같다(전역 SRC · COMMIT · PYX 를 그대로 쓴다).
+TASK_SETS = {"x3": TASKS, "y": rb.ROOT / "configs" / "eval" / "y-set"}
+REPOS = {"packaging": {"src": SRC, "commit": COMMIT, "python": PYX, "label": "pypa/packaging"},
+         "flask": {"src": Path("C:/strata-lab/work/swe/pallets__flask-5014-src"), "commit": "7ee9ceb71e868944a46e1ff00b506772a53a4f1d",   # SWE flask-5014 기준 커밋(환경 swe_flask_5014 와 맞음)
+                   "python": "C:/ProgramData/anaconda3/envs/swe_flask_5014/python.exe", "label": "pallets/flask"}}
+REPO_LABEL = "pypa/packaging"
+WRITE_ALLOW: set[str] = set()   # Y3: tests/ 아래라도 이 경로는 모델이 만들 수 있다
+
+
+def use_repo(name: str) -> None:
+    global SRC, COMMIT, PYX, REPO_LABEL
+    r = REPOS[name]
+    SRC, COMMIT, PYX, REPO_LABEL = r["src"], r["commit"], r["python"], r["label"]
 M0_SHA = "55983c5a75a1ab969824077b3bb3de4146e82a9234072b48ad4e8f92ad3fe9f1"
 # 어떤 과제도 의존하지 않는 파일만, 고정 순서 (16K 패딩은 24K 패딩의 앞부분)
 PAD_POOL = ["src/packaging/direct_url.py", "src/packaging/_elffile.py", "src/packaging/_musllinux.py",
@@ -102,12 +116,16 @@ EDIT_RE = re.compile(r"### EDIT:\s*(\S+)\s*\n<<<<<<< SEARCH\n(.*?)\n?=======\n(.
 
 
 # ── 작업 복사본 · 편집 · 테스트 ─────────────────────────────────────────────
-def fresh_copy(name: str) -> Path:
+def fresh_copy(name: str, setup: Path | None = None) -> Path:
     d = RUNS / name
     if d.exists():
         shutil.rmtree(d, onerror=lambda f, p, e: (os.chmod(p, 0o700), f(p)))
     subprocess.run(["git", "clone", "-q", "--no-checkout", str(SRC), str(d)], check=True)
     subprocess.run(["git", "-C", str(d), "checkout", "-q", COMMIT], check=True)
+    if setup is not None:   # Y 세트: 과제 전용 패치(버그 심기 · 실패 테스트)를 커밋으로 넣어 diff 에 섞이지 않게
+        subprocess.run(["git", "-C", str(d), "apply", str(setup)], check=True)
+        subprocess.run(["git", "-C", str(d), "add", "-A"], check=True)
+        subprocess.run(["git", "-C", str(d), "-c", "user.name=y-setup", "-c", "user.email=y-setup@localhost", "commit", "-q", "-m", "setup"], check=True)
     return d
 
 
@@ -349,7 +367,7 @@ def apply_edits(root: Path, answer: str, candidates: list[str] | None = None,
         done = False
         for tgt in targets:
             p = (root / tgt).resolve()
-            if root.resolve() not in p.parents or any(d in Path(tgt).parts for d in deny):
+            if root.resolve() not in p.parents or (tgt not in WRITE_ALLOW and any(d in Path(tgt).parts for d in deny)):
                 continue
             if not search.strip():
                 if path:
@@ -433,7 +451,44 @@ def run_pytest(root: Path, files: list[str]) -> dict:
     return {"rc": rc, "passed": passed, "failed": failed, "errors": errors, "ms": ms, "log": out}
 
 
+def grade_mutants(root: Path, task_cfg: dict) -> dict:
+    """Y3 돌연변이 채점: 모델이 쓴 테스트 파일(task.json test_file)이 원본에서 통과하고, private/mutants/*.patch 를 하나씩
+    적용했을 때 실패하면 잡음. 통과 = 원본 통과(1개 이상) + 회귀 통과 + 잡은 수 >= kill_min(기본 70% 올림)."""
+    nlc = chr(10)
+    tf = task_cfg["test_file"]
+    muts = sorted((TASKS / task_cfg["task"] / "private" / "mutants").glob("*.patch"))
+    g = run_pytest(root, task_cfg["regress"])
+    if (root / tf).is_file():
+        base = run_pytest(root, [tf])
+    else:
+        base = {"rc": 5, "passed": 0, "failed": 0, "errors": 0, "ms": 0.0, "log": f"{tf} 가 없다"}
+    killed, ms, detail = 0, base["ms"] + g["ms"], []
+    if base["rc"] == 0 and base["passed"] > 0:
+        for m in muts:
+            if subprocess.run(["git", "apply", "--check", str(m)], cwd=root, capture_output=True).returncode != 0:
+                detail.append(f"{m.stem}: 적용 안 됨(소스가 바뀜)")
+                continue
+            subprocess.run(["git", "apply", str(m)], cwd=root, check=True)
+            r = run_pytest(root, [tf])
+            subprocess.run(["git", "apply", "-R", str(m)], cwd=root, check=True)
+            ms += r["ms"]
+            killed += r["rc"] != 0
+            detail.append(f"{m.stem}: " + ("잡음" if r["rc"] != 0 else "놓침"))
+    need = int(task_cfg.get("kill_min", -(-7 * len(muts) // 10)))
+    ok = base["rc"] == 0 and base["passed"] > 0 and g["rc"] == 0 and killed >= need
+    summary = (f"쓴 테스트(공개): 원본에서 {base['passed']} passed, {base['failed']} failed, 종료 코드 {base['rc']}; "
+               f"돌연변이(비공개, 내용 미공개) {killed}/{len(muts)} 잡음 (기준 {need})")
+    public = summary + ((nlc + "--- 쓴 테스트 로그 ---" + nlc + base["log"][-LOG_LIMIT:]) if base["rc"] else "")
+    public += (nlc + "--- 기존 테스트 (공개) ---" + nlc + g["log"][-LOG_LIMIT:]) if g["rc"] else (nlc + "기존 테스트(공개): 모두 통과")
+    full = summary + nlc + nlc.join(detail) + ((nlc + base["log"]) if base["rc"] else "")
+    return {"ok": ok, "hidden": f"{killed}/{len(muts)}", "regress_ok": g["rc"] == 0,
+            "regress": f"{g['passed']} passed, {g['failed']} failed, {g['errors']} errors",
+            "tools_ms": ms, "log": public, "log_full": full[-LOG_LIMIT:]}
+
+
 def grade(root: Path, task_cfg: dict, hidden_total: int) -> dict:
+    if task_cfg.get("grade") == "mutants":
+        return grade_mutants(root, task_cfg)
     shutil.copy(TASKS / task_cfg["task"] / "private" / "test_x3_hidden.py", root / "tests" / "test_x3_hidden.py")
     h = run_pytest(root, ["tests/test_x3_hidden.py"])
     g = run_pytest(root, task_cfg["regress"])
@@ -586,7 +641,7 @@ def edit_file(root: Path, args: dict, deny: tuple[str, ...]) -> tuple[bool, str]
     if old is None or new is None:
         return False, "오류: path · old_string · new_string 이 모두 필요하다"
     p = (root / path).resolve()
-    if not path or root.resolve() not in p.parents or ".git" in p.parts or any(d in Path(path).parts for d in deny):
+    if not path or root.resolve() not in p.parents or ".git" in p.parts or (path not in WRITE_ALLOW and any(d in Path(path).parts for d in deny)):
         return False, f"오류: 수정할 수 없는 경로 {path} (테스트 파일 · 저장소 밖 금지)"
     if old == "":
         if p.exists():
@@ -1300,6 +1355,7 @@ def main() -> int:
     ap.add_argument("--budget", type=int, default=8192)
     ap.add_argument("--inputs", type=int, nargs="+", default=[0, 16384, 24320], help="preload 목표 입력 토큰. 0 = 필수 파일만")
     ap.add_argument("--tasks", nargs="+", default=["dg_group_names", "marker_extras", "version_bump"])
+    ap.add_argument("--task-set", choices=["x3", "y"], default="x3", help="11-23: y = Y 세트(configs/eval/y-set, 과제별 저장소 · setup_patch · 돌연변이 채점)")
     ap.add_argument("--repeat", type=int, default=1)
     ap.add_argument("--rep-start", type=int, default=1, help="반복 번호 시작 (H0 · H1 을 번갈아 돌릴 때 _r<n> 이 겹치지 않게)")
     ap.add_argument("--prefix", default="x3")
@@ -1350,7 +1406,8 @@ def main() -> int:
     force_note = {} if (a.ctx == 32768 and a.force_at == 24320 - 2048) else {"force_at": a.force_at}
     if a.effort != "none":
         force_note.update({"effort": a.effort, "force_at": a.force_at})
-    global EDIT_HINT, EDIT_APPLY, SYNTAX_CHECK, H8, EDIT_STRIP
+    global EDIT_HINT, EDIT_APPLY, SYNTAX_CHECK, H8, EDIT_STRIP, TASKS, WRITE_ALLOW, SRC, COMMIT, PYX, REPO_LABEL
+    TASKS = TASK_SETS[a.task_set]
     EDIT_HINT = a.edit_hint == "on"
     EDIT_APPLY = a.edit_apply
     EDIT_STRIP = a.edit_strip == "on"
@@ -1382,14 +1439,25 @@ def main() -> int:
 
     for task in a.tasks:
         tcfg = json.loads((TASKS / task / "task.json").read_text(encoding="utf-8"))
-        hidden_src = (TASKS / task / "private" / "test_x3_hidden.py").read_text(encoding="utf-8")
-        hidden_total = len(re.findall(r"^def test_", hidden_src, flags=re.M))  # 매개변수화 전 함수 수 (아래에서 실제 수로 교체)
-        probe = fresh_copy(f"{task}-count")
-        shutil.copy(TASKS / task / "private" / "test_x3_hidden.py", probe / "tests" / "test_x3_hidden.py")
-        c = subprocess.run([PYX, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider", "-o", "addopts=", "tests/test_x3_hidden.py"],
-                           cwd=probe, capture_output=True, text=True, env={**os.environ, "PYTHONPATH": str(probe / "src")})
-        if m := re.search(r"(\d+) tests? collected", c.stdout):
-            hidden_total = int(m.group(1))
+        WRITE_ALLOW = set(tcfg.get("write_allow", []))
+        setup = (TASKS / task / tcfg["setup_patch"]) if tcfg.get("setup_patch") else None
+        if a.task_set == "y":
+            use_repo(tcfg.get("repo", "packaging"))
+            env = {"engine_commit": engine_commit, "engine_exe_sha256": env["engine_exe_sha256"], "repo": tcfg.get("repo", "packaging"),
+                   "repo_commit": COMMIT, "test_python": subprocess.run([PYX, "-V"], capture_output=True, text=True).stdout.strip(),
+                   "test_env_freeze_sha256": freeze_sha(PYX)}
+            env_sha = rb.sha256_bytes(rb.canon(env))
+        if tcfg.get("grade") == "mutants":
+            hidden_total = len(list((TASKS / task / "private" / "mutants").glob("*.patch")))
+        else:
+            hidden_src = (TASKS / task / "private" / "test_x3_hidden.py").read_text(encoding="utf-8")
+            hidden_total = len(re.findall(r"^def test_", hidden_src, flags=re.M))  # 매개변수화 전 함수 수 (아래에서 실제 수로 교체)
+            probe = fresh_copy(f"{task}-count", setup)
+            shutil.copy(TASKS / task / "private" / "test_x3_hidden.py", probe / "tests" / "test_x3_hidden.py")
+            c = subprocess.run([PYX, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider", "-o", "addopts=", "tests/test_x3_hidden.py"],
+                               cwd=probe, capture_output=True, text=True, env={**os.environ, "PYTHONPATH": str(probe / "src")})
+            if m := re.search(r"(\d+) tests? collected", c.stdout):
+                hidden_total = int(m.group(1))
 
         conds = a.inputs if a.mode == "preload" else [0]
         for target in conds:
@@ -1400,7 +1468,7 @@ def main() -> int:
                 run_name = f"{a.prefix}_{a.model_id.lower()}_{a.engine_id.lower()}_s0_ctx{k}k_{tag}_{task}"
                 run_dir = rb.ROOT / "experiments" / "runs" / run_name
                 run_dir.mkdir(parents=True, exist_ok=True)
-                root = fresh_copy(f"{run_name}_r{i}")
+                root = fresh_copy(f"{run_name}_r{i}", setup)
                 if a.mode == "preload":
                     prompt = build_preload(root, tcfg, 0)
                     exact = count_tokens(a.base_url, api_key, prompt, a.timeout)
@@ -1478,11 +1546,15 @@ def main() -> int:
                     task_txt = (TASKS / task / "prompt.md").read_text(encoding="utf-8")
                     sys_txt = ("너는 pypa/packaging 저장소(고정 커밋)에서 작업하는 코딩 에이전트다. 파일은 미리 주어지지 않는다. "
                                "list_files · grep · read_file 도구로 필요한 코드를 찾아 읽고, edit_file 도구로 직접 고쳐라.")
+                    sys_txt = sys_txt.replace("pypa/packaging", REPO_LABEL, 1)   # Y 세트: 과제 저장소 이름
                     msgs = [{"role": "system", "content": sys_txt}, {"role": "user", "content": "### 과제\n" + task_txt + "\n\n" + NAV_FORMAT + ("\n" + CODE_TOOLS_NOTE if a.code_tools == "on" else "") + ("\n" + RUN_TESTS_NOTE if a.run_tests == "on" else "")}]
                     cfg = {"task": task, "mode": "navigate", "harness": a.harness, "commit": COMMIT, "tool_out_limit": TOOL_OUT_LIMIT,
                            "tool_out": a.tool_out, "reasoning_echo": a.reasoning_echo, "reasoning_budget": a.reasoning_budget or "answer_room", "final_turn": a.final_turn, "force_edit_turns": FORCE_EDIT_TURNS, **({"page_tokens": PAGE_TOKENS, "chars_per_token": CHARS_PER_TOKEN, "grep_hits": GREP_HITS,
                                                        "list_files": LIST_FILES} if a.tool_out == "paged" else {}),
                            "tools": NAV_TOOLS + (CODE_TOOLS if a.code_tools == "on" else []) + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, **({"seed_policy": SEED_POLICY} if a.seed_per_rep else {}), "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {}), **({"edit_hint": "on", "edit_hint_lines": EDIT_HINT_LINES} if a.edit_hint == "on" else {}), **({"edit_apply": "lenient", "indent_shift_max": INDENT_SHIFT_MAX} if a.edit_apply == "lenient" else {}), **({"edit_strip": "on"} if a.edit_strip == "on" else {}), **({"mask": "on", "mask_at": MASK_AT, "mask_to": MASK_TO, "mask_keep": MASK_KEEP, "mask_min_chars": MASK_MIN_CHARS} if a.mask == "on" else {}),**force_note, **({"reread_guard": "on"} if a.reread_guard == "on" else {}), **({"syntax_check": "on", "syntax_context": SYNTAX_CONTEXT} if a.syntax_check == "on" else {}), **({"code_tools": "on", "code_tools_note": CODE_TOOLS_NOTE, "outline_max": OUTLINE_MAX, "symbol_max_lines": SYMBOL_MAX_LINES} if a.code_tools == "on" else {}), **({"h8": "on", "h8_extra": H8G.H8_EXTRA, "h8_notice_left": H8G.H8_NOTICE_LEFT, "h8_test_timeout": H8G.TEST_TIMEOUT, "syntax_check": "on", "syntax_context": SYNTAX_CONTEXT} if a.h8 == "on" else {})}
+                    if a.task_set == "y":
+                        cfg.update({"task_set": "y", "repo": tcfg.get("repo", "packaging"), "setup_patch": tcfg.get("setup_patch"),
+                                    "grade": tcfg.get("grade", "hidden"), "write_allow": sorted(WRITE_ALLOW)})
                     cfg_sha = rb.sha256_bytes(rb.canon(cfg))
                     (run_dir / "config.json").write_bytes(rb.canon(cfg))
                     (run_dir / "env.json").write_bytes(rb.canon(env))
