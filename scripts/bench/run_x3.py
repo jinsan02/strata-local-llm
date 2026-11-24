@@ -160,6 +160,8 @@ EDIT_APPLY = "strict"
 EDIT_STRIP = False   # H9 (11-23, --edit-strip on): lenient 의 마지막 단계로, 줄마다 앞뒤 공백을 무시하고 정확히 한 곳만 맞으면 적용한다(docs/h9-edit-strip-20261123.md)
 H10 = False   # 11-24 H10 (--h10 on): 이미 적용된 블록 · 관대한 적용의 문법 깨짐 거절 · 자기가 만든 파일 다시 쓰기 (docs/h10-apply-guard-20261124.md)
 CREATED_FILES: set[str] = set()   # H10 c: 이번 실행에서 edit_file 로 만든 파일(실행마다 비운다)
+H11 = False   # 11-24 H11 (--h11 on): H8 의 편집 검사만 — edit_file 성공 뒤 새로 생긴 정의 안 된 이름 · 중복 정의를 도구 결과에 경고 (docs/h11-lint-replay-20261124.md)
+H11_WARNS = [0]   # 실행마다 navigate_loop 가 0 으로
 INDENT_SHIFT_MAX = 16
 LAST_EDIT_HOW = ["exact"]   # 마지막 edit_file 의 적용 방법(도구 기록용)
 TEXT_CALL_RE = re.compile(r"<function=edit_file>(.*?)</function>", re.S)
@@ -542,6 +544,7 @@ def grade_mutants(root: Path, task_cfg: dict) -> dict:
 def grade(root: Path, task_cfg: dict, hidden_total: int) -> dict:
     if task_cfg.get("grade") == "mutants":
         return grade_mutants(root, task_cfg)
+    (root / "tests").mkdir(exist_ok=True)   # 11-24 F1: pluggy 는 testing/ - 숨은 테스트 자리는 항상 tests/
     shutil.copy(TASKS / task_cfg["task"] / "private" / "test_x3_hidden.py", root / "tests" / "test_x3_hidden.py")
     h = run_pytest(root, ["tests/test_x3_hidden.py"])
     g = run_pytest(root, task_cfg["regress"])
@@ -1058,6 +1061,7 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
     tool_names = ("list_files · grep · read_file · edit_file" + (" · outline · read_symbol" if code_tools else "")
                   + (" · run_tests" if run_tests_fn is not None else ""))
     SYNTAX_REJECTS[0] = 0
+    H11_WARNS[0] = 0
     h8_on = H8   # H8: 체크 턴은 한 번(예산 끝 또는 일찍 끝냈을 때), 그 뒤 도구 턴 최대 H8G.H8_EXTRA
     h8_state, eff_max = "none", a.max_steps
     r_h8 = {"state": "on" if h8_on else "off", "trigger": None, "trigger_step": None, "gate_flags": None, "gate": None,
@@ -1212,13 +1216,14 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
                     r["tests_runs"] += 1
                     logged = args
                 elif fn == "edit_file":
-                    pre_txt = _h8_text(root, args.get("path")) if h8_on else None
+                    pre_txt = _h8_text(root, args.get("path")) if (h8_on or H11) else None
                     ok, out = edit_file(root, args, deny)
-                    if h8_on and ok:   # H8: 이 편집으로 새로 생긴 정의 안 된 이름 · 중복 정의를 경고
+                    if (h8_on or H11) and ok:   # H8 · H11: 이 편집으로 새로 생긴 정의 안 된 이름 · 중복 정의를 경고
                         w = H8G.edit_warning(str(args.get("path") or ""), pre_txt, _h8_text(root, args.get("path")) or "")
                         if w:
                             out += w
                             r_h8["edit_warnings"] += 1
+                            H11_WARNS[0] += 1
                     r["edit_ok" if ok else "edit_fail"] += 1
                     logged = {"path": args.get("path"), "old_chars": len(args.get("old_string") or ""),
                               "new_chars": len(args.get("new_string") or "")}
@@ -1251,6 +1256,7 @@ def navigate_loop(root: Path, msgs: list, a, api_key: str, deny: tuple[str, ...]
                 msgs[-1]["content"] += H8G.notice_message(H8G.H8_NOTICE_LEFT)
                 r_h8["notice"] = True
     r["syntax_rejects"] = SYNTAX_REJECTS[0]
+    r["h11_warns"] = H11_WARNS[0]
     r["code_tool_calls"] = sum(1 for t in r["tool_log"] if t["tool"] in CODE_TOOL_NAMES) if code_tools else 0
     return r
 
@@ -1279,6 +1285,7 @@ def nav_summary(nr: dict, wall_ms: float, grade_ms: float) -> str:
             + (f"; reread_skips {nr['reread_skips']}" if nr.get("reread_skips") else "")
             + (f"; masks {nr['masks']}; masked_outputs {nr['masked_outputs']}; masked_chars {nr['masked_chars']}" if nr.get("masks") else "")
             + (f"; syntax_rejects {nr['syntax_rejects']}" if SYNTAX_CHECK else "")
+            + (f"; h11_warns {nr['h11_warns']}" if H11 else "")
             + (f"; code_tool_calls {nr['code_tool_calls']}" if nr.get("code_tool_calls") else "")
             + (f"; h8 {nr['h8']['state']} trigger {nr['h8']['trigger']} step {nr['h8']['trigger_step']} flags {nr['h8']['gate_flags']} "
                f"extra_tool_turns {nr['h8']['extra_tool_turns']} edit_warnings {nr['h8']['edit_warnings']} notice {int(nr['h8']['notice'])} "
@@ -1434,6 +1441,7 @@ def main() -> int:
     ap.add_argument("--edit-apply", choices=["strict", "lenient"], default="strict",
                     help="H7: lenient = 들여쓰기 이동 · 줄 끝 공백 무시 · 텍스트 edit_file 호출 받기 · 여러 곳 일치 줄 번호 (H0 = strict)")
     ap.add_argument("--edit-strip", choices=["on", "off"], default="off", help="H9: lenient 마지막 단계로 줄마다 앞뒤 공백 무시 한 곳 일치(--edit-apply lenient 와 함께)")
+    ap.add_argument("--h11", choices=["on", "off"], default="off", help="H11 (11-24): 편집 뒤 새로 생긴 정의 안 된 이름 · 중복 정의 경고만(H8 의 편집 검사)")
     ap.add_argument("--h10", choices=["on", "off"], default="off", help="H10 (11-24): 이미 적용된 블록 · 관대한 적용 문법 깨짐 거절 · 자기가 만든 파일 다시 쓰기")
     ap.add_argument("--syntax-check", choices=["off", "on"], default="off", help="T1 (11-22): .py 편집이 파싱되지 않으면 쓰지 않고 줄 번호를 알려 줌 (H7 = off)")
     ap.add_argument("--code-tools", choices=["off", "on"], default="off", help="T2 (11-22): outline · read_symbol 도구를 줌 (H7 = off)")
@@ -1470,12 +1478,13 @@ def main() -> int:
     force_note = {} if (a.ctx == 32768 and a.force_at == 24320 - 2048) else {"force_at": a.force_at}
     if a.effort != "none":
         force_note.update({"effort": a.effort, "force_at": a.force_at})
-    global EDIT_HINT, EDIT_APPLY, SYNTAX_CHECK, H8, EDIT_STRIP, TASKS, WRITE_ALLOW, SRC, COMMIT, PYX, REPO_LABEL, H10
+    global EDIT_HINT, EDIT_APPLY, SYNTAX_CHECK, H8, EDIT_STRIP, TASKS, WRITE_ALLOW, SRC, COMMIT, PYX, REPO_LABEL, H10, H11
     TASKS = TASK_SETS[a.task_set]
     EDIT_HINT = a.edit_hint == "on"
     EDIT_APPLY = a.edit_apply
     EDIT_STRIP = a.edit_strip == "on"
     H10 = a.h10 == "on"
+    H11 = a.h11 == "on"
     if EDIT_STRIP and EDIT_APPLY != "lenient":
         raise SystemExit("--edit-strip on 은 --edit-apply lenient 와 함께만")
     SYNTAX_CHECK = a.syntax_check == "on"
@@ -1518,6 +1527,7 @@ def main() -> int:
             hidden_src = (TASKS / task / "private" / "test_x3_hidden.py").read_text(encoding="utf-8")
             hidden_total = len(re.findall(r"^def test_", hidden_src, flags=re.M))  # 매개변수화 전 함수 수 (아래에서 실제 수로 교체)
             probe = fresh_copy(f"{task}-count", setup)
+            (probe / "tests").mkdir(exist_ok=True)
             shutil.copy(TASKS / task / "private" / "test_x3_hidden.py", probe / "tests" / "test_x3_hidden.py")
             c = subprocess.run([PYX, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider", "-o", "addopts=", "tests/test_x3_hidden.py"],
                                cwd=probe, capture_output=True, text=True, env={**os.environ, "PYTHONPATH": str(probe / "src")})
@@ -1616,7 +1626,7 @@ def main() -> int:
                     cfg = {"task": task, "mode": "navigate", "harness": a.harness, "commit": COMMIT, "tool_out_limit": TOOL_OUT_LIMIT,
                            "tool_out": a.tool_out, "reasoning_echo": a.reasoning_echo, "reasoning_budget": a.reasoning_budget or "answer_room", "final_turn": a.final_turn, "force_edit_turns": FORCE_EDIT_TURNS, **({"page_tokens": PAGE_TOKENS, "chars_per_token": CHARS_PER_TOKEN, "grep_hits": GREP_HITS,
                                                        "list_files": LIST_FILES} if a.tool_out == "paged" else {}),
-                           "tools": NAV_TOOLS + (CODE_TOOLS if a.code_tools == "on" else []) + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, **({"seed_policy": SEED_POLICY} if a.seed_per_rep else {}), "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {}), **({"edit_hint": "on", "edit_hint_lines": EDIT_HINT_LINES} if a.edit_hint == "on" else {}), **({"edit_apply": "lenient", "indent_shift_max": INDENT_SHIFT_MAX} if a.edit_apply == "lenient" else {}), **({"edit_strip": "on"} if a.edit_strip == "on" else {}), **({"h10": "on"} if a.h10 == "on" else {}), **({"mask": "on", "mask_at": MASK_AT, "mask_to": MASK_TO, "mask_keep": MASK_KEEP, "mask_min_chars": MASK_MIN_CHARS} if a.mask == "on" else {}),**force_note, **({"reread_guard": "on"} if a.reread_guard == "on" else {}), **({"syntax_check": "on", "syntax_context": SYNTAX_CONTEXT} if a.syntax_check == "on" else {}), **({"code_tools": "on", "code_tools_note": CODE_TOOLS_NOTE, "outline_max": OUTLINE_MAX, "symbol_max_lines": SYMBOL_MAX_LINES} if a.code_tools == "on" else {}), **({"h8": "on", "h8_extra": H8G.H8_EXTRA, "h8_notice_left": H8G.H8_NOTICE_LEFT, "h8_test_timeout": H8G.TEST_TIMEOUT, "syntax_check": "on", "syntax_context": SYNTAX_CONTEXT} if a.h8 == "on" else {})}
+                           "tools": NAV_TOOLS + (CODE_TOOLS if a.code_tools == "on" else []) + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, **({"seed_policy": SEED_POLICY} if a.seed_per_rep else {}), "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {}), **({"edit_hint": "on", "edit_hint_lines": EDIT_HINT_LINES} if a.edit_hint == "on" else {}), **({"edit_apply": "lenient", "indent_shift_max": INDENT_SHIFT_MAX} if a.edit_apply == "lenient" else {}), **({"edit_strip": "on"} if a.edit_strip == "on" else {}), **({"h10": "on"} if a.h10 == "on" else {}), **({"h11": "on"} if a.h11 == "on" else {}), **({"mask": "on", "mask_at": MASK_AT, "mask_to": MASK_TO, "mask_keep": MASK_KEEP, "mask_min_chars": MASK_MIN_CHARS} if a.mask == "on" else {}),**force_note, **({"reread_guard": "on"} if a.reread_guard == "on" else {}), **({"syntax_check": "on", "syntax_context": SYNTAX_CONTEXT} if a.syntax_check == "on" else {}), **({"code_tools": "on", "code_tools_note": CODE_TOOLS_NOTE, "outline_max": OUTLINE_MAX, "symbol_max_lines": SYMBOL_MAX_LINES} if a.code_tools == "on" else {}), **({"h8": "on", "h8_extra": H8G.H8_EXTRA, "h8_notice_left": H8G.H8_NOTICE_LEFT, "h8_test_timeout": H8G.TEST_TIMEOUT, "syntax_check": "on", "syntax_context": SYNTAX_CONTEXT} if a.h8 == "on" else {})}
                     if a.task_set != "x3":
                         cfg.update({"task_set": a.task_set, "repo": tcfg.get("repo", "packaging"), "setup_patch": tcfg.get("setup_patch"),
                                     "grade": tcfg.get("grade", "hidden"), "write_allow": sorted(WRITE_ALLOW)})
