@@ -100,6 +100,7 @@ def check_hidden(cfg, tdir, bundles, tmp) -> dict:
             ck["V2f"] = rc_f == 1          # 채운 출력이 실제 실패여야 한다
         # 자리표시가 없으면 이미 채운 것(다시 검증할 때) — 그대로 둔다
     hid_src = tdir / cfg["hidden_test"]
+    (work / "tests").mkdir(exist_ok=True)   # pluggy 는 testing/ 을 쓴다 - 숨은 테스트 자리는 항상 tests/
     shutil.copy(hid_src, work / "tests" / "test_x3_hidden.py")
     rc, out, _ = pytest(work, ["tests/test_x3_hidden.py"], cfg)
     c = counts(out)
@@ -111,9 +112,10 @@ def check_hidden(cfg, tdir, bundles, tmp) -> dict:
         ck["V3"] = False
         res["notes"].append("ref.patch 적용 실패: " + out_a[-300:])
         return res
-    _, names, _ = git(work, "diff", "--name-only")
-    _, new, _ = git(work, "ls-files", "--others", "--exclude-standard")
-    touched = [p for p in (names + new).split() if p and p != "tests/test_x3_hidden.py"]
+    # 참조 패치가 고친 파일 = 패치 머리의 경로 (작업 트리 diff 는 setup 을 정확히 되돌리는 패치에서 비어 버린다)
+    import re
+    ref_txt = (tdir / cfg["ref_patch"]).read_text(encoding="utf-8", errors="replace")
+    touched = sorted({m for m in re.findall(r"^\+\+\+ b/(\S+)", ref_txt, re.M)} - {"tests/test_x3_hidden.py"})
     pre = cfg.get("pythonpath", "src")
     ck["V4"] = all(p.startswith(pre + "/") or pre == "." and not p.startswith("tests/") for p in touched) and bool(touched)
     res["ref_touched"] = touched
@@ -140,7 +142,8 @@ def check_mutants(cfg, tdir, bundles, tmp) -> dict:
         return res
     tf = cfg["test_file"]
     shutil.copy(tdir / cfg["ref_test"], work / tf)
-    rc, out, dt = pytest(work, [tf], cfg)
+    base_rc, out, dt = pytest(work, [tf], cfg)
+    rc = base_rc
     ck["V2"] = rc == 0          # 원본에서 참조 테스트 통과
     res["base"] = {"rc": rc, **counts(out), "sec": round(dt, 1), "tail": out[-1500:]}
     muts = sorted((tdir / "private" / "mutants").glob("*.patch"))
@@ -159,11 +162,12 @@ def check_mutants(cfg, tdir, bundles, tmp) -> dict:
     n = len(muts)
     km = int(cfg.get("kill_min", 0))
     ck["V3"] = n >= 8 and all(k is True for k in killed) and 0 < km < n
-    ck["V4"] = Path(tf).parts[0] == "tests" and cfg.get("write_allow") == [tf]
+    ck["V4"] = Path(tf).parts[0] in ("tests", "testing") and cfg.get("write_allow") == [tf]   # pluggy 는 testing/
     ck["V5"] = max(times) <= TIME_LIMIT
     # V6: 원본 통과를 한 번 더
-    rc2, _, _ = pytest(work, [tf], cfg)
-    ck["V6"] = rc2 == rc
+    rc2, out2, _ = pytest(work, [tf], cfg)
+    ck["V6"] = rc2 == base_rc   # (rc 는 돌연변이 반복에서 덮이므로 base_rc 와 비교)
+    res["recheck"] = {"rc": rc2, **counts(out2), "tail": out2[-800:]}
     # V7: 기존 테스트 파일을 그대로 쓰면 kill_min 미만
     src_t = cfg.get("copy_from")
     if not src_t:

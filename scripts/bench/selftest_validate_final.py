@@ -39,7 +39,7 @@ def patch_of(repo: Path, edits: list[tuple[str, str]], out: Path):
         assert s.count(old) == 1, old
         s = s.replace(old, new)
     p.write_bytes(s.encode("utf-8"))
-    out.write_text(sh(repo, "diff"), encoding="utf-8")
+    out.write_bytes(sh(repo, "diff").encode("utf-8"))   # write_text 는 Windows 에서 CRLF 로 바꿔 git apply 가 실패한다
     p.write_bytes(raw.encode("utf-8"))
 
 
@@ -64,7 +64,9 @@ def main():
             patch_of(repo, bug, d / "private" / "setup.patch")
             # 참조 패치는 setup 뒤 상태에서 만든다
             sh(repo, "apply", str(d / "private" / "setup.patch"))
+            sh(repo, "add", F)   # git diff 가 setup 뒤 상태 기준이 되게 (안 하면 ref.patch 에 setup 이 섞임)
             patch_of(repo, ref_edits, d / "private" / "ref.patch")
+            sh(repo, "reset", "-q")
             sh(repo, "checkout", "-q", "--", F)
             (d / "private" / "test_x3_hidden.py").write_text(hidden, encoding="utf-8")
             (d / "prompt.md").write_text("장난감 과제\n", encoding="utf-8")
@@ -107,6 +109,13 @@ def main():
         for name, ok in cases:
             print("ok  " if ok else "FAIL", name)
             fails += not ok
+        print("  (참고) t_ok:", r_ok[2], " t_mut 실패:", [k for k, v in mj["checks"].items() if not v], " base:", {k: mj.get("base", {}).get(k) for k in ("rc", "passed", "failed", "error")})
+        oj = json.loads((outv / "t_ok.json").read_text(encoding="utf-8"))
+        print("  t_ok touched:", oj.get("ref_touched"), " t_mut notes:", mj.get("notes"), " recheck:", {k: mj.get("recheck", {}).get(k) for k in ("rc", "passed", "failed", "error")})
+        if not mj["checks"].get("V6"):
+            print("  t_mut recheck tail:", mj.get("recheck", {}).get("tail", "")[-500:])
+        if not mj["checks"].get("V2"):
+            print("  t_mut base tail:", mj.get("base", {}).get("tail", "")[-600:])
         print("  (참고) t_bad:", r_bad[2], " t_mut copy_kills:", mj.get("copy_kills"), " mutants:", mj.get("mutants"))
     print("FAILS", fails)
     return 1 if fails else 0
