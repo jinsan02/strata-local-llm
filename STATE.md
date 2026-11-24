@@ -4,10 +4,10 @@
 
 ## 지금
 
-- 마지막 갱신: 2026-11-24
+- 마지막 갱신: 2026-11-25
 - 단계: **X4(실사용 흐름) 진행 중.** 하네스 · 샘플링 · 양자화(Q1 종료) · 엔진(E2 채택, E1 보류, E3 미채택 11-24) · 문맥 길이(64K) 탐색은 끝났다. 남은 큰 단계 = 하네스 보강(H11 · H10) 측정 → 결합 확인 → F1 최종 검증. 이전 '지금' 문단 원문은 [`docs/state-archive-20261124.md`](docs/state-archive-20261124.md)
-- **운영 설정**: M0(Qwen3.6-35B-A3B UD-Q4_K_XL) · E2(E2a 켬) · 서버 64K · 노력치 high(강제 턴 55,296 · 호출 20) · 하네스 H9(H7 lenient + edit_strip) · card-coding. 워커 `configs/worker.json` 도 같다
-- **기준선**: X3 `x3h9` 24/30 · Y `y9` 21/30. 약점은 Y 의 테스트 쓰기 0/5 · flask 여러 곳 1/5, X3 metadata 2/5
+- **운영 설정**: M0(Qwen3.6-35B-A3B UD-Q4_K_XL) · E2(E2a 켬) · 서버 64K · 노력치 high(강제 턴 55,296 · 호출 20) · 하네스 **H12**(H9 + H10 + H11, 11-25 채택 — [`docs/h12-results-20261125.md`](docs/h12-results-20261125.md)) · card-coding. 워커 `configs/worker.json` 은 아직 H9 (F1 전에 맞춘다)
+- **기준선**: X3 `x3h12` 23/30 · Y `y12` 24/30 (이전 H9: `x3h9` 24/30 · `y9` 21/30). 약점은 Y 의 테스트 쓰기 0/5 · flask 여러 곳 1/5, X3 metadata 2/5
 - **사용 형태 (11-24)**: 본체 안에서 쓴다. 서버 127.0.0.1(`scripts/local/strata-up.ps1` · `strata-status.ps1` · `strata-down.ps1`), 주 경로 = 워커(MCP `delegate_code_task`), 대화형 = 본체 Claude Code(`scripts/local/claude-desk.ps1 -TestEnv packaging|flask`, 모델이 pytest 실행 가능 · 인터넷 차단). 노트북에서 쓰려면 `strata-up.ps1 -Tailscale`
 - **X4 (11-24)**: A 노트북 Claude Code 4/16(도구가 Read · Edit 뿐 — 비교 제외). X4b(본체 Claude Code · pytest 허용) 16건 통과 3 · 숨은 합 75%(A 58%, 하네스 기대 약 14/16) → 실사용 주 경로는 워커. 상세 [`docs/x4-results-20261124.md`](docs/x4-results-20261124.md)
 - **11-24 오후**: E3 미채택(규칙대로 E2, [`docs/e3-results-20261124.md`](docs/e3-results-20261124.md)). F1 문제 30개 Codex 출제 완료 → 검증 대기([`docs/final-eval-spec-20261124.md`](docs/final-eval-spec-20261124.md)). 라우팅 A안: 쪼개기 · 위임 판단은 지휘자, 워커는 위임 전 확인 · 실패 넘기기([`docs/delegation-20261124.md`](docs/delegation-20261124.md))
@@ -105,6 +105,7 @@
 
 | 날짜 | 결정 | 근거 |
 | --- | --- | --- |
+| 11-25 | **H12 채택 (판정 규칙 통과)**: x3h12 23/30 vs 24/30(숨은 96.9%, import_or_syntax 0 → 0), y12 24/30 vs 21/30(숨은 108%, import_or_syntax 5 → 0). 작동: H11 4회(y5 r1 · r5 의 NameError 를 고쳐 통과), H10 a 1회, H10 b 0회. 부호 검정은 유의하지 않음(6:4). F1 은 E2 + H12 로 | `docs/h12-results-20261125.md` |
 | 11-24 | **H12 = H9 + H10 + H11 을 묶어 한 번에 잰다 (사용자, 요인 하나씩 원칙의 첫 예외)**: 둘 다 edit_file 순간의 드문 안전장치이고 작동 조건이 겹치지 않음(H10 b 는 적용 전 거절, H11 은 성공한 편집 뒤 경고). 효과가 작아 30회로는 따로 재도 가려지지 않고(같은 조건 ±4), 어느 장치가 언제 작동했는지는 로그(h11_warns · H10 표시)로 실행 단위 추적. 대조 x3h9 24/30 · y9 21/30, 엔진 E2, F1 30과제 검증 30/30(Codex 1차 수정 7개 포함) | 11-24 대화 |
 | 11-24 | **E3 미채택, E2 유지 (사용자, 규칙대로)**: x3e3 20/30 vs 24/30(숨은 89%, import_or_syntax +2) 미달, ye3 21/30 vs 21/30 통과, 합산 숨은 93.6%. E3 만의 실패 유형 없음, V2 는 엔진 비결정성(T-028)으로 판정 불가. 모델 시간 0.59배는 F1 뒤 다시 볼 거리. H10 · H11 · F1 은 E2 로 | `docs/e3-results-20261124.md` |
 | 11-24 | **라우팅 A안 (사용자)**: 라우터 분류기는 만들지 않는다. 쪼개기 · '로컬에 줄지' 판단은 지휘자(클라우드), 코드는 위임 전 확인(파일 수 · 존재 · 크기 → rejected, 테스트 없음 등 경고) · 검증 · 실패 넘기기(handoff). F1 은 로컬 단독 성능만 재고, 라우팅은 F1 뒤 실사용 시연(route.jsonl) | `docs/delegation-20261124.md` |
@@ -185,6 +186,7 @@
 
 ## 최근 변경
 
+- 2026-11-25 · Claude Code · H12 측정 끝: x3h12 23/30(11-24 밤, 사용자 요청으로 X3 뒤 체인 중단 · 사용자 모드) · y12 24/30(11-25 아침) → 규칙 통과, H12 채택. 결과 [`docs/h12-results-20261125.md`](docs/h12-results-20261125.md).
 - 2026-11-24 · Claude Code · final_eval 환경(x3_packaging 오프라인 복제 + 승인 4개, 기본 채널 약관 동의 없이 conda-forge 지정) · 검증기 버그 4개 수정 · F1 30과제 검증 23/30 → Codex 1차 수정 → 30/30. H11 구현(selftest 4/4). 밤 측정 x3h12 · y12(H9 + H10 + H11, E2) 시작.
 - 2026-11-24 · Claude Code · E3 체인 끝(14:48): x3e3 20/30 · ye3 21/30 → 미채택(사용자). V2(greedy E2 · E2 · E3)로 엔진이 greedy 에서도 비결정적임을 확인(T-028), lenient 들여쓰기 이동 문법 깨짐(T-027), 내 잘못된 가설 기록(C-039). F1 하네스(run_x3 `final-<저장소>` · g3-chain · `validate_final.py` · `f1-chain.ps1`)와 명세 반영. 워커에 위임 전 확인 · 실패 넘기기(selftest 9/9). Codex 가 F1 30과제 출제(final_eval, git 제외).
 - 2026-11-24 · Claude Code · X4b(본체 Claude Code · pytest 허용) 16건 통과 3 · 숨은 합 75%(A 58%, 하네스 기대 약 14/16) → 실사용 주 경로는 워커. 막힌 명령(cd · PYTHONPATH= 접두사 · mypy) · 테스트 파일 수정 · 40턴 제한이 주된 손실. dg r2 네트워크 사용 → 일괄 중단 · 차단 후 남은 5건 x4bf. claude-desk 인자 처리(-p 가 -PromptFile · -PipelineVariable 에 묶이던 것) 고침.
