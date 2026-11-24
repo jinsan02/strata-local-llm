@@ -82,9 +82,17 @@ COMMIT = "6a69a83d8d89c6a01d554a8ad1b420cbb45fb4bc"
 # 11-23 Y 세트(docs/new-tasks-plan-20261122.md · docs/y-set-20261123.md): 과제 세트 · 과제별 저장소 · setup_patch · 쓰기 허용 · 돌연변이 채점.
 # x3 세트는 예전과 같다(전역 SRC · COMMIT · PYX 를 그대로 쓴다).
 TASK_SETS = {"x3": TASKS, "y": rb.ROOT / "configs" / "eval" / "y-set"}
+# 11-24 F1 최종 평가(docs/final-eval-spec-20261124.md): 과제는 final_eval/<저장소>/ (git 제외, 튜닝 담당은 내용을 보지 않는다)
+FINAL_REPOS = {"attrs": ("7bfc49e9b22d5ba25b6e429524c3d49fee27cb36", "python-attrs/attrs"),
+               "click": ("cf19179e8e2fd54c601378cec9e0d21bb12b6fb1", "pallets/click"),
+               "dateutil": ("a78cbd81d5d03b5f126eb36edb92bca78972c804", "dateutil/dateutil"),
+               "pluggy": ("4c7f6365f2dde09c11e72db67d0f615231d64c19", "pytest-dev/pluggy")}
+TASK_SETS.update({f"final-{k}": rb.ROOT / "final_eval" / k for k in FINAL_REPOS})
 REPOS = {"packaging": {"src": SRC, "commit": COMMIT, "python": PYX, "label": "pypa/packaging"},
          "flask": {"src": Path("C:/strata-lab/work/swe/pallets__flask-5014-src"), "commit": "7ee9ceb71e868944a46e1ff00b506772a53a4f1d",   # SWE flask-5014 기준 커밋(환경 swe_flask_5014 와 맞음)
                    "python": "C:/ProgramData/anaconda3/envs/swe_flask_5014/python.exe", "label": "pallets/flask"}}
+REPOS.update({k: {"src": Path(f"C:/strata-lab/work/final/bundles/{k}.bundle"), "commit": c, "label": lab,
+                  "python": "C:/ProgramData/anaconda3/envs/final_eval/python.exe"} for k, (c, lab) in FINAL_REPOS.items()})
 REPO_LABEL = "pypa/packaging"
 WRITE_ALLOW: set[str] = set()   # Y3: tests/ 아래라도 이 경로는 모델이 만들 수 있다
 
@@ -1410,7 +1418,7 @@ def main() -> int:
     ap.add_argument("--budget", type=int, default=8192)
     ap.add_argument("--inputs", type=int, nargs="+", default=[0, 16384, 24320], help="preload 목표 입력 토큰. 0 = 필수 파일만")
     ap.add_argument("--tasks", nargs="+", default=["dg_group_names", "marker_extras", "version_bump"])
-    ap.add_argument("--task-set", choices=["x3", "y"], default="x3", help="11-23: y = Y 세트(configs/eval/y-set, 과제별 저장소 · setup_patch · 돌연변이 채점)")
+    ap.add_argument("--task-set", choices=["x3", "y", *[f"final-{k}" for k in FINAL_REPOS]], default="x3", help="11-23: y = Y 세트(configs/eval/y-set, 과제별 저장소 · setup_patch · 돌연변이 채점)")
     ap.add_argument("--repeat", type=int, default=1)
     ap.add_argument("--rep-start", type=int, default=1, help="반복 번호 시작 (H0 · H1 을 번갈아 돌릴 때 _r<n> 이 겹치지 않게)")
     ap.add_argument("--prefix", default="x3")
@@ -1498,7 +1506,7 @@ def main() -> int:
         tcfg = json.loads((TASKS / task / "task.json").read_text(encoding="utf-8"))
         WRITE_ALLOW = set(tcfg.get("write_allow", []))
         setup = (TASKS / task / tcfg["setup_patch"]) if tcfg.get("setup_patch") else None
-        if a.task_set == "y":
+        if a.task_set != "x3":   # y · final-*: 과제마다 저장소 · setup_patch
             use_repo(tcfg.get("repo", "packaging"))
             env = {"engine_commit": engine_commit, "engine_exe_sha256": env["engine_exe_sha256"], "repo": tcfg.get("repo", "packaging"),
                    "repo_commit": COMMIT, "test_python": subprocess.run([PYX, "-V"], capture_output=True, text=True).stdout.strip(),
@@ -1609,8 +1617,8 @@ def main() -> int:
                            "tool_out": a.tool_out, "reasoning_echo": a.reasoning_echo, "reasoning_budget": a.reasoning_budget or "answer_room", "final_turn": a.final_turn, "force_edit_turns": FORCE_EDIT_TURNS, **({"page_tokens": PAGE_TOKENS, "chars_per_token": CHARS_PER_TOKEN, "grep_hits": GREP_HITS,
                                                        "list_files": LIST_FILES} if a.tool_out == "paged" else {}),
                            "tools": NAV_TOOLS + (CODE_TOOLS if a.code_tools == "on" else []) + ([RUN_TESTS_TOOL] if a.run_tests == "on" else []), "max_steps": a.max_steps, "budget": a.budget, "sampling": rb.SAMPLING, **({"seed_policy": SEED_POLICY} if a.seed_per_rep else {}), "server_config": server_cfg, **({"run_tests": "on", "run_tests_timeout": RUN_TESTS_TIMEOUT} if a.run_tests == "on" else {}), **({"edit_hint": "on", "edit_hint_lines": EDIT_HINT_LINES} if a.edit_hint == "on" else {}), **({"edit_apply": "lenient", "indent_shift_max": INDENT_SHIFT_MAX} if a.edit_apply == "lenient" else {}), **({"edit_strip": "on"} if a.edit_strip == "on" else {}), **({"h10": "on"} if a.h10 == "on" else {}), **({"mask": "on", "mask_at": MASK_AT, "mask_to": MASK_TO, "mask_keep": MASK_KEEP, "mask_min_chars": MASK_MIN_CHARS} if a.mask == "on" else {}),**force_note, **({"reread_guard": "on"} if a.reread_guard == "on" else {}), **({"syntax_check": "on", "syntax_context": SYNTAX_CONTEXT} if a.syntax_check == "on" else {}), **({"code_tools": "on", "code_tools_note": CODE_TOOLS_NOTE, "outline_max": OUTLINE_MAX, "symbol_max_lines": SYMBOL_MAX_LINES} if a.code_tools == "on" else {}), **({"h8": "on", "h8_extra": H8G.H8_EXTRA, "h8_notice_left": H8G.H8_NOTICE_LEFT, "h8_test_timeout": H8G.TEST_TIMEOUT, "syntax_check": "on", "syntax_context": SYNTAX_CONTEXT} if a.h8 == "on" else {})}
-                    if a.task_set == "y":
-                        cfg.update({"task_set": "y", "repo": tcfg.get("repo", "packaging"), "setup_patch": tcfg.get("setup_patch"),
+                    if a.task_set != "x3":
+                        cfg.update({"task_set": a.task_set, "repo": tcfg.get("repo", "packaging"), "setup_patch": tcfg.get("setup_patch"),
                                     "grade": tcfg.get("grade", "hidden"), "write_allow": sorted(WRITE_ALLOW)})
                     cfg_sha = rb.sha256_bytes(rb.canon(cfg))
                     (run_dir / "config.json").write_bytes(rb.canon(cfg))
