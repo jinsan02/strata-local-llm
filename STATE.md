@@ -5,11 +5,12 @@
 ## 지금
 
 - 마지막 갱신: 2026-11-24
-- 단계: **X4(실사용 흐름) 진행 중.** 하네스 · 샘플링 · 양자화(Q1 종료) · 엔진(E2 채택, E1 보류) · 문맥 길이(64K) 탐색은 끝났다. 남은 큰 단계 = 하네스 보강(H11 · H10) 측정 → 결합 확인 → F1 최종 검증. 이전 '지금' 문단 원문은 [`docs/state-archive-20261124.md`](docs/state-archive-20261124.md)
+- 단계: **X4(실사용 흐름) 진행 중.** 하네스 · 샘플링 · 양자화(Q1 종료) · 엔진(E2 채택, E1 보류, E3 미채택 11-24) · 문맥 길이(64K) 탐색은 끝났다. 남은 큰 단계 = 하네스 보강(H11 · H10) 측정 → 결합 확인 → F1 최종 검증. 이전 '지금' 문단 원문은 [`docs/state-archive-20261124.md`](docs/state-archive-20261124.md)
 - **운영 설정**: M0(Qwen3.6-35B-A3B UD-Q4_K_XL) · E2(E2a 켬) · 서버 64K · 노력치 high(강제 턴 55,296 · 호출 20) · 하네스 H9(H7 lenient + edit_strip) · card-coding. 워커 `configs/worker.json` 도 같다
 - **기준선**: X3 `x3h9` 24/30 · Y `y9` 21/30. 약점은 Y 의 테스트 쓰기 0/5 · flask 여러 곳 1/5, X3 metadata 2/5
 - **사용 형태 (11-24)**: 본체 안에서 쓴다. 서버 127.0.0.1(`scripts/local/strata-up.ps1` · `strata-status.ps1` · `strata-down.ps1`), 주 경로 = 워커(MCP `delegate_code_task`), 대화형 = 본체 Claude Code(`scripts/local/claude-desk.ps1 -TestEnv packaging|flask`, 모델이 pytest 실행 가능 · 인터넷 차단). 노트북에서 쓰려면 `strata-up.ps1 -Tailscale`
 - **X4 (11-24)**: A 노트북 Claude Code 4/16(도구가 Read · Edit 뿐 — 비교 제외). X4b(본체 Claude Code · pytest 허용) 16건 통과 3 · 숨은 합 75%(A 58%, 하네스 기대 약 14/16) → 실사용 주 경로는 워커. 상세 [`docs/x4-results-20261124.md`](docs/x4-results-20261124.md)
+- **11-24 오후**: E3 미채택(규칙대로 E2, [`docs/e3-results-20261124.md`](docs/e3-results-20261124.md)). F1 문제 30개 Codex 출제 완료 → 검증 대기([`docs/final-eval-spec-20261124.md`](docs/final-eval-spec-20261124.md)). 라우팅 A안: 쪼개기 · 위임 판단은 지휘자, 워커는 위임 전 확인 · 실패 넘기기([`docs/delegation-20261124.md`](docs/delegation-20261124.md))
 - **대기 중인 측정 (사용자 지시 뒤)**: H11(편집 뒤 정의 안 된 이름 경고, 재현 상한 y9 +2 — [`docs/h11-lint-replay-20261124.md`](docs/h11-lint-replay-20261124.md)) · H10(이미 적용된 블록 등) · X4 B(워커) · C(Codex). 조사 [`docs/harness-survey-20261124.md`](docs/harness-survey-20261124.md)
 - 전체 계획: [`docs/plan-20261120.md`](docs/plan-20261120.md) (9단계, 11-19 확정 · 11-20 진행 표시)
 - 이전 계획 문서: v2.0 + v2.1 + **v2.2** ([`docs/plan-v2.2-amendment-20261118.md`](docs/plan-v2.2-amendment-20261118.md): 1차 실행 설정 → 2차 양자화 → 3차 서버·엔진, 기존 ID 대응표, KV 독립 변수. 9절 = 3차 P0 · HR · E1 후속 전달문)
@@ -104,6 +105,10 @@
 
 | 날짜 | 결정 | 근거 |
 | --- | --- | --- |
+| 11-24 | **E3 미채택, E2 유지 (사용자, 규칙대로)**: x3e3 20/30 vs 24/30(숨은 89%, import_or_syntax +2) 미달, ye3 21/30 vs 21/30 통과, 합산 숨은 93.6%. E3 만의 실패 유형 없음, V2 는 엔진 비결정성(T-028)으로 판정 불가. 모델 시간 0.59배는 F1 뒤 다시 볼 거리. H10 · H11 · F1 은 E2 로 | `docs/e3-results-20261124.md` |
+| 11-24 | **라우팅 A안 (사용자)**: 라우터 분류기는 만들지 않는다. 쪼개기 · '로컬에 줄지' 판단은 지휘자(클라우드), 코드는 위임 전 확인(파일 수 · 존재 · 크기 → rejected, 테스트 없음 등 경고) · 검증 · 실패 넘기기(handoff). F1 은 로컬 단독 성능만 재고, 라우팅은 F1 뒤 실사용 시연(route.jsonl) | `docs/delegation-20261124.md` |
+| 11-24 | **Q8_0 적재 점검 하지 않음 (사용자)**: Q8_0 expert 약 32.7GiB 가 RAM 31GB 를 넘어 SSD 를 읽으며 돌아야 함(llama.cpp 기록 약 30 tok/s). 양자화 영향은 아래쪽(Q1)만 쟀다고 보고서에 한계로 적는다. 파일은 유지 | 11-24 대화 |
+| 11-24 | **Q1 탈락 후보 12개(234GB) · `work/q1/kl-base-c2048.bin`(16.1GB) 삭제 (사용자 승인)**: C: 여유 1,137 → 1,387GB. 남은 모델 M0 · Q8_0 · BF16 | `work/stage/deleted-20261124.txt` |
 | 11-24 | **X4 A 경로(노트북 Claude Code) 4/16 은 모델 · 하네스 비교에 쓰지 않는다**: `CLAUDE_CODE_SIMPLE=1` 이 도구를 Bash · Read · Edit 로 줄이는데 X4 가 Bash 를 막아 모델에게 Read · Edit 만 갔다(init 도구 목록 확인, 'File does not exist' 122회). 실사용 클라이언트는 본체에서 Bash(pytest) 허용으로 쓴다 | `docs/x4-results-20261124.md` 1절 |
 | 11-24 | **본체 로컬 사용 · 서버 127.0.0.1 기본**(사용자 요청): 노트북 X4 가 끝나 서버를 루프백으로 옮김. 워커는 원래 127.0.0.1 을 쓰므로 영향 없음. 모델 셸의 **인터넷은 막는다**: x4b dg r2 가 허용해 둔 `python -c` 로 GitHub 원본을 받아(승인 없는 다운로드 · 채점 오염) 무효 처리 → `python -c` 제외 · 테스트 환경에 닿지 않는 프록시 · 기록 검사에 네트워크 패턴 | `scripts/local/`, `docs/x4-results-20261124.md` |
 | 11-24 | **A안(run_tests 도구) 기본값으로 넣지 않음**: x3h9t 21/30 vs x3h9 24/30(짝 5:8, p=0.58, 숨은 490 vs 516). 대조만 통과 8건 중 5건은 run_tests 를 안 불러 하락은 대부분 흔들림이지만 득도 없음. Y y9t 22/30 vs y9 21/30 에서 테스트 쓰기만 0 → 3/5. 작업 종류별로 켤지는 X4 에서 | 기록 a05326c, `docs/h10-apply-guard-20261124.md` |
@@ -179,6 +184,7 @@
 
 ## 최근 변경
 
+- 2026-11-24 · Claude Code · E3 체인 끝(14:48): x3e3 20/30 · ye3 21/30 → 미채택(사용자). V2(greedy E2 · E2 · E3)로 엔진이 greedy 에서도 비결정적임을 확인(T-028), lenient 들여쓰기 이동 문법 깨짐(T-027), 내 잘못된 가설 기록(C-039). F1 하네스(run_x3 `final-<저장소>` · g3-chain · `validate_final.py` · `f1-chain.ps1`)와 명세 반영. 워커에 위임 전 확인 · 실패 넘기기(selftest 9/9). Codex 가 F1 30과제 출제(final_eval, git 제외).
 - 2026-11-24 · Claude Code · X4b(본체 Claude Code · pytest 허용) 16건 통과 3 · 숨은 합 75%(A 58%, 하네스 기대 약 14/16) → 실사용 주 경로는 워커. 막힌 명령(cd · PYTHONPATH= 접두사 · mypy) · 테스트 파일 수정 · 40턴 제한이 주된 손실. dg r2 네트워크 사용 → 일괄 중단 · 차단 후 남은 5건 x4bf. claude-desk 인자 처리(-p 가 -PromptFile · -PipelineVariable 에 묶이던 것) 고침.
 - 2026-11-24 · Claude Code · 하네스 조사(논문 5 · 실무 글 4, 같은 모델 Qwen3.6-35B-A3B 를 쓴 2608.26218 포함) → `docs/harness-survey-20261124.md`. 회귀 테스트로 고르기는 기존 기록 재현에서 효과 0. H11 재현: 실패 51 중 5 걸림 · 통과 129 중 0, y5 3건은 import 한 줄로 20/20 → `docs/h11-lint-replay-20261124.md`.
 - 2026-11-24 · Claude Code · STATE '지금' 문단을 짧게 다시 씀(원문 `docs/state-archive-20261124.md`).
