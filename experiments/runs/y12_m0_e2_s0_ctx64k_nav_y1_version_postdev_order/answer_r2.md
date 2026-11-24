@@ -1,0 +1,1 @@
+수정 완료. `_cmpkey` 함수에서 `pre is None and dev is not None` 조건이 `1.0.post1.dev2` 같은 사후 릴리스+개발판 버전을 "dev-only"로 잘못 분류해 `pre_rank=-1`을 부여하는 것이 원인이었다. 이를 `pre is None and post is None and dev is not None`로 고쳐 dev-only 분기가 실제 개발판만(`1.0.dev1` 등) 처리하도록 했다.
