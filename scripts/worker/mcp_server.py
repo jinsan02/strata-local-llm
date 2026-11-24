@@ -23,7 +23,10 @@ TOOLS = [
      "description": ("작은 코딩 작업 하나를 본체 로컬 LLM(Qwen3.6-35B-A3B, STRATA)에 맡긴다. 맞는 크기: 파일 1~3개(큰 파일 하나도 됨), 수십 줄, "
                      "할 일 · 경계 조건 · 확인 방법이 분명한 티켓. 설계 · 여러 모듈 리팩터링 · 디버깅 조사는 맡기지 말 것. "
                      "저장소의 커밋된 상태(ref)를 별도 작업 트리로 꺼내 수정하고 unified diff 를 돌려준다. 원본 작업 트리는 바뀌지 않으므로 "
-                     "결과를 검토한 뒤 직접 git apply 한다. 한 번에 한 작업만 돌고 수 분이 걸릴 수 있다."),
+                     "결과를 검토한 뒤 직접 git apply 한다. 한 번에 한 작업만 돌고 수 분이 걸릴 수 있다. "
+                     "맡기기 전에 파일 수(3개 이하) · 존재 · 크기를 확인해 안 맞으면 status=rejected 와 reasons 를 돌려준다. "
+                     "done 이 아니면 handoff 안내를 따른다(같은 작업은 티켓을 고쳐 1번만 다시 맡기고, 그래도 실패하면 직접 한다). "
+                     "테스트 작성 작업은 약하다. 위임 기준: docs/delegation-20261124.md"),
      "inputSchema": {"type": "object", "properties": {
          "task": {"type": "string", "description": "할 일. 바꿀 함수 · 기대 동작 · 예외 · 경계 조건까지 구체적으로"},
          "repo": {"type": "string", "description": "본체(desktop-5070)의 git 저장소 경로(예: C:\\strata-lab) 또는 clone 할 git URL"},
@@ -36,7 +39,8 @@ TOOLS = [
                                     "test_cmd 가 실패하면 한 단계씩 올려 처음부터 다시 한다")},
          "max_steps": {"type": "integer", "description": "도구 루프 최대 턴 (기본: 노력치가 정함)"},
          "repair": {"type": "boolean", "description": "테스트 실패 시 다시 시도 (기본 true)"},
-         "keep_worktree": {"type": "boolean", "description": "끝난 뒤 작업 트리를 남길지 (기본 true)"}},
+         "keep_worktree": {"type": "boolean", "description": "끝난 뒤 작업 트리를 남길지 (기본 true)"},
+         "force": {"type": "boolean", "description": "위임 전 확인에서 막혀도 진행 (기본 false, 기록에 남음)"}},
          "required": ["task", "repo"]}},
     {"name": "worker_status", "description": "STRATA 서버 연결 · 작업 중 여부 · 워커 설정 · 남은 작업 트리",
      "inputSchema": {"type": "object", "properties": {}}},
@@ -52,9 +56,9 @@ def log(*a):
 def call_tool(name: str, args: dict) -> tuple[dict, bool]:
     import strata_worker as w
     if name == "delegate_code_task":
-        allowed = {"task", "repo", "ref", "files", "test_cmd", "max_steps", "repair", "keep_worktree", "effort"}
+        allowed = {"task", "repo", "ref", "files", "test_cmd", "max_steps", "repair", "keep_worktree", "effort", "force"}
         r = w.delegate(**{k: v for k, v in args.items() if k in allowed})
-        return r, r.get("status") not in ("done", "no_change", "tests_failed")
+        return r, r.get("status") not in ("done", "no_change", "tests_failed", "rejected")
     if name == "worker_status":
         return w.status(), False
     if name == "discard_worktree":

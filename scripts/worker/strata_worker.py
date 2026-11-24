@@ -15,6 +15,8 @@ retry=repair 이면 같은 노력치로 이전 diff · 테스트 로그를 주�
 
 주의: 원본 저장소의 커밋되지 않은 변경은 작업 트리에 들어가지 않는다(지휘자가 먼저 커밋하거나 push 한다).
 서버는 단일 슬롯이라 한 번에 한 작업만 돈다(잠금 파일).
+11-24 A안(docs/delegation-20261124.md): 맡기기 전에 기계 확인(precheck: 파일 수 · 존재 · 크기 → rejected, 테스트 없음 등은 경고),
+done 이 아니면 지휘자가 이어받을 안내(handoff)를 붙인다. 판단 기록은 work/worker/logs/route.jsonl.
 """
 
 from __future__ import annotations
@@ -282,9 +284,9 @@ def _lock():
     os.close(fd)
 
 
-def delegate(task: str, repo: str, ref: str | None = None, files: list[str] | None = None, test_cmd: str | None = None,
-             max_steps: int | None = None, repair: bool | None = None, keep_worktree: bool = True, chat=None, counter=None,
-             effort: str | None = None, cfg_override: dict | None = None) -> dict:
+def _delegate(task: str, repo: str, ref: str | None = None, files: list[str] | None = None, test_cmd: str | None = None,
+              max_steps: int | None = None, repair: bool | None = None, keep_worktree: bool = True, chat=None, counter=None,
+              effort: str | None = None, cfg_override: dict | None = None) -> dict:
     cfg = load_cfg(cfg_override)
     key = api_key()
     files = files or []
@@ -367,6 +369,96 @@ def delegate(task: str, repo: str, ref: str | None = None, files: list[str] | No
         LOCK.unlink(missing_ok=True)
 
 
+# ── 위임 전 확인 · 지휘자 넘기기 (11-24 A안, docs/delegation-20261124.md) ──────────────
+# 쪼개기와 '로컬에 줄지' 판단은 지휘자(클라우드 모델)가 한다. 여기서는 기계로 확인할 수 있는 것만 막거나 경고하고,
+# 끝난 뒤 실패면 지휘자가 이어받도록 안내(handoff)를 붙인다. 막힌 티켓도 force=True 로 넘길 수 있다(기록에 남김).
+PRE_MAX_FILES = 3             # X3 · Y 과제 크기(필수 읽기 1~3개)
+PRE_CTX_SHARE = 0.5           # 먼저 볼 파일 합계(토큰 추정 = 바이트/3)가 문맥의 이 비율을 넘으면 거절
+PRE_SHORT_TASK = 20           # 이보다 짧은 작업 설명은 경고
+CONDUCTOR_WORDS = ("설계", "조사", "원인을 찾", "원인 분석", "전체 리팩터", "아키텍처", "마이그레이션",
+                   "design", "investigate", "root cause", "architecture", "migrate")
+TESTWRITE_RE = re.compile(r"테스트\S*\s*(를|을)?\s*(새로\s*)?(작성|추가|써|만들)|write\s+(a\s+|the\s+)?tests?|add\s+tests?", re.I)
+HANDOFF_NEXT = {
+    "rejected": "티켓을 고쳐(reasons 참고) 다시 맡기거나, 위임 기준 밖이면 지휘자가 직접 한다.",
+    "tests_failed": "지휘자가 이어받는다. diff 는 출발점으로만 쓰고 tests.tail 부터 본다. 같은 티켓을 그대로 다시 맡기지 않는다.",
+    "no_change": "모델이 수정하지 못했다. 티켓을 더 좁혀(함수 · 기대 동작 · 경계 조건) 한 번만 다시 맡기거나 지휘자가 직접 한다.",
+    "busy": "측정 체인이나 다른 작업이 돌고 있다. 기다리거나 지휘자가 직접 한다.",
+    "server_down": "STRATA 서버가 꺼져 있다. 지휘자가 직접 하거나 서버를 띄운 뒤 다시 맡긴다.",
+    "error": "워커 오류다. 지휘자가 직접 한다(log 확인).",
+}
+
+
+def precheck(task: str, repo: str, ref: str | None, files: list[str], test_cmd: str | None, cfg: dict) -> dict:
+    """{'blocks': [...], 'warnings': [...]}. blocks 가 있으면 delegate 가 rejected 로 돌려준다(force 로 무시 가능)."""
+    blocks, warns = [], []
+    t = (task or "").strip()
+    if len(files) > PRE_MAX_FILES:
+        blocks.append(f"먼저 볼 파일이 {len(files)}개다(기준 {PRE_MAX_FILES}개 이하). 티켓을 나눈다")
+    src = Path(repo)
+    if files and not re.match(r"^(https?://|git@|ssh://)", repo) and (src / ".git").exists():
+        total = 0
+        for f in files:
+            r = subprocess.run(["git", "-C", str(src), "cat-file", "-s", f"{ref or 'HEAD'}:{f.replace(chr(92), '/')}"],
+                               capture_output=True, text=True)
+            if r.returncode:
+                blocks.append(f"기준 커밋({ref or 'HEAD'})에 없는 파일: {f}")
+            else:
+                total += int(r.stdout.strip() or 0)
+        est = total // 3
+        if est > cfg["ctx"] * PRE_CTX_SHARE:
+            blocks.append(f"먼저 볼 파일 합계 약 {est:,} 토큰 - 문맥 {cfg['ctx']:,} 의 {PRE_CTX_SHARE:.0%} 를 넘는다. 범위를 줄인다")
+    if len(t) < PRE_SHORT_TASK:
+        warns.append(f"작업 설명이 짧다({len(t)}자). 바꿀 함수 · 기대 동작 · 경계 조건을 적으면 통과율이 오른다")
+    if not test_cmd:
+        warns.append("test_cmd 가 없어 결과를 자동 확인하지 못한다. 지휘자가 diff 를 직접 검토한다")
+    if TESTWRITE_RE.search(t) or (files and all(Path(f).parts[0] in ("tests", "test") for f in files)):
+        warns.append("테스트 작성 작업은 측정상 약하다(y9 의 y3 0/5, import 오류). 지휘자가 하거나 결과를 꼼꼼히 본다")
+    hit = [k for k in CONDUCTOR_WORDS if k.lower() in t.lower()]
+    if hit:
+        warns.append(f"지휘자 쪽 일로 보이는 말이 있다({', '.join(hit)}). 설계 · 조사 · 큰 리팩터링은 맡기지 않는다")
+    return {"blocks": blocks, "warnings": warns}
+
+
+def handoff(status: str) -> dict | None:
+    """done 이 아니면 지휘자가 이어받을 안내."""
+    if status == "done":
+        return None
+    return {"to": "conductor", "next": HANDOFF_NEXT.get(status, HANDOFF_NEXT["error"]),
+            "retry_limit": "같은 작업은 티켓을 고쳐 최대 1번만 다시 맡긴다. 두 번 실패하면 지휘자가 한다"}
+
+
+def _log_route(rec: dict) -> None:
+    """위임 판단 기록(실사용 시연 · 기준 점검용). work/worker/logs/route.jsonl, git 제외."""
+    try:
+        LOGS.mkdir(parents=True, exist_ok=True)
+        with open(LOGS / "route.jsonl", "a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"ts": time.strftime("%Y-%m-%d %H:%M:%S"), **rec}, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
+def delegate(task: str, repo: str, ref: str | None = None, files: list[str] | None = None, test_cmd: str | None = None,
+             max_steps: int | None = None, repair: bool | None = None, keep_worktree: bool = True, chat=None, counter=None,
+             effort: str | None = None, cfg_override: dict | None = None, force: bool = False) -> dict:
+    """위임 전 확인 → _delegate → done 이 아니면 handoff. 반환 status 에 rejected 가 더해진다."""
+    pre = precheck(task, repo, ref, files or [], test_cmd, load_cfg(cfg_override))
+    if pre["blocks"] and not force:
+        r = {"status": "rejected", "reasons": pre["blocks"]}
+    else:
+        r = _delegate(task, repo, ref, files, test_cmd, max_steps, repair, keep_worktree, chat, counter, effort, cfg_override)
+        if pre["blocks"]:
+            r["forced_past"] = pre["blocks"]
+    if pre["warnings"]:
+        r["warnings"] = pre["warnings"]
+    h = handoff(r["status"])
+    if h:
+        r["handoff"] = h
+    _log_route({"status": r["status"], "worker_id": r.get("worker_id"), "repo": repo, "files": len(files or []),
+                "test_cmd": bool(test_cmd), "blocks": pre["blocks"], "warnings": pre["warnings"], "force": force,
+                "fake": chat is not None})
+    return r
+
+
 def status() -> dict:
     cfg = load_cfg()
     base, why = find_server(api_key())
@@ -389,6 +481,7 @@ def main() -> int:
     ap.add_argument("--effort", choices=list(x3.EFFORT_LEVELS), help="노력치 (기본: configs/worker.json 의 effort)")
     ap.add_argument("--no-repair", action="store_true", help="테스트가 실패해도 다시 시도하지 않음")
     ap.add_argument("--diff-only", action="store_true", help="diff 만 표준 출력으로 (나머지는 표준 오류)")
+    ap.add_argument("--force", action="store_true", help="위임 전 확인(precheck)에서 막혀도 진행")
     a = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
     if a.status:
@@ -400,7 +493,7 @@ def main() -> int:
     task = Path(a.task_file).read_text(encoding="utf-8") if a.task_file else a.task
     if not (a.repo and task):
         ap.error("--repo 와 --task(또는 --task-file)가 필요하다")
-    r = delegate(task, a.repo, a.ref, a.files, a.test_cmd, a.max_steps, False if a.no_repair else None, effort=a.effort)
+    r = delegate(task, a.repo, a.ref, a.files, a.test_cmd, a.max_steps, False if a.no_repair else None, effort=a.effort, force=a.force)
     if a.diff_only:
         print(json.dumps({k: v for k, v in r.items() if k != "diff"}, ensure_ascii=False, indent=1), file=sys.stderr)
         print(r.get("diff", ""), end="")

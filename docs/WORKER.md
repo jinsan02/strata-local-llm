@@ -46,7 +46,7 @@ strata_worker.py: 서버 · 측정 체인 확인 → 잠금 → 대상 커밋을
 ```
 
 도구: `delegate_code_task(task, repo, ref?, files?, test_cmd?, max_steps?, repair?, keep_worktree?)` · `worker_status` · `discard_worktree(worker_id)`.
-반환 `status`: `done` · `tests_failed` · `no_change` · `busy` · `server_down` · `error`.
+반환 `status`: `done` · `tests_failed` · `no_change` · `rejected`(11-24, 위임 전 확인에서 막힘) · `busy` · `server_down` · `error`. done 이 아니면 `handoff` 안내가 붙는다.
 
 ### 등록 (지휘자 쪽, 사람이 한다 — 클라이언트 설정 변경)
 
@@ -74,7 +74,7 @@ tool_timeout_sec = 1800
 ### 맡길 작업의 크기
 
 X3 과제 크기가 기준이다: 파일 1~3개, 수십 줄, 할 일 · 경계 조건 · 확인 명령이 분명한 티켓(X3 15회 중 12~14회 통과, 회귀 0).
-설계, 여러 모듈 리팩터링, 원인을 모르는 디버깅, 운영 작업은 지휘자가 한다. 티켓 예:
+설계, 여러 모듈 리팩터링, 원인을 모르는 디버깅, 운영 작업은 지휘자가 한다. 11-24 A안: 위임 기준 · 위임 전 확인(precheck) · 실패 넘기기(handoff)는 [`delegation-20261124.md`](delegation-20261124.md). 티켓 예:
 
 ```json
 {"task": "textutil/slug.py 의 slugify 를 고쳐라. 규칙: (1) 앞뒤 공백 제거 후 소문자, (2) 영숫자가 아닌 연속 문자는 하이픈 하나, (3) 앞뒤 하이픈 제거, (4) str 이 아니면 TypeError. 테스트 파일은 고치지 마라.",

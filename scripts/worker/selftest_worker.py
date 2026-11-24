@@ -159,6 +159,33 @@ def main() -> int:
     print("7 설정 · 사다리:", ok7, r7.get("status"), ladder_none, ladder_top)
     fails += [] if ok7 else ["7"]
 
+    # 8) 위임 전 확인 (11-24 A안): 파일 4개 · 없는 파일 · 문맥 초과 → rejected(+handoff), force 면 진행, 경고
+    r8a = w.delegate("calc.py 의 add 를 고쳐라. 음수도 처리한다.", str(src), files=["calc.py", "a.py", "b.py", "c.py"],
+                     test_cmd=TEST, chat=lambda *a: None)
+    r8b = w.delegate("calc.py 의 add 를 고쳐라. 음수도 처리한다.", str(src), files=["calc.py"], test_cmd=TEST,
+                     chat=lambda *a: None, cfg_override={"ctx": 20})
+    chat, _ = scripted([text("고칠 것이 없다")])
+    r8c = w.delegate("x", str(src), files=["nope.py"], chat=chat, counter=lambda m, t: 500, keep_worktree=False, force=True)
+    pre_tw = w.precheck("tests/test_calc.py 에 add 테스트를 작성하라", str(src), None, ["tests/test_calc.py"], None, w.load_cfg())
+    ok8 = (r8a["status"] == "rejected" and any("4개" in x for x in r8a["reasons"]) and len(r8a["reasons"]) == 4
+           and r8a["handoff"]["to"] == "conductor" and "warnings" not in r8a
+           and r8b["status"] == "rejected" and any("토큰" in x for x in r8b["reasons"])
+           and r8c["status"] == "no_change" and r8c["forced_past"] and r8c["handoff"]["to"] == "conductor"
+           and len(r8c["warnings"]) == 2 and len(pre_tw["warnings"]) == 2 and any("테스트 작성" in x for x in pre_tw["warnings"])
+           and (w.LOGS / "route.jsonl").is_file())
+    print("8 위임 전 확인:", ok8, r8a["status"], len(r8a.get("reasons", [])), r8b["status"], r8c["status"], len(pre_tw["warnings"]))
+    fails += [] if ok8 else ["8"]
+
+    # 9) 테스트 실패 → handoff 로 지휘자에게, 성공이면 handoff 없음
+    chat, _ = scripted([call("edit_file", {"path": "calc.py", "old_string": "return a - b", "new_string": "return a + b"}),
+                        text("add 만 고쳤다")])
+    r9 = w.delegate("calc.py 의 add 와 sub 가 반대로 계산한다. 고쳐라.", str(src), files=["calc.py"], test_cmd=TEST, chat=chat,
+                    counter=lambda m, t: 500, keep_worktree=False, repair=False, cfg_override={"retry": "repair"})
+    ok9 = (r9["status"] == "tests_failed" and r9["handoff"]["to"] == "conductor" and "tests.tail" in r9["handoff"]["next"]
+           and "handoff" not in r and "warnings" not in r)
+    print("9 실패 넘기기:", ok9, r9["status"])
+    fails += [] if ok9 else ["9"]
+
     # 정리
     w.drop_tree(r["worker_id"])
     subprocess.run(["git", "worktree", "prune"], cwd=src, capture_output=True)
