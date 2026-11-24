@@ -8,8 +8,10 @@
 | `strata-up.ps1` | 떠 있는 서버를 내리고 127.0.0.1 로 띄운다(64K · E2). `-Tailscale` · `-LlmMode` |
 | `strata-status.ps1` | 프로세스 · 주소 · 응답 · RAM · GPU |
 | `strata-down.ps1` | 내리기 |
-| `claude-desk.ps1` | Claude Code 를 서버에 붙인다. `-TestEnv packaging|flask` 면 그 conda 환경으로 pytest 가 돈다 |
-| `x4d-task.ps1` | X3 · Y 과제 하나를 본체에서 풀고(테스트 실행 허용) `x4_grade.py` 로 채점 |
+| `claude-desk.ps1` | Claude Code 를 서버에 붙인다. `-TestEnv packaging|flask` 면 그 conda 환경으로 pytest 가 돌고 **인터넷은 막힌다**(프록시 변수). `-InFile <파일>` 은 지시문을 stdin 으로. 나머지 인자는 claude 에 그대로 |
+| `x4d-task.ps1` | X3 · Y 과제 하나를 본체에서 풀고(Bash 는 `python -m pytest` · `git diff/status` 만) `x4_grade.py` 로 채점. 끝나면 도구 입력에 금지 경로 · 네트워크 흔적이 있는지 `meta.audit` 에 적는다 |
+| `x4d-batch.ps1` | 8과제 x 2회 일괄(WMI, ssh 를 끊어도 산다). `-Prefix` · `-Only "과제:회차,..."` |
 
-- 서버가 떠 있으면 RAM 여유가 1GB 안쪽이다. 클라이언트는 한 번에 하나만 돌린다.
+- 서버가 떠 있으면 RAM 여유가 1GB 안쪽이다(클라이언트 실행 중 최소 0.45GB 관측). 클라이언트는 한 번에 하나만 돌린다.
 - 워커(`scripts/worker`)는 `STRATA_BASE_URL` 이 없으면 127.0.0.1 을 쓰므로 그대로 된다. 노트북에서 쓰려면 `strata-up.ps1 -Tailscale`.
+- 11-24 x4b dg r2 에서 모델이 `python -c` 로 GitHub 원본을 받았다. 그래서 `python -c` 를 허용하지 않고 프록시로 막는다. 원시 소켓까지 막지는 못하니 audit 결과를 같이 본다.

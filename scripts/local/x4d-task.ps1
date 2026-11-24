@@ -32,21 +32,22 @@ git -C $Work -c user.name=x4 -c user.email=x4@localhost commit -q --allow-empty 
 # 2) 지시문: 과제 원문 + 환경 안내 (테스트 실행 가능)
 $Allow = @($Cfg.write_allow)
 $Rule = if ($Allow.Count -and $Allow[0]) { "테스트 파일은 고치지 마라. 새로 만들 파일: $($Allow -join ', ')" } else { '테스트 파일은 고치지 마라.' }
-$Note = "너는 $Label 저장소(현재 폴더, 고정 커밋)에서 작업한다. 코드는 Edit · Write 도구로 고치고, Bash 도구로 ``python -m pytest -q tests/<파일>`` 을 돌려 확인할 수 있다(PYTHONPATH=src 는 이미 설정됨). 셸 명령은 이 형태와 ``python -c`` · ``git diff`` · ``git status`` 만 허용되고, 파이프(|) · 2>&1 · 환경 변수 접두사를 붙이면 막힌다. 저장소 밖 파일은 보지 마라. $Rule"
+$Note = "너는 $Label 저장소(현재 폴더, 고정 커밋)에서 작업한다. 코드는 Edit · Write 도구로 고치고, Bash 도구로 ``python -m pytest -q tests/<파일>`` 을 돌려 확인할 수 있다(PYTHONPATH=src 는 이미 설정됨). 인터넷은 쓸 수 없다. 셸 명령은 이 형태와 ``git diff`` · ``git status`` 만 허용되고, 파이프(|) · 2>&1 · 환경 변수 접두사를 붙이면 막힌다. 저장소 밖 파일은 보지 마라. $Rule"
 $PromptFile = "$Priv\$RunName.prompt.txt"
 [IO.File]::WriteAllText($PromptFile, (Get-Content "$TaskDir\prompt.md" -Raw -Encoding utf8) + "`r`n`r`n" + $Note, $Utf8)
 
 # 3) 클라이언트: 개인 설정 · MCP 없이. Bash 는 pytest · python -c · git diff/status 만
 $ClientArgs = @('-p', '--output-format', 'stream-json', '--verbose', '--max-turns', "$MaxTurns", '--bare', '--setting-sources', 'project', '--no-session-persistence',
                 '--permission-mode', 'acceptEdits',
-                '--allowedTools', 'Read,Edit,Write,Glob,Grep,Bash(python -m pytest:*),Bash(python -c:*),Bash(git diff:*),Bash(git status:*)',
+                # 11-24: python -c 는 뺐다(x4b dg r2 가 urllib 로 GitHub 원본을 받아 풀었음 — 승인 없는 다운로드 · 채점 오염)
+                '--allowedTools', 'Read,Edit,Write,Glob,Grep,Bash(python -m pytest:*),Bash(git diff:*),Bash(git status:*)',
                 '--disallowedTools', 'WebFetch,WebSearch,Task')
 $env:STRATA_CONTEXT = '65536'
 $TestEnv = $RepoName
 $T0 = Get-Date
 $Ram0 = [int]((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1024)
 if ($DryRun) {
-  "[x4d] DryRun: $Work 준비 끝. claude-desk.ps1 -TestEnv $TestEnv -PromptFile $PromptFile $($ClientArgs -join ' ')"
+  "[x4d] DryRun: $Work 준비 끝. claude-desk.ps1 -TestEnv $TestEnv -InFile $PromptFile $($ClientArgs -join ' ')"
   $Raw = '{"dry_run": true}'
   $RamMin = $Ram0
 } else {
@@ -55,7 +56,7 @@ if ($DryRun) {
   Push-Location $Work
   [Console]::OutputEncoding = $Utf8
   $ErrorActionPreference = 'Continue'   # claude 의 stderr 경고(unrecognized_model)가 멈추게 하지 않게
-  try { $Raw = (& "$Lab\scripts\local\claude-desk.ps1" -TestEnv $TestEnv -PromptFile $PromptFile @ClientArgs) -join "`n" }
+  try { $Raw = (& "$Lab\scripts\local\claude-desk.ps1" -TestEnv $TestEnv -InFile $PromptFile @ClientArgs) -join "`n" }
   finally { Pop-Location; $ErrorActionPreference = 'Stop'; Stop-Job $Mon; Remove-Job $Mon -Force }
   $RamMin = if (Test-Path "$Priv\$RunName.rammin") { [int](Get-Content "$Priv\$RunName.rammin") } else { $null }
 }
@@ -74,7 +75,8 @@ try {
 } catch { $Meta.parse_error = 'client output has no result line' }
 # 저장소 밖 접근 검사: 도구 입력(tool_use 의 input)에 금지 경로 문자열이 있는가
 $Inputs = [regex]::Matches($Raw, '"type":"tool_use","id":"[^"]*","name":"[A-Za-z]+","input":(\{.*?\})\}') | ForEach-Object { $_.Groups[1].Value }
-$Bad = @($Inputs | Where-Object { $_ -match '(?i)strata-lab|configs[\\/]+eval|[\\/]private[\\/]|ref\.patch|test_x3_hidden|strata-x4d[\\/]+_private' })
+# 금지 경로 + 네트워크(urllib · http · curl · git clone · pip install · socket) + 작업 폴더 밖 임시 폴더
+$Bad = @($Inputs | Where-Object { $_ -match '(?i)strata-lab|configs[\\/]+eval|[\\/]private[\\/]|ref\.patch|test_x3_hidden|strata-x4d[\\/]+_private|urllib|https?://|\bcurl\b|\bwget\b|git\s+clone|pip\s+install|\bsocket\b|(^|[\s"''])/tmp|[A-Za-z]:[\\/]+tmp' })
 $Meta.audit = if ($Bad.Count) { "HIT $($Bad.Count): " + (($Bad | Select-Object -First 3) -join ' | ').Substring(0, [math]::Min(300, (($Bad | Select-Object -First 3) -join ' | ').Length)) } else { 'clean' }
 [IO.File]::WriteAllText("$Priv\$RunName.meta.json", ($Meta | ConvertTo-Json -Depth 5), $Utf8)
 

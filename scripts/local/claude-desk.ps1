@@ -4,8 +4,16 @@
 #
 #   cd <저장소>; C:\strata-lab\scripts\local\claude-desk.ps1 -TestEnv packaging          # 대화형
 #   C:\strata-lab\scripts\local\claude-desk.ps1 -TestEnv flask -p "..."                 # 한 번 실행
-param([ValidateSet('none', 'packaging', 'flask')][string]$TestEnv = 'none', [string]$PromptFile = '',
-      [Parameter(ValueFromRemainingArguments = $true)][string[]]$ClaudeArgs)
+#   ... -InFile <지시문 파일>   # 지시문을 stdin 으로 (x4d-task)
+# param 블록을 쓰지 않는다(11-24): [Parameter] 가 있으면 -p 가 -PipelineVariable 에, 없으면 남는 인자가 위치로 -InFile 에 묶였다.
+# -TestEnv · -InFile 두 쌍만 직접 떼어 내고 나머지는 claude 에 그대로 넘긴다.
+$TestEnv = 'none'; $InFile = ''; $ClaudeArgs = @()
+for ($i = 0; $i -lt $args.Count; $i++) {
+  if ($args[$i] -ceq '-TestEnv') { $TestEnv = $args[++$i] }
+  elseif ($args[$i] -ceq '-InFile') { $InFile = $args[++$i] }
+  else { $ClaudeArgs += , $args[$i] }
+}
+if ($TestEnv -notin @('none', 'packaging', 'flask')) { throw "-TestEnv 는 none · packaging · flask (받은 값: $TestEnv)" }
 $Exe = Join-Path $env:USERPROFILE '.local\bin\claude-2.1.328\claude.exe'
 if (-not (Test-Path $Exe)) { throw "Claude Code 실행 파일 없음: $Exe" }
 # 서버 주소: STRATA_BASE_URL > 8080 을 듣는 주소(127.0.0.1 이든 Tailscale 이든)
@@ -33,11 +41,16 @@ if ($TestEnv -ne 'none') {
   $env:PYTHONPATH = Join-Path (Get-Location) 'src'
   $env:PYTHONDONTWRITEBYTECODE = '1'
   $env:PYTHONUTF8 = '1'
+  # 11-24: 모델 셸에서 인터넷을 막는다(urllib · requests · pip · git 은 프록시 변수를 따른다). 서버(127.0.0.1)는 NO_PROXY 로 뺀다.
+  # 원시 소켓까지 막지는 못하므로 x4d-task 의 기록 검사(audit)와 같이 쓴다.
+  foreach ($k in 'HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'http_proxy', 'https_proxy', 'all_proxy') { Set-Item "env:$k" 'http://127.0.0.1:9' }
+  $env:NO_PROXY = '127.0.0.1,localhost'; $env:no_proxy = '127.0.0.1,localhost'
+  $env:PIP_NO_INDEX = '1'
 }
 Write-Host "Claude Code(본체) → $base (context $ctx, 출력+reasoning $out, 테스트 환경 $TestEnv)" -ForegroundColor Cyan
-if ($PromptFile) {
+if ($InFile) {
   $OutputEncoding = New-Object System.Text.UTF8Encoding($false)
-  Get-Content -Raw -Encoding utf8 $PromptFile | & $Exe --strict-mcp-config @ClaudeArgs
+  Get-Content -Raw -Encoding utf8 $InFile | & $Exe --strict-mcp-config @ClaudeArgs
 } else {
   & $Exe --strict-mcp-config @ClaudeArgs
 }
