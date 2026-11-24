@@ -48,7 +48,7 @@ $PromptFile = "$Priv/$RunName.prompt.txt"
 [IO.File]::WriteAllText($PromptFile, (Get-Content "$Priv/$RunName.prompt.md" -Raw -Encoding utf8) + [Environment]::NewLine + [Environment]::NewLine + $Note, $Utf8)
 
 # 4) 클라이언트 실행 (개인 설정 · 훅 · 메모리 · MCP 를 빼고, 셸 도구 없이)
-$ClientArgs = @('-p', '--output-format', 'json', '--max-turns', "$MaxTurns", '--bare', '--setting-sources', 'project', '--no-session-persistence',
+$ClientArgs = @('-p', '--output-format', 'stream-json', '--verbose', '--max-turns', "$MaxTurns", '--bare', '--setting-sources', 'project', '--no-session-persistence',
                 '--permission-mode', 'acceptEdits', '--allowedTools', 'Read,Edit,Write,Glob,Grep', '--disallowedTools', 'Bash,WebFetch,WebSearch,Task')
 $env:STRATA_CONTEXT = '65536'
 $T0 = Get-Date
@@ -57,13 +57,22 @@ if ($DryRun) {
   $Raw = '{"dry_run": true}'
 } else {
   Push-Location $Work
+  [Console]::OutputEncoding = $Utf8   # claude 의 UTF-8 출력을 콘솔 코드 페이지(cp949)로 잘못 읽지 않게 (11-24 첫 실행 결과 글자가 깨짐)
   try { $Raw = (& (Join-Path $PSScriptRoot 'claude-local.ps1') -PromptFile $PromptFile @ClientArgs) -join [Environment]::NewLine }
   finally { Pop-Location }
 }
 $Wall = [math]::Round(((Get-Date) - $T0).TotalSeconds, 1)
-[IO.File]::WriteAllText("$Priv/$RunName.client.json", "$Raw", $Utf8)
+[IO.File]::WriteAllText("$Priv/$RunName.client.jsonl", "$Raw", $Utf8)   # stream-json: 도구 호출 하나하나가 남는다(분석용)
 $Meta = @{ wall_s = $Wall; client = 'claude-code'; client_version = ((claude --version) -join ' '); max_turns = $MaxTurns; dry_run = [bool]$DryRun }
-try { $J = $Raw | ConvertFrom-Json; $Meta.num_turns = $J.num_turns; $Meta.is_error = $J.is_error; $Meta.duration_ms = $J.duration_ms; $Meta.usage = $J.usage; $Meta.result_head = "$($J.result)".Substring(0, [math]::Min(400, "$($J.result)".Length)) } catch { $Meta.parse_error = 'client output is not JSON' }
+try {
+  $Last = ($Raw -split [Environment]::NewLine | Where-Object { $_ -match '"type":"result"' } | Select-Object -Last 1)
+  $J = $Last | ConvertFrom-Json
+  $Meta.num_turns = $J.num_turns; $Meta.is_error = $J.is_error; $Meta.duration_ms = $J.duration_ms; $Meta.usage = $J.usage
+  $Meta.result_head = "$($J.result)".Substring(0, [math]::Min(400, "$($J.result)".Length))
+  $Names = [regex]::Matches($Raw, '"type":"tool_use","id":"[^"]*","name":"([A-Za-z]+)"') | ForEach-Object { $_.Groups[1].Value }
+  $Meta.tool_uses = @($Names).Count
+  $Meta.tools = ($Names | Group-Object | ForEach-Object { "$($_.Name)=$($_.Count)" }) -join ','
+} catch { $Meta.parse_error = 'client output has no result line' }
 [IO.File]::WriteAllText("$Priv/$RunName.meta.json", ($Meta | ConvertTo-Json -Depth 5), $Utf8)
 
 # 5) diff (새 파일 포함) → 본체 채점
