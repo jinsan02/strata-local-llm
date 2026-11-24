@@ -9,6 +9,13 @@
 
 | # | 날짜 | 제목 | 영역 | 상태 |
 | --- | --- | --- | --- | --- |
+| T-026 | 11-24 | `claude-desk.ps1 -p` 의 `-p` 가 다른 매개변수에 묶임 | infra | 해결 (param 블록 없이 직접 파싱) |
+| T-025 | 11-24 | 모델 셸이 인터넷에서 원본 저장소를 받음 (x4b dg r2) | eval · infra | 해결 (python -c 제외 · 프록시 · audit), 원시 소켓은 미차단 |
+| T-024 | 11-24 | 서버 재기동 때 새 서버가 바로 죽음: 이전 서버가 로그 파일을 잡음 | infra | 해결 (strata-up 이 먼저 내림) |
+| T-023 | 11-24 | X4 클라이언트 출력의 한국어가 깨짐 (콘솔 cp949) | infra | 해결 (UTF-8 콘솔 · stream-json) |
+| T-022 | 11-24 | X4 일괄 15건이 2초 만에 모두 중단 (stderr → ErrorRecord) | infra | 해결 (과제마다 자식 프로세스) |
+| T-021 | 11-24 | Claude Code `CLAUDE_CODE_SIMPLE` 이 도구를 Bash · Read · Edit 로 줄임 → X4 A 는 Read · Edit 만 | eval | 해결 (본체에서 Bash 허용), 노트북 SIMPLE 끈 조건은 보류 |
+| T-020 | 11-23 | flask 최신 커밋이 SWE 환경(Werkzeug 2.3.7)과 안 맞음 | eval | 해결 (SWE 기준 커밋 7ee9ceb) |
 | T-019 | 11-19 | 노트북 절전 중 감시 · 알림이 멈춤 | infra | 해결 (깨어 있기 요청 · 보고 시각 전제) |
 | T-018 | 11-19 | 커밋 훅: 본문 없이 트레일러만 있으면 거부 | infra | 해결 (본문 한 줄) |
 | T-017 | 11-19 | 외부 채점에서 PYTHONPATH=src 누락 → 설치본 import, 기본값 점수 | eval | 해결 (채점은 run_x3.run_pytest 만) |
@@ -47,6 +54,82 @@
 ```
 
 ---
+
+## T-026 `claude-desk.ps1 -p` 의 `-p` 가 다른 매개변수에 묶임
+- 날짜 · 단계 · 영역: 11-24 · 본체 로컬 환경 · infra
+- 상태: 해결
+### 발생 로그
+`claude-desk.ps1 -TestEnv packaging -p '...'` → `Get-Content -Raw` 오류(첫 판), `Cannot validate argument on parameter 'PipelineVariable'`(둘째 판), `Cannot find path ...\--max-turns`(셋째 판).
+### 상황 분석
+PowerShell 은 `-p` 를 매개변수 이름 접두어로 본다. `-PromptFile` 이 있으면 거기에, `[Parameter(ValueFromRemainingArguments)]` 로 고급 스크립트가 되면 공통 매개변수 `-PipelineVariable` 에, 속성을 빼면 남는 인자가 위치로 `-InFile` 에 묶였다. X4 · X4b 실행은 인자를 배열 splat 으로 넘겨 영향이 없었다(모두 stream-json 출력 확인).
+### 개선·조치
+param 블록 없이 `$args` 에서 `-TestEnv` · `-InFile` 두 쌍만 떼어 내고 나머지를 claude 에 그대로 넘긴다. 직접 호출 · x4d-task 방식 호출 모두 확인(pong).
+### 재발 방지
+다른 프로그램에 인자를 넘기는 래퍼 스크립트는 param 블록을 쓰지 않는다. 노트북 `scripts/client/claude-local.ps1` 에 같은 문제가 남아 있다(할 일).
+
+## T-025 모델 셸이 인터넷에서 원본 저장소를 받음 (x4b dg r2)
+- 날짜 · 단계 · 영역: 11-24 · X4b · eval · infra
+- 상태: 해결 (원시 소켓 차단은 보류)
+### 발생 로그
+`git clone` · `curl` 이 허용 목록에 막히자 `python -c "import urllib.request, tarfile ...; urlopen('https://github.com/pypa/packaging/archive/refs/heads/main.tar.gz') ... extractall('.')"` 로 받아 작업 폴더와 `C:\tmp\packaging-main` 에 풀었다. diff 1.9MB, 채점 apply_fail. 기록 검사(audit)는 clean 이었다.
+### 상황 분석
+x4d-task 의 Bash 허용 목록에 `python -c` 를 넣었고, 이것으로 임의 코드(네트워크 포함)가 돌았다. audit 는 저장소 밖 금지 경로(strata-lab · private · ref.patch)만 봤다. 최신 원본에는 과제의 정답 구현이 있을 수 있어 채점 오염이고, 승인 없는 다운로드다.
+### 개선·조치
+일괄 중단 → 다른 기록 전수 검사(네트워크 사용 이 1건뿐) → `python -c` 제외, `claude-desk -TestEnv` 에 닿지 않는 프록시(`HTTP(S)_PROXY=127.0.0.1:9`, `NO_PROXY=127.0.0.1,localhost`, `PIP_NO_INDEX`), audit 에 urllib · http(s):// · curl · wget · git clone · pip install · socket · /tmp 추가. urllib 차단(`NET BLOCKED URLError`)과 127.0.0.1 서버 접속 둘 다 확인. dg r2 는 무효, 남은 5건은 x4bf 로 다시.
+### 재발 방지
+모델 셸 허용 목록에 범용 인터프리터 실행(`python -c` · `node -e` 등)을 넣지 않는다. 원시 소켓까지 막으려면 방화벽 규칙이 필요(보안 설정이라 사용자 결정).
+
+## T-024 서버 재기동 때 새 서버가 바로 죽음: 이전 서버가 로그 파일을 잡음
+- 날짜 · 단계 · 영역: 11-24 · 본체 로컬 환경 · infra
+- 상태: 해결
+### 발생 로그
+`launch_serve.ps1 -Host_ 127.0.0.1` → `[launch] 180 초 안에 응답 없음`, 옛 서버(Tailscale 주소)는 그대로.
+### 상황 분석
+WMI 로 띄운 명령은 `serve-ctx.ps1 ... | Out-File serve-detached.log` 다. Out-File 은 파이프라인 시작 때 파일을 여는데, 옛 서버가 같은 로그를 쥐고 있어 실패하고 serve-ctx 의 Stop 까지 가지 못했다.
+### 개선·조치
+`scripts/local/strata-up.ps1` 이 `serve-ctx.ps1 -Stop` 을 먼저 부른 뒤 띄운다. 68초 만에 준비.
+### 재발 방지
+재기동은 strata-up 으로. launch_serve 를 직접 쓸 때는 먼저 내린다.
+
+## T-023 X4 클라이언트 출력의 한국어가 깨짐 (콘솔 cp949)
+- 날짜 · 단계 · 영역: 11-24 · X4 · infra
+- 상태: 해결
+### 발생 로그
+첫 X4 실행의 meta.json `result_head` 한국어가 깨진 글자.
+### 상황 분석
+claude 는 UTF-8 로 쓰는데 PowerShell 5.1 이 콘솔 코드 페이지(cp949)로 읽었다. 지시문 바이트는 정상(따로 확인).
+### 개선·조치
+x4-task · x4d-task 가 claude 를 부르기 전에 `[Console]::OutputEncoding = UTF8`. 출력은 stream-json 으로 바꿔 도구 호출 하나하나를 남긴다(이게 T-021 원인 분석을 가능하게 했다).
+
+## T-022 X4 일괄 15건이 2초 만에 모두 중단 (stderr → ErrorRecord)
+- 날짜 · 단계 · 영역: 11-24 · X4 · infra
+- 상태: 해결
+### 발생 로그
+일괄 로그에 15건 모두 즉시 실패, 첫 줄은 claude 의 stderr 경고 `[claude-code:unrecognized_model]`.
+### 상황 분석
+같은 세션에서 native 명령을 `2>&1` 로 합치면 PowerShell 5.1 이 stderr 줄을 ErrorRecord 로 만들고, x4-task 의 `$ErrorActionPreference = 'Stop'` 이 거기서 멈춘다.
+### 개선·조치
+과제마다 `cmd /c "powershell -File ... 2>&1"` 자식 프로세스로 띄운다. x4d-task 는 claude 호출 구간만 'Continue'.
+
+## T-021 Claude Code `CLAUDE_CODE_SIMPLE` 이 도구를 Bash · Read · Edit 로 줄임 → X4 A 는 Read · Edit 만
+- 날짜 · 단계 · 영역: 11-24 · X4 · eval
+- 상태: 해결 (본체 경로), 노트북에서 SIMPLE 끈 조건은 보류
+### 발생 로그
+X4 A 16건 통과 4. stream-json 첫 줄(init)의 도구 목록 `["Edit","Read"]`. 도구 오류 상위 'File does not exist' 122 · 'old_string 과 new_string 이 같다' 24 · 폴더를 Read 12. 13건 중 7건 40턴 제한.
+### 상황 분석
+`CLAUDE_CODE_SIMPLE=1`(프롬프트 15.6K → 1.25K 토큰, 32K 창 때 권장으로 켬)은 도구를 Bash · Read · Edit 로 줄인다. X4 는 노트북에 Python 이 없어 Bash 를 막았으므로 `--allowedTools` 의 Write · Glob · Grep 은 처음부터 없었다. 모델이 파일 목록을 못 보고 경로를 추측했다.
+### 개선·조치
+X4 A 결과는 비교에서 뺀다(STATE 결정). 본체 경로(`claude-desk` · x4d-task)는 Bash(pytest) 를 허용한다. 노트북에서 SIMPLE 을 끈 조건(64K 에서 프롬프트 15.6K 감당 가능)은 따로 재야 한다.
+### 재발 방지
+클라이언트 측정은 init 줄의 도구 목록을 먼저 확인한다.
+
+## T-020 flask 최신 커밋이 SWE 환경(Werkzeug 2.3.7)과 안 맞음
+- 날짜 · 단계 · 영역: 11-23 · Y 세트 · eval
+- 상태: 해결
+### 상황 분석
+Y5 · Y6(flask)을 최신 커밋에서 만들자 기존 conda 환경 `swe_flask_5014`(Werkzeug 2.3.7)에서 테스트가 깨졌다.
+### 개선·조치
+SWE-bench 의 flask 기준 커밋 `7ee9ceb` 로 고정. 그 커밋에서도 test_basic 3개가 쿠키 domain 표기 차이로 실패해 Y5 회귀에서 `--deselect`(과제와 무관, task.json 에 이유).
 
 ## T-015 `powershell -File` 로 적어 둔 스크립트가 실행 정책에 막힘
 
