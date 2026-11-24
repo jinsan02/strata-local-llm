@@ -10,7 +10,7 @@ param(
   [string]$Tag = '',                # 엔진 로그 이름 꼬리 (ctx<N>-<tag>.log)
   [string]$Model = '',              # 11-21 Q1: 모델 GGUF 경로 바꾸기 (빈 값 = 원본 M0). 러너는 --model-id 로 파일 이름을 확인한다
   [string]$Exe = '',                # 11-22 E1: 엔진 실행 파일 바꾸기 (빈 값 = E0 engine\engine\strata.exe). 턴 체크포인트는 -EnvSet STRATA_Q36_TURN_CKPT=1
-  [ValidateSet('E0', 'E1', 'E2')][string]$Engine = 'E0',   # 11-23 엔진 구성: E1 = 턴 체크포인트(보류), E2 = E2a 디코드 어텐션(E2 빌드의 E1 코드는 끔). -Exe 와 같이 쓰지 않는다
+  [ValidateSet('E0', 'E1', 'E2', 'E3')][string]$Engine = 'E0',   # 11-23 엔진 구성: E1 = 턴 체크포인트(보류), E2 = E2a 디코드 어텐션(E2 빌드의 E1 코드는 끔). -Exe 와 같이 쓰지 않는다
   [switch]$Stop
 )
 $ErrorActionPreference = 'Continue'
@@ -37,7 +37,8 @@ $src = Join-Path $eng 'strata-qwen36-ud-q4_k_xl.json'
 $dst = Join-Path $eng "strata-qwen36-ctx$Context.json"
 $cfg = Get-Content $src -Raw | ConvertFrom-Json
 $engines = @{ E1 = @('C:\strata-lab\work\engine-e1\build-e1\strata.exe', 'STRATA_Q36_TURN_CKPT=1')
-              E2 = @('C:\strata-lab\work\engine-e2\build-e2\strata.exe', 'STRATA_Q36_GQA_DECODE=1') }
+              E2 = @('C:\strata-lab\work\engine-e2\build-e2\strata.exe', 'STRATA_Q36_GQA_DECODE=1')
+              E3 = @('C:\strata-lab\work\engine-e2\build-e2\strata.exe', 'STRATA_Q36_GQA_DECODE=1;STRATA_Q36_TURN_CKPT=1') }   # 11-24 E3 = E2a + E1 턴 체크포인트(V1 통과, work/stage/e1/v1-e3.json)
 if ($Engine -ne 'E0') {
   if ($Exe) { "[serve] 거부: -Engine 과 -Exe 를 같이 주지 않는다"; exit 2 }
   $Exe = $engines[$Engine][0]

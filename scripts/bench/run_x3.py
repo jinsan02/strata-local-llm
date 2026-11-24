@@ -1439,7 +1439,7 @@ def main() -> int:
     ap.add_argument("--seed-per-rep", action="store_true",
                     help="회차 i 의 seed = 42 + i - 1 (끄면 모든 회차 42). 두 조건을 같은 --rep-start 로 돌리면 같은 seed 로 짝지어진다")
     ap.add_argument("--reasoning-budget", type=int, default=0, help="요청 reasoning_budget_tokens (0 = 서버 answer_room, S0)")
-    ap.add_argument("--engine-id", default="E0", choices=["E0", "E1", "E2"],
+    ap.add_argument("--engine-id", default="E0", choices=["E0", "E1", "E2", "E3"],
                     help="원장 run id 의 엔진 구성 (E1 = q36 턴 체크포인트, docs/e1-turn-ckpt-plan-20261122.md). 서버 실행 파일과 맞아야 한다")
     ap.add_argument("--settings-id", default="S0", help="원장 settings_id (S0 = answer_room, S1T3 = thinking 3,072 등)")
     ap.add_argument("--base-url", default="http://127.0.0.1:8080")
@@ -1482,7 +1482,7 @@ def main() -> int:
     want = "UD-Q4_K_XL.gguf" if a.model_id == "M0" else f"-{a.model_id.upper()}.gguf"
     assert model_file.endswith(want), f"서버 모델 {model_file} 이 --model-id {a.model_id} 와 맞지 않는다"
     exe = Path(server_cfg["exe"])
-    _mark = {"E0": None, "E1": "engine-e1", "E2": "engine-e2"}   # 11-23 E2: E2a 디코드 어텐션 빌드(serve-ctx -Engine E2 가 STRATA_Q36_GQA_DECODE=1)
+    _mark = {"E0": None, "E1": "engine-e1", "E2": "engine-e2", "E3": "engine-e2"}   # 11-24 E3: E2 빌드 + 턴 체크포인트(serve-ctx -Engine E3)   # 11-23 E2: E2a 디코드 어텐션 빌드(serve-ctx -Engine E2 가 STRATA_Q36_GQA_DECODE=1)
     _low = str(exe).lower()
     assert ((_mark[a.engine_id] in _low) if _mark[a.engine_id] else not any(m in _low for m in ("engine-e1", "engine-e2"))), f"--engine-id {a.engine_id} 와 서버 실행 파일 {exe} 이 맞지 않는다"
     exe_root = next((p for p in exe.parents if (p / ".git").exists()), engine_dir)   # 11-22: 실행 파일이 나온 엔진 체크아웃의 커밋

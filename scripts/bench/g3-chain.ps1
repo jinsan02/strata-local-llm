@@ -5,7 +5,7 @@
 # 순서: M0 PP → M1b(PP · X3) → M1a(PP · X3). 모델마다 서버는 한 번만 띄운다. 끝나면 서버 종료 · 밤 모드. 끝 표시 '[g3] done'.
 param([int]$Context = 32768, [int]$Reps = 2, [string[]]$Only = @(), [int]$RepStart = 1,   # 11-21 G4: -RepStart 3 -Reps 5 = G3 의 1 · 2회차에 3~5회차를 더해 30회(두 번 안 돌림)
       [string]$Harness = 'H0', [string]$Prefix = 'x3g3', [ValidateSet('strict', 'lenient')][string]$EditApply = 'strict', [switch]$ForceX3, [switch]$Mask,
-      [ValidateSet('none', 'low', 'medium', 'high', 'xhigh')][string]$Effort = 'none', [switch]$SyntaxCheck, [switch]$CodeTools, [ValidateSet('E0', 'E1', 'E2')][string]$Engine = 'E0', [string[]]$TaskList = @(), [switch]$H8, [switch]$H9, [ValidateSet('x3', 'y')][string]$TaskSet = 'x3', [switch]$RunTests, [switch]$H10)   # 11-22 노력치 · T1 · T2(STATE 26)   # 11-21 H7: -Only M0 -ForceX3 -Harness H7 -Prefix x3h7 -EditApply lenient -Reps 5
+      [ValidateSet('none', 'low', 'medium', 'high', 'xhigh')][string]$Effort = 'none', [switch]$SyntaxCheck, [switch]$CodeTools, [ValidateSet('E0', 'E1', 'E2', 'E3')][string]$Engine = 'E0', [string[]]$TaskList = @(), [switch]$H8, [switch]$H9, [ValidateSet('x3', 'y')][string]$TaskSet = 'x3', [switch]$RunTests, [switch]$H10)   # 11-22 노력치 · T1 · T2(STATE 26)   # 11-21 H7: -Only M0 -ForceX3 -Harness H7 -Prefix x3h7 -EditApply lenient -Reps 5
 $ErrorActionPreference = 'Continue'
 $R = 'C:\strata-lab'; $D = "$R\data\models"
 $py = 'C:\ProgramData\anaconda3\envs\strata_local_llm\python.exe'
