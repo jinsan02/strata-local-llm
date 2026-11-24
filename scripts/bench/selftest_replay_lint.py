@@ -1,4 +1,5 @@
-import sys; sys.path.insert(0, r"C:\strata-lab\work\stage")
+"""replay_lint.static_issues 자체 점검 (정의 안 된 이름 · 문법 오류, 헛경보 없는지)."""
+import os, sys; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from replay_lint import static_issues as S
 cases = {
  "undef":      ("def f():\n    return foo + 1\n", {"undefined name 'foo'"}),
