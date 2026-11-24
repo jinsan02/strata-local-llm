@@ -1,0 +1,1 @@
+`src/packaging/markers.py`에 `_extract_extras()` 헬퍼 함수와 `Marker.referenced_extras()` 메서드를 추가했습니다. `src/packaging/requirements.py`에 `Requirement.marker_extras` 속성을 추가했습니다. 기존 동작은 변경되지 않았습니다.

@@ -1,0 +1,1 @@
+이제 `sessions.py`를 수정한다. 먼저 `SessionInterface`에 `get_cookie_max_age` 메서드를 추가한다:

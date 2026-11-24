@@ -1,0 +1,5 @@
+`src/packaging/metadata.py` 파일에 다음 세 가지를 수정했습니다:
+
+1. `_process_provides_extra` 메서드에서 정규화된 이름의 중복을 검사하여 `InvalidMetadata(provides-extra)`를 발생하도록 변경했습니다. 이 메서드는 `_Validator`의 `__get__` 디스크립터에 의해 호출되므로 `validate=False` 객체에서 `provides_extra` 속성에 접근할 때도 중복 검사가 동작합니다.
+2. 마커 트리에서 `extra == "name"` 또는 `"name" == extra` 비교에 등장하는 extra 이름을 추출하는 `_get_extra_comparisons` 헬퍼 함수를 추가했습니다. `and`/`or` 논리식 내부의 비교도 재귀적으로 탐색하며, `"value" in extras` 형태는 무시합니다.
+3. `Metadata.from_raw(..., validate=True)` 내부에 undeclared extra 검사를 추가했습니다. `provides_extra` 또는 `requires_dist` 자체의 검증 오류(`InvalidMetadata`)가 발생하면 해당 필드 검증 실패 플래그를 설정하여 검사를 건너뛰며, `provides_extra`가 `None`인 경우에도 검사를 수행하지 않습니다. 발견된 오류는 기존 검증 오류와 함께 `_ErrorCollector`를 통해 `ExceptionGroup`으로 모입니다. `from_email`도 `from_raw`를 통해 검증하므로 동일하게 적용되며, `validate=False`일 때는 검사가 수행되지 않습니다. 기존 동작은 모두 유지되었습니다.

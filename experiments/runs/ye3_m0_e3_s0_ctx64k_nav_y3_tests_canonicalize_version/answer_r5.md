@@ -1,0 +1,1 @@
+새 파일 `tests/test_y_canonicalize_version.py`를 생성했습니다. 기존 파일은 수정하지 않았습니다. 해당 테스트 파일에는 `canonicalize_version`의 기본 동작, `strip_trailing_zero` 옵션, 유효하지 않은 버전 문자열, `Version` 객체 입력, 각 버전 구성 요소(epoch, pre, post, dev, local) 및 복합 버전의 처리 방식, 반환 타입, 경계 사례(edge cases)를 검증하는 테스트를 모두 포함했습니다.
