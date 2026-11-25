@@ -6,7 +6,7 @@
 
 ---
 
-## <img src="assets/icons/users.svg" width="26" align="top"> 1. 팀 소개
+## 1. 팀 소개
 
 1인 프로젝트. 사람이 목표 · 판정 규칙 · 채택 결정을 맡고, AI 에이전트 둘에게 역할을 나눠 맡겼다. 두 에이전트는 서로의 산출물을 보지 않게 분리했다(최종 평가 출제자와 튜닝 담당).
 
@@ -15,7 +15,7 @@
 | [**jinsan02**](https://github.com/jinsan02) | **Claude Code** | **Codex** |
 | 목표 · 판정 규칙 설계, 채택 결정, 운영 승인 | 하네스 · 엔진 패치 구현, 측정 체인 운영, 기록 | 최종 평가 F1 출제(30과제), 검증 실패 과제 수정 |
 
-## <img src="assets/icons/lightbulb.svg" width="26" align="top"> 2. 프로젝트 개요
+## 2. 프로젝트 개요
 
 | 항목 | 내용 |
 | --- | --- |
@@ -24,7 +24,7 @@
 | 필요성 (배경) | 로컬 LLM 튜닝 글은 많지만 대부분 몇 번 돌려 본 인상이나 처리량 숫자에서 끝난다. 같은 설정도 실행마다 결과가 흔들려서(30회 중 ±4회), 작은 표본으로는 좋아진 건지 우연인지 가릴 수 없다. 또 튜닝에 쓴 과제로 성능을 말하면 과적합을 걸러낼 수 없다. 그래서 **모든 측정을 재현 가능한 데이터(원장)로 남기고, 미리 정한 규칙으로만 판정하는 실험 체계**가 먼저 필요했다 |
 | 목표 | ① 정확도 우선: 정확도가 떨어지는 변경은 빨라도 버린다 ② 판정 근거가 되는 데이터: 모든 실행을 모델 · 엔진 · 설정 해시와 함께 원장 1행으로 ③ 튜닝과 분리된 최종 평가로 실제 실력 보고 |
 
-## <img src="assets/icons/layers.svg" width="26" align="top"> 3. 기술 스택
+## 3. 기술 스택
 
 | 영역 | 기술 | 쓰임 |
 | --- | --- | --- |
@@ -42,7 +42,7 @@
 | GPU · RAM | RTX 5070 Ti 16GB (sm_120) · RAM 32GB, 운영 중 VRAM 15.1GB · 남은 RAM 0.6~1.2GB |
 | 운영 설정 | M0 `UD-Q4_K_XL` · 엔진 E2 · 64K 문맥 · 노력치 high · 하네스 H12 · 샘플링 card-coding |
 
-## <img src="assets/icons/calendar-range.svg" width="26" align="top"> 4. WBS
+## 4. WBS
 
 8일, 커밋 230개(커밋 메시지 규칙상 `record` = 측정 기록, `feat` = 기능, `docs` = 문서). 날짜별 상세는 [위키 · WBS](https://github.com/jinsan02/strata-local-llm/wiki/WBS).
 
@@ -57,7 +57,7 @@
 | 11-24 | 실사용 · 출제 | X4 실제 클라이언트, E3 판정, F1 30과제 출제 · 검증, 워커 위임 규칙 | 19 |
 | 11-25 | 최종 평가 | H12 채택, F1 90회(68/90), 채점기 수정 · 재실행, 보고서 | 7 |
 
-## <img src="assets/icons/list-checks.svg" width="26" align="top"> 5. 요구사항 명세
+## 5. 요구사항 명세
 
 관점별 요구사항과 판정 기준. 상세(근거 · 측정 방법)는 [위키 · 요구사항 명세](https://github.com/jinsan02/strata-local-llm/wiki/요구사항-명세).
 
@@ -71,45 +71,45 @@
 | R6 | 엔진 | 엔진 변경은 출력이 같거나(손실 없음) 품질 관문 통과 | parity 비교 · 숨은 테스트 합 95% 이상 | E2 채택, E1 · E3 보류 · 미채택 |
 | R7 | 보안 | 모델 셸은 인터넷 · 임의 인터프리터 금지, 서버는 루프백 + API 키 | 허용 목록 · 프록시 · 실행 기록 감사 | 위반 1건 감사로 적발 · 무효 처리 |
 
-## <img src="assets/icons/database.svg" width="26" align="top"> 6. 실험 데이터 모델 (ERD)
+## 6. 실험 데이터 모델 (ERD)
 
 <img src="reports/figures/diagrams/03_data_model.png" width="900">
 
 원장 한 행 = 한 과제 × 한 회차 × 한 설정. 설명은 [위키 · 실험 데이터 모델](https://github.com/jinsan02/strata-local-llm/wiki/실험-데이터-모델).
 
-## <img src="assets/icons/network.svg" width="26" align="top"> 7. 주요 프로시저
+## 7. 주요 프로시저
 
 <img src="reports/figures/diagrams/01_architecture.png" width="900">
 
 측정 한 회가 과제에서 원장 · 판정까지 가는 데이터 흐름은 [위키 · 데이터 흐름](https://github.com/jinsan02/strata-local-llm/wiki/데이터-흐름), 최종 평가의 분리 구조는 [위키 · 평가 설계](https://github.com/jinsan02/strata-local-llm/wiki/평가-설계). 그림 원본(`.excalidraw`)은 [`reports/figures/diagrams/`](reports/figures/diagrams/)에 있어 [excalidraw.com](https://excalidraw.com) 에서 열어 고칠 수 있다.
 
-## <img src="assets/icons/chart-column.svg" width="26" align="top"> 8. 수행 결과
+## 8. 수행 결과
 
-### <img src="assets/icons/trending-up.svg" width="22" align="top"> 8-1. 같은 모델로 16/30 → 24/30
+### 8-1. 같은 모델로 16/30 → 24/30
 
 ![기준 조합의 변화](reports/figures/06_baseline_progress.png)
 
 모델 파일은 처음부터 끝까지 그대로다. 실패 로그를 유형별로 세어 원인을 좁히고(편집 적용 실패 · 도구 호출 수 부족), 원래 실패할 경우에만 동작하는 보정을 넣었다. 점선은 튜닝에 쓰지 않은 저장소로 잰 최종 평가(68/90)다.
 
-### <img src="assets/icons/scale.svg" width="22" align="top"> 8-2. 30회 짝 비교로 판정한 변경 19개
+### 8-2. 30회 짝 비교로 판정한 변경 19개
 
 ![채택 · 보류 · 기각](reports/figures/09_decisions.png)
 
 빈 원 = 같은 seed 의 대조군, 색 점 = 후보. 15회 · 9회 탐색에서 좋아 보였던 후보가 30회에서 뒤집힌 일이 세 번 있어서, 판정은 30회 짝 비교와 미리 정한 문턱으로만 했다. 속도 이득이 확실한 엔진 변경(E1 · E3)도 품질 관문을 못 넘어 쓰지 않았다.
 
-### <img src="assets/icons/flask-conical.svg" width="22" align="top"> 8-3. 최종 평가 F1: 68/90 (75.6%)
+### 8-3. 최종 평가 F1: 68/90 (75.6%)
 
 ![F1 유형별](reports/figures/07_f1_by_type.png)
 
 튜닝에 쓰지 않은 저장소 4개(attrs · click · dateutil · pluggy)에서 Codex 가 30과제를 만들고, 검증기(기준 실패 · 참조 통과 · 두 번 같은 결과 등)를 통과한 것만 3회씩 돌렸다. 버그 보고 · 실패 테스트 고치기는 34/36, 테스트 작성은 5/12. 이 결과로 워커에 넘길 일과 넘기지 않을 일을 나눴다. 상세는 [위키 · F1 최종 평가](https://github.com/jinsan02/strata-local-llm/wiki/F1-최종-평가).
 
-### <img src="assets/icons/zap.svg" width="22" align="top"> 8-4. 엔진 변경 E2: 긴 문맥 생성 속도 최대 2배
+### 8-4. 엔진 변경 E2: 긴 문맥 생성 속도 최대 2배
 
 ![E2 디코드 속도](reports/figures/08_e2_decode_speed.png)
 
 디코드 어텐션을 GQA 커널로 바꾼 변경. 출력이 원본 엔진과 비트 단위로 같음을 확인(parity 10/10, 긴 프롬프트 3/3)한 뒤 품질 재측정 없이 채택했다.
 
-### <img src="assets/icons/timer.svg" width="22" align="top"> 8-5. 측정 운영 화면
+### 8-5. 측정 운영 화면
 
 ![원장 누적](reports/figures/10_ledger_growth.png)
 
@@ -134,7 +134,7 @@ F1 체인 하루(09:01~17:29)의 실행 90회. 막대 하나가 실행 한 번�
 [g3] M0 loaded=True load_s=62 slots=42 vram_mib=15071 free_ram_gb=0.95
 ```
 
-## <img src="assets/icons/message-circle.svg" width="26" align="top"> 9. 한 줄 회고
+## 9. 한 줄 회고
 
 > 모델을 바꾸지 않아도 하네스와 판정 규칙만으로 통과율이 16/30 → 24/30 이 됐다. 가장 많이 배운 것은 '좋아 보인다'를 믿지 않는 법 — 15회에서 좋던 후보가 30회에서 세 번 뒤집혔고, 그래서 규칙을 측정 전에 정했다.
 
