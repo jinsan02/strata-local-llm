@@ -50,7 +50,7 @@ DEFAULTS = {"harness": "H0", "tool_out": "chars", "reasoning_echo": "none", "fin
             "ctx": 32768, "budget": 8192, "timeout": 1800, "test_timeout": 600, "repair": 1,
             # 11-22: 채택 하네스 · 노력치(docs/effort-20261122.md). 파일에 없으면 예전과 같은 값
             "sampling": "card-general", "edit_apply": "strict", "effort": None, "max_effort": "xhigh", "retry": "repair",
-            "syntax_check": "off", "code_tools": "off", "edit_strip": "off"}
+            "syntax_check": "off", "code_tools": "off", "edit_strip": "off", "h10": "off", "h11": "off"}
 
 
 def load_cfg(override: dict | None = None) -> dict:
@@ -246,6 +246,8 @@ def apply_harness(cfg: dict) -> None:
     x3.EDIT_APPLY = cfg["edit_apply"]
     x3.SYNTAX_CHECK = cfg["syntax_check"] == "on"
     x3.EDIT_STRIP = cfg["edit_strip"] == "on" and cfg["edit_apply"] == "lenient"   # 11-23 H9: lenient 마지막 단계로 줄마다 앞뒤 공백 무시 한 곳 일치
+    x3.H10 = cfg["h10"] == "on"   # 11-25 H12: 이미 적용된 블록 · 관대한 적용 문법 깨짐 거절 · 자기가 만든 파일 다시 쓰기
+    x3.H11 = cfg["h11"] == "on"   # 11-25 H12: 편집 뒤 새로 생긴 정의 안 된 이름 · 중복 정의 경고
 
 
 def reset_tree(root: Path) -> None:
@@ -328,6 +330,7 @@ def _delegate(task: str, repo: str, ref: str | None = None, files: list[str] | N
                 reset_tree(root)
                 msgs = build_msgs(name, task, files, test_cmd, code_tools=code_tools)
             a = loop_args(cfg, base, max_steps, ctx, lvl)
+            x3.CREATED_FILES.clear()   # H10 c: 시도마다
             nr = x3.navigate_loop(root, msgs, a, key, deny=(), chat=chat, counter=counter)
             read = x3.nav_read_ok(nr["tool_log"])
             applied, errs, fmt = x3.nav_apply_final(root, nr, sorted(p for p in read if p), ())
