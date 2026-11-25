@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Diagram Export</title>
+<style>@font-face{font-family:"Helvetica";src:url("NanumPenScript-Regular.ttf") format("truetype")}@font-face{font-family:"NanumPen";src:url("NanumPenScript-Regular.ttf") format("truetype")}body{font-family:"Malgun Gothic",sans-serif;background:#fffdf7;margin:16px} img{max-width:100%;border:1px solid #eee;margin:8px 0}</style>
+<script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@excalidraw/excalidraw@0.17.6/dist/excalidraw.production.min.js"></script>
+</head>
+<body>
+<div id="log">준비 중</div>
+<div id="out"></div>
+<script>
+// Tiny Lab: 손그림 상자 + 파스텔 칸 + Lucide 아이콘(ISC). 아이콘은 칸 색의 진한 단계로 칠한다.
+const LUCIDE = "https://unpkg.com/lucide-static@0.460.0/icons/";
+const names = { "01_architecture": "network", "02_run_dataflow": "workflow", "03_data_model": "database", "04_f1_separation": "shield-check" };
+const CHART_ICONS = ["trending-up", "flask-conical", "zap", "scale", "book-open", "timer"];
+const L = window.ExcalidrawLib;
+const svgCache = {};
+async function iconSvg(name, color, sw = 2) {
+  if (!svgCache[name]) svgCache[name] = await (await fetch(LUCIDE + name + ".svg")).text();
+  return svgCache[name].replace(/stroke="currentColor"/g, `stroke="${color}"`).replace(/stroke-width="2"/g, `stroke-width="${sw}"`);
+}
+const toDataURL = (svg) => "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svg)));
+let idn = 0;
+function imageEl(fileId, x, y, size) {
+  return { id: "img-" + (++idn), type: "image", x, y, width: size, height: size, angle: 0, strokeColor: "transparent", backgroundColor: "transparent",
+    fillStyle: "solid", strokeWidth: 1, strokeStyle: "solid", roughness: 0, opacity: 100, groupIds: [], frameId: null, roundness: null,
+    seed: 7 + idn, version: 1, versionNonce: 9 + idn, isDeleted: false, boundElements: null, updated: 1, link: null, locked: false,
+    status: "saved", fileId, scale: [1, 1] };
+}
+async function layout(els, files, titleIcon) {
+  const byId = Object.fromEntries(els.map(e => [e.id, e]));
+  const extra = [];
+  const addFile = async (icon, color) => {
+    const fid = icon + "-" + color.slice(1);
+    if (!files[fid]) files[fid] = { id: fid, mimeType: "image/svg+xml", dataURL: toDataURL(await iconSvg(icon, color)), created: 1 };
+    return fid;
+  };
+  for (const e of els) {
+    if (e.type === "rectangle" && e.customData && e.customData.stack && e.customData.stack.length) {
+      const ts = e.customData.stack.map(id => byId[id]);
+      const icon = e.customData.icon, IS = 38, gap = 6;
+      const headH = ts[0].height;
+      const total = ts.reduce((a, t) => a + t.height, 0) + gap * (ts.length - 1);
+      let y = e.y + (e.height - total) / 2;
+      ts.forEach((t, i) => {
+        if (i === 0 && icon) {
+          const rowW = IS + 12 + t.width, x0 = e.x + (e.width - rowW) / 2;
+          extra.push({ icon, color: e.customData.iconColor, x: x0, y: y + (headH - IS) / 2, size: IS });
+          t.x = x0 + IS + 12;
+        } else t.x = e.x + (e.width - t.width) / 2;
+        t.y = y; y += t.height + gap;
+      });
+    }
+    if (e.type === "text" && e.customData && e.customData.cx !== undefined) { e.x = e.customData.cx - e.width / 2; e.y = e.customData.cy - e.height / 2; }
+    if (e.type === "text" && e.customData && e.customData.titleIcon) {
+      extra.push({ icon: titleIcon, color: "#1971c2", x: e.x, y: e.y + (e.height - 48) / 2, size: 48 });
+      e.x += 62;
+    }
+  }
+  for (const x of extra) els.push(imageEl(await addFile(x.icon, x.color), x.x, x.y, x.size));
+  return els;
+}
+async function iconPng(name, color, px) {
+  const img = new Image(); img.src = toDataURL((await iconSvg(name, color, 2)).replace(/width="24"/, `width="${px}"`).replace(/height="24"/, `height="${px}"`));
+  await img.decode();
+  const c = document.createElement("canvas"); c.width = c.height = px; c.getContext("2d").drawImage(img, 0, 0, px, px);
+  return await new Promise(r => c.toBlob(r, "image/png"));
+}
+async function run() {
+  await document.fonts.load('32px Helvetica'); await document.fonts.load('32px NanumPen');
+  const results = [];
+  for (const [n, ti] of Object.entries(names)) {
+    const scene = await (await fetch(n + ".excalidraw")).json();
+    const files = {};
+    let els = L.restoreElements(scene.elements, null, { refreshDimensions: true });
+    els = await layout(els, files, ti);
+    const fixed = { type: "excalidraw", version: 2, source: "strata-local-llm", elements: els, appState: scene.appState, files };
+    await fetch("/save?name=" + n + ".excalidraw.json", { method: "POST", body: JSON.stringify(fixed) });
+    const blob = await L.exportToBlob({ elements: els, appState: { ...scene.appState, exportBackground: true, viewBackgroundColor: "#fffdf7" }, files, mimeType: "image/png", exportPadding: 28, getDimensions: (w, h) => ({ width: w * 2, height: h * 2, scale: 2 }) });
+    const r = await fetch("/save?name=" + n + ".png", { method: "POST", body: blob });
+    results.push(n + ": " + (await r.text()));
+    const img = document.createElement("img"); img.src = URL.createObjectURL(blob); document.getElementById("out").appendChild(img);
+  }
+  for (const ic of CHART_ICONS) {
+    const b = await iconPng(ic, "#1971c2", 128);
+    await fetch("/save?name=icon-" + ic + ".png", { method: "POST", body: b });
+  }
+  window.__done = "done | " + results.join(" | ");
+  document.getElementById("log").textContent = window.__done;
+}
+run().catch(e => { window.__done = "error " + (e.stack || e); document.getElementById("log").textContent = window.__done; });
+</script>
+</body>
+</html>
