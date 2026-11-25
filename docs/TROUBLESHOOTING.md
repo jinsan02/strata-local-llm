@@ -9,6 +9,7 @@
 
 | # | 날짜 | 제목 | 영역 | 상태 |
 | --- | --- | --- | --- | --- |
+| T-029 | 11-25 | 채점기 run_pytest 가 UTF-8 아닌 pytest 출력에서 죽어 실행 1회 유실 | eval | 해결 (errors=replace, 같은 seed 재실행) |
 | T-026 | 11-24 | `claude-desk.ps1 -p` 의 `-p` 가 다른 매개변수에 묶임 | infra | 해결 (param 블록 없이 직접 파싱) |
 | T-025 | 11-24 | 모델 셸이 인터넷에서 원본 저장소를 받음 (x4b dg r2) | eval · infra | 해결 (python -c 제외 · 프록시 · audit), 원시 소켓은 미차단 |
 | T-024 | 11-24 | 서버 재기동 때 새 서버가 바로 죽음: 이전 서버가 로그 파일을 잡음 | infra | 해결 (strata-up 이 먼저 내림) |
@@ -54,6 +55,20 @@
 ```
 
 ---
+
+## T-029 채점기 run_pytest 가 UTF-8 아닌 pytest 출력에서 죽어 실행 1회 유실
+- 날짜 · 단계 · 영역: 11-25 · F1 · eval
+- 상태: 해결 (2642ddc, 같은 seed 로 1회 재실행)
+### 발생 로그
+F1 click `f6_click_display_filename_r3` 채점(grade → grade_mutants → run_pytest)에서 subprocess 읽기 스레드가 `UnicodeDecodeError: 'utf-8' codec can't decode byte 0x80` 로 죽고, 이어 `out = r.stdout + r.stderr` 가 `TypeError: unsupported operand type(s) for +: 'NoneType' and 'str'`. 원장 줄 없음, 체인은 dateutil 로 계속.
+### 상황 분석
+`run_pytest` 가 `text=True` 만 주고 encoding · errors 를 안 줬다. 출력이 디코딩되지 않으면 stdout 이 None 이 된다. 같은 파일의 run_tests 도구는 이미 `errors="replace"` 였다. 모델이 쓴 테스트가 바이트를 출력한 것으로 추정(과제 내용은 보지 않음).
+### 영향
+그 1회만 유실. 나머지 89회는 출력이 UTF-8 이라 영향 없음.
+### 개선·조치
+`encoding="utf-8", errors="replace"` (2642ddc). 0x80 · 0xff 를 출력하는 테스트로 rc 1 · failed 1 · 대체 문자 확인. 같은 seed(44)로 r3 1회 재실행 → test_fail 0/8.
+### 재발 방지
+subprocess 로 남의 코드 출력을 읽는 곳은 모두 errors="replace". 채점 예외가 나도 원장에 grade_error 로 남기는 것은 후속 후보.
 
 ## T-028 STRATA 가 greedy(temperature 0)에서도 실행마다 다른 출력을 냄
 - 날짜 · 단계 · 영역: 11-24 · E3 V2 · engine
