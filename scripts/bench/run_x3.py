@@ -493,7 +493,7 @@ def run_pytest(root: Path, files: list[str]) -> dict:
     t0 = time.perf_counter()
     try:
         r = subprocess.run([PYX, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-o", "addopts=", "--tb=short", *files],
-                           cwd=root, capture_output=True, text=True, timeout=900, env=env)
+                           cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900, env=env)   # 11-25: 0x80 등 UTF-8 아닌 출력에 stdout None
         out = r.stdout + r.stderr
         rc = r.returncode
     except subprocess.TimeoutExpired:
