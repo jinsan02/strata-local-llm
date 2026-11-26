@@ -2,6 +2,10 @@
 서버 없음, numpy 만. 산출물은 work/stage/ 에 쓴다. python x3_combo.py"""
 # ── 1. 데이터셋 ──
 import csv, json, re, glob, os, collections, hashlib
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from tools.repo import error_type_of  # noqa: E402
 R="C:/strata-lab/"
 rows=list(csv.DictReader(open(R+"experiments/LEDGER.tsv",encoding="utf-8"),delimiter="\t"))
 cfgcache={}
@@ -16,8 +20,7 @@ for r in rows:
         if cfgcache[p] is not None:
             cfgcache[p]["_sha"]=hashlib.sha256(open(p,"rb").read()).hexdigest()
     cfg=cfgcache[p]
-    n=r["note"]; m=re.search(r"error_type (\w+)",n)
-    et=m.group(1) if m else "?"
+    et = error_type_of(r["note"]) or "?"
     tp=r["tests_passed"]
     if cfg is None: miss["nocfg"]+=1; continue
     mode=cfg.get("mode","?")
