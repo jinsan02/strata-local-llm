@@ -70,7 +70,9 @@ def run(tickets: list, bid: str) -> int:
             if lp.exists():
                 diff = json.loads(lp.read_text(encoding="utf-8")).get("diff", diff)
             r["worktree"] = sw.drop_tree(wid)
-        (out / f"{stem}.diff").write_text(diff or "", encoding="utf-8")
+        # newline="" : Windows 에서 \n 을 CRLF 로 바꾸면 LF 원본에 git apply 가 안 된다(T-031)
+        with open(out / f"{stem}.diff", "w", encoding="utf-8", newline="") as fh:
+            fh.write(diff or "")
         (out / f"{stem}.json").write_text(json.dumps({k: v for k, v in r.items() if k != "diff"}, ensure_ascii=False,
                                                      indent=1, default=str), encoding="utf-8")
         st = r.get("stats") or {}
