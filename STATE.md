@@ -105,6 +105,7 @@
 
 | 날짜 | 결정 | 근거 |
 | --- | --- | --- |
+| 11-26 | **세션 시작 점검 `scripts/local/session-start.ps1` 도입 (사용자)**: 11-24 조사 E1 후보 · learn-harness-engineering L06(초기화 단계). 작업 전에 git 상태 · 안 올린 커밋 · 작업 트리 · 도는 측정/워커 · 서버 · 디스크 · 원장 마지막 줄 · STATE '지금'을 한 번에 보고 '확인할 것'으로 모은다. 읽기만 한다 | `scripts/local/README.md` |
 | 11-26 | **기계적 몇 줄 편집은 짧은 명세로 맡겨도 클라우드 토큰이 줄지 않는다 → 위임은 직접 하면 요청이 많아질 일(여러 파일 읽기 · 테스트 반복)에 쓴다**: 정리 12티켓(위임 6 · 직접 6, 짝 고정). 위임 done 6/6 · 1회. 티켓당 시간 60 vs 21초, 클라우드 요청 2.0 vs 2.0, 캐시 읽기 28.3만 vs 28.9만, 캐시 읽기 뺀 합 4.2천 vs 2.7천, 단가 비율 환산 +6%. 로컬 티켓당 입력 1.7만 · 출력 1.8천. 같은 작업 A/B 아님 · 6쌍 | `docs/usage-measure-20261126.md` |
 | 11-26 | **실사용 시연 결과: 워커 주 경로 유지, 위임 기준 그대로**: STRATA 할 일 5건(사용자 승인). 위임 R1 · R2(티켓 5개) done 5/5 · handoff 0 · 합계 207초, R3 는 run_x3.py 가 문맥 50% 초과라 rejected → 지휘자 직접, R4(테스트 작성) · R5(문서)는 맡기지 않음. 티켓을 아주 구체적으로 쪼갠 결과라 일반화하지 않는다. 발견: 테스트 파일만 넘기면 '테스트 작성' 경고 오탐 | `docs/route-demo-20261126.md` |
 | 11-25 | **실사용 전 본체 정리 (사용자 선택)**: BF16 원본 66.2GB · Q8_0 35.2GB(11-24 '파일은 유지' 결정을 바꿈) · `work/llama.cpp` · `work/swe` · `work/engine-e1` · `engine/build` · `engine/build-e0` 삭제, 작업 사본 `work/x3-runs`(1,308개, 6.6GB)는 `work/x3-runs-20261125.zip`(4.6GB, 폴더 수 일치 확인 뒤)으로 바꿈. 합계 약 112.5GB, C: 여유 1,381 → 1,479GB. 남긴 것 M0 · E2(`work/engine-e2`) · E0 실행 파일 · `work/q1` 로그 · imatrix · final_eval | `work/stage/deleted-20261125.txt` |
@@ -190,6 +191,7 @@
 
 ## 최근 변경
 
+- 2026-11-26 · Claude Code · `session-start.ps1` 추가(별도 작업 트리에서 만들고 측정 세션이 끝난 뒤 main 에 합침). 함수 이름 `Git` 재귀 실수 C-044.
 - 2026-11-26 · Claude Code · 짧은 명세 위임 vs 직접 실측(브랜치 exp/usage-20261126 → main): subprocess text=True 에 encoding · errors 16곳(6개 파일), 박힌 저장소 경로를 `Path(__file__)` 루트로 17곳(6개 파일). 결과 [`docs/usage-measure-20261126.md`](docs/usage-measure-20261126.md). selftest_y Y6 는 flask 원본 폴더가 없어 멈춤(T-030).
 - 2026-11-26 · Claude Code · 실사용 시연(브랜치 demo/route-20261126 → main): route_summary.py(R1) · tools/repo.py error_type_of · is_pass 와 호출부 3곳(R2, 원장 1,554행 결과 동일) · run_x3 safe_grade → grade_error(R3, T-029 후속) · 워커 판단 규칙 CI 테스트 11개(R4) · bench README 갱신(R5). 결과 [`docs/route-demo-20261126.md`](docs/route-demo-20261126.md).
 - 2026-11-25 · Claude Code · 실사용 전 본체 정리(사용자 선택): 모델 BF16 · Q8_0, 안 쓰는 빌드 · 도구 · 점검 저장소 삭제, 작업 사본은 zip 으로. 약 112.5GB 확보(C: 여유 1,479GB). 노트북 X4 테스트 환경 · 출제 작업 폴더(178MB)도 삭제.
