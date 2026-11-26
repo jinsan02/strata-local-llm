@@ -2,6 +2,9 @@
 모델 · 서버 없음. python replay_edit_apply.py <run_x3.py 폴더> <set prefix ...>"""
 import sys, re, json, csv, pathlib, collections, shutil
 sys.path.insert(0, sys.argv[1])
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from tools.repo import error_type_of  # noqa: E402
 import run_x3 as x3  # noqa: E402
 
 R = pathlib.Path(r"C:\strata-lab")
@@ -103,7 +106,7 @@ def main():
                     continue
                 note = row["note"]
                 m = re.search(r"edit_file ok (\d+)", note)
-                et0 = re.search(r"error_type (\w+)", note).group(1)
+                et0 = error_type_of(note)
                 if not m or int(m.group(1)) > 0:
                     stats["skip_tool_edits"] += 1
                     continue
