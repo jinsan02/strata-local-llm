@@ -8,6 +8,10 @@
   python replay_lint.py <접두사...>     예: x3h9_ y9_ x3h9t_ y9t_ x3k64h7_
 """
 import ast, builtins, collections, csv, json, os, re, subprocess, sys, symtable
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from tools.repo import error_type_of  # noqa: E402
 
 RUNS = r"C:\strata-lab\work\x3-runs"
 LEDGER = r"C:\strata-lab\experiments\LEDGER.tsv"
@@ -70,9 +74,9 @@ def import_issue(root: str, repo: str, rel: str) -> str | None:
 def outcome():
     o = {}
     for r in csv.DictReader(open(LEDGER, encoding="utf-8"), delimiter="\t"):
-        m = re.search(r"error_type (\w+)", r["note"])
-        if m:
-            o[r["run_id"]] = m.group(1)
+        et = error_type_of(r["note"])
+        if et is not None:
+            o[r["run_id"]] = et
     return o
 
 
