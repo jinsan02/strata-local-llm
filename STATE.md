@@ -105,6 +105,7 @@
 
 | 날짜 | 결정 | 근거 |
 | --- | --- | --- |
+| 11-26 | **배치 위임은 클라우드를 아낀다(−45%), 읽기 요약은 아끼지 못한다(+34%) → 독립 티켓은 모아서 한 번에 맡기고, 스크립트로 답이 나오는 질문은 지휘자가 직접 한다**: 읽기 요약 6쌍(정확도 L 맞음 4 · 부분 1 · 틀림 1, C 6/6, 시간 11배), 배치 6티켓 vs 직접 6(요청 6 vs 13, 캐시 읽기 0.48배, 결과 같음, 시간 3.8배 · 버그 2요청 빼면 약 −66%). 비용은 요청 횟수가 정한다는 직전 결론을 확인 | [`docs/read-batch-measure-20261126.md`](docs/read-batch-measure-20261126.md) |
 | 11-26 | **세션 시작 점검 `scripts/local/session-start.ps1` 도입 (사용자)**: 11-24 조사 E1 후보 · learn-harness-engineering L06(초기화 단계). 작업 전에 git 상태 · 안 올린 커밋 · 작업 트리 · 도는 측정/워커 · 서버 · 디스크 · 원장 마지막 줄 · STATE '지금'을 한 번에 보고 '확인할 것'으로 모은다. 읽기만 한다 | `scripts/local/README.md` |
 | 11-26 | **기계적 몇 줄 편집은 짧은 명세로 맡겨도 클라우드 토큰이 줄지 않는다 → 위임은 직접 하면 요청이 많아질 일(여러 파일 읽기 · 테스트 반복)에 쓴다**: 정리 12티켓(위임 6 · 직접 6, 짝 고정). 위임 done 6/6 · 1회. 티켓당 시간 60 vs 21초, 클라우드 요청 2.0 vs 2.0, 캐시 읽기 28.3만 vs 28.9만, 캐시 읽기 뺀 합 4.2천 vs 2.7천, 단가 비율 환산 +6%. 로컬 티켓당 입력 1.7만 · 출력 1.8천. 같은 작업 A/B 아님 · 6쌍 | `docs/usage-measure-20261126.md` |
 | 11-26 | **실사용 시연 결과: 워커 주 경로 유지, 위임 기준 그대로**: STRATA 할 일 5건(사용자 승인). 위임 R1 · R2(티켓 5개) done 5/5 · handoff 0 · 합계 207초, R3 는 run_x3.py 가 문맥 50% 초과라 rejected → 지휘자 직접, R4(테스트 작성) · R5(문서)는 맡기지 않음. 티켓을 아주 구체적으로 쪼갠 결과라 일반화하지 않는다. 발견: 테스트 파일만 넘기면 '테스트 작성' 경고 오탐 | `docs/route-demo-20261126.md` |
@@ -191,6 +192,7 @@
 
 ## 최근 변경
 
+- 2026-11-26 · Claude Code · 읽기 요약 · 배치 위임 실측(브랜치 exp/read-batch-20261126 → main): 배치 실행기 `scripts/worker/batch.py`(--detach 로 WMI 분리 실행, diff 줄바꿈 수정 T-031), 정리 10개 파일(A 10 · B 4 · C 1곳). 결과 [`docs/read-batch-measure-20261126.md`](docs/read-batch-measure-20261126.md). 실수 C-045, 워커 읽기 전용 빈 답 T-032.
 - 2026-11-26 · Claude Code · `session-start.ps1` 추가(별도 작업 트리에서 만들고 측정 세션이 끝난 뒤 main 에 합침). 함수 이름 `Git` 재귀 실수 C-044.
 - 2026-11-26 · Claude Code · 짧은 명세 위임 vs 직접 실측(브랜치 exp/usage-20261126 → main): subprocess text=True 에 encoding · errors 16곳(6개 파일), 박힌 저장소 경로를 `Path(__file__)` 루트로 17곳(6개 파일). 결과 [`docs/usage-measure-20261126.md`](docs/usage-measure-20261126.md). selftest_y Y6 는 flask 원본 폴더가 없어 멈춤(T-030).
 - 2026-11-26 · Claude Code · 실사용 시연(브랜치 demo/route-20261126 → main): route_summary.py(R1) · tools/repo.py error_type_of · is_pass 와 호출부 3곳(R2, 원장 1,554행 결과 동일) · run_x3 safe_grade → grade_error(R3, T-029 후속) · 워커 판단 규칙 CI 테스트 11개(R4) · bench README 갱신(R5). 결과 [`docs/route-demo-20261126.md`](docs/route-demo-20261126.md).
