@@ -6,6 +6,7 @@
 | 스크립트 | 하는 일 |
 | --- | --- |
 | `strata-up.ps1` | 떠 있는 서버를 내리고 127.0.0.1 로 띄운다(64K · E2). `-Tailscale` · `-LlmMode` |
+| `session-start.ps1` | **작업 시작 전 한 번.** git 상태 · 안 올린 커밋 · 작업 트리 · 도는 측정/워커 · 서버(`strata-status.ps1`) · 디스크 · 원장 마지막 줄 · STATE '지금'을 한 화면에, 끝에 '확인할 것'. 읽기만 한다. `-Fetch` · `-StateLines N` |
 | `strata-status.ps1` | 프로세스 · 주소 · 응답 · RAM · GPU |
 | `strata-down.ps1` | 내리기 |
 | `claude-desk.ps1` | Claude Code 를 서버에 붙인다. `-TestEnv packaging|flask` 면 그 conda 환경으로 pytest 가 돌고 **인터넷은 막힌다**(프록시 변수). `-InFile <파일>` 은 지시문을 stdin 으로. 나머지 인자는 claude 에 그대로 |
