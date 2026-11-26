@@ -560,6 +560,17 @@ def grade(root: Path, task_cfg: dict, hidden_total: int) -> dict:
             "tools_ms": h["ms"] + g["ms"], "log": public, "log_full": full[-LOG_LIMIT:]}
 
 
+def safe_grade(root: Path, task_cfg: dict, hidden_total: int) -> dict:
+    """grade 를 부르고, 채점기 자체가 예외로 죽으면 실행을 잃지 않고 grade_error 로 돌려준다 (T-029 후속, 11-26).
+    예외 내용은 채점 기록(log_full)에만 남기고 모델에게 주는 log 에는 넣지 않는다."""
+    try:
+        return grade(root, task_cfg, hidden_total)
+    except Exception as e:   # noqa: BLE001 - 채점기 결함이 실행 유실로 번지지 않게
+        msg = f"{type(e).__name__}: {e}"[:200]
+        return {"ok": False, "hidden": f"0/{hidden_total}", "regress_ok": False, "regress": "NA (grade_error)",
+                "tools_ms": 0.0, "log": "채점기 오류로 결과 없음", "log_full": msg, "grade_error": msg}
+
+
 def error_type(applied: int, errs: list[str], gr: dict | None) -> str:
     if any("편집 블록 없음" in e for e in errs):
         return "no_edit"
@@ -567,6 +578,8 @@ def error_type(applied: int, errs: list[str], gr: dict | None) -> str:
         return "apply_fail"
     if gr is None:
         return "apply_fail"
+    if gr.get("grade_error"):   # 11-26 T-029 후속: 채점기 예외. 다시 잴 대상(실패로 세지 않는다)
+        return "grade_error"
     if gr["ok"]:
         return "pass" if not errs else "pass_partial_apply"
     if gr.get("mutants"):   # 11-23 Y3: 쓴 테스트의 기대값이 틀려 원본에서 실패하면 test_fail (y9 원장 5행은 import_or_syntax 로 찍힘)
@@ -1573,7 +1586,7 @@ def main() -> int:
                     ans1 = res.get("answer", "") if row.get("status") == "ok" else ""
                     applied, errs = apply_edits(root, ans1, tcfg["required_files"])
                     fmt1 = fmt_note()
-                    gr = grade(root, tcfg, hidden_total) if applied else None
+                    gr = safe_grade(root, tcfg, hidden_total) if applied else None
                     et = error_type(applied, errs, gr)
                     row["tests_passed"] = gr["hidden"] if gr else f"0/{hidden_total}"
                     t_model1 = float(row.get("total_ms") or 0)
@@ -1584,7 +1597,7 @@ def main() -> int:
                     (run_dir / f"answer_a1_r{i}.md").write_text(ans1, encoding="utf-8")
                     summary = {"run": run_name, "r": i, "a1": et, "a1_hidden": row["tests_passed"], "input": row.get("input_tokens")}
                     # 보완 1회
-                    if et not in ("pass",):
+                    if et not in ("pass", "grade_error"):   # grade_error 는 보완 요청을 보내지 않는다(모델 탓이 아님)
                         log = repair_feedback(errs, gr)
                         msgs = [{"role": "user", "content": prompt}, {"role": "assistant", "content": ans1 or "(답 없음)"},
                                 {"role": "user", "content": "위 편집을 적용하고 테스트를 돌린 결과다. 한 번만 고칠 기회가 있다. "
@@ -1598,7 +1611,7 @@ def main() -> int:
                         ans2 = res2.get("answer", "") if row2.get("status") == "ok" else ""
                         applied2, errs2 = apply_edits(root, ans2, tcfg["required_files"])
                         fmt2 = fmt_note()
-                        gr2 = grade(root, tcfg, hidden_total) if (applied2 or applied) else None
+                        gr2 = safe_grade(root, tcfg, hidden_total) if (applied2 or applied) else None
                         et2 = error_type(applied2 or applied, errs2, gr2)
                         row2["tests_passed"] = gr2["hidden"] if gr2 else f"0/{hidden_total}"
                         t_model2 = float(row2.get("total_ms") or 0)
@@ -1642,7 +1655,7 @@ def main() -> int:
                     read = nav_read_ok(tool_log)
                     found = [f for f in tcfg["required_files"] if f in read]
                     applied, errs, fmtn = nav_apply_final(root, nr, sorted(p for p in read if p), ("tests",))
-                    gr = grade(root, tcfg, hidden_total) if applied else None
+                    gr = safe_grade(root, tcfg, hidden_total) if applied else None
                     wall_ms = (time.perf_counter() - t_wall) * 1000
                     (run_dir / f"turns_r{i}.json").write_text(json.dumps(nr["turns"], ensure_ascii=False, indent=1), encoding="utf-8")
                     (run_dir / f"reasoning_r{i}.jsonl").write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in nr["reasoning"]), encoding="utf-8")
