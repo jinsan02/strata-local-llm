@@ -68,7 +68,7 @@ F1 click `f6_click_display_filename_r3` 채점(grade → grade_mutants → run_p
 ### 개선·조치
 `encoding="utf-8", errors="replace"` (2642ddc). 0x80 · 0xff 를 출력하는 테스트로 rc 1 · failed 1 · 대체 문자 확인. 같은 seed(44)로 r3 1회 재실행 → test_fail 0/8.
 ### 재발 방지
-subprocess 로 남의 코드 출력을 읽는 곳은 모두 errors="replace". 채점 예외가 나도 원장에 grade_error 로 남기는 것은 후속 후보.
+subprocess 로 남의 코드 출력을 읽는 곳은 모두 errors="replace". 채점 예외가 나도 원장에 grade_error 로 남긴다(11-26 df1ac2c, run_x3 safe_grade — 보완 요청은 보내지 않고 다시 잴 대상으로 본다).
 
 ## T-028 STRATA 가 greedy(temperature 0)에서도 실행마다 다른 출력을 냄
 - 날짜 · 단계 · 영역: 11-24 · E3 V2 · engine

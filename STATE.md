@@ -4,8 +4,8 @@
 
 ## 지금
 
-- 마지막 갱신: 2026-11-25
-- 단계: **X4(실사용 흐름) 진행 중.** 하네스 · 샘플링 · 양자화(Q1 종료) · 엔진(E2 채택, E1 보류, E3 미채택 11-24) · 문맥 길이(64K) 탐색은 끝났다. **F1 최종 평가 끝(11-25): 68/90 (75.6%)** — [`docs/f1-results-20261125.md`](docs/f1-results-20261125.md). 남은 것 = 최종 보고 · README · 라우팅 실사용 시연. 이전 '지금' 문단 원문은 [`docs/state-archive-20261124.md`](docs/state-archive-20261124.md)
+- 마지막 갱신: 2026-11-26
+- 단계: **X4(실사용 흐름) 진행 중.** 하네스 · 샘플링 · 양자화(Q1 종료) · 엔진(E2 채택, E1 보류, E3 미채택 11-24) · 문맥 길이(64K) 탐색은 끝났다. **F1 최종 평가 끝(11-25): 68/90 (75.6%)** — [`docs/f1-results-20261125.md`](docs/f1-results-20261125.md). **라우팅 실사용 시연 끝(11-26)**: 요청 5건 중 2건을 티켓 5개로 나눠 위임 → done 5/5, 1건은 위임 전 확인이 거절해 직접 — [`docs/route-demo-20261126.md`](docs/route-demo-20261126.md). 남은 것 = 최종 보고 정리. 이전 '지금' 문단 원문은 [`docs/state-archive-20261124.md`](docs/state-archive-20261124.md)
 - **운영 설정**: M0(Qwen3.6-35B-A3B UD-Q4_K_XL) · E2(E2a 켬) · 서버 64K · 노력치 high(강제 턴 55,296 · 호출 20) · 하네스 **H12**(H9 + H10 + H11, 11-25 채택 — [`docs/h12-results-20261125.md`](docs/h12-results-20261125.md)) · card-coding. 워커 `configs/worker.json` 도 H12 (9b2e80d)
 - **기준선**: X3 `x3h12` 23/30 · Y `y12` 24/30 (이전 H9: `x3h9` 24/30 · `y9` 21/30). 약점은 Y 의 테스트 쓰기 0/5 · flask 여러 곳 1/5, X3 metadata 2/5
 - **사용 형태 (11-24)**: 본체 안에서 쓴다. 서버 127.0.0.1(`scripts/local/strata-up.ps1` · `strata-status.ps1` · `strata-down.ps1`), 주 경로 = 워커(MCP `delegate_code_task`), 대화형 = 본체 Claude Code(`scripts/local/claude-desk.ps1 -TestEnv packaging|flask`, 모델이 pytest 실행 가능 · 인터넷 차단). 노트북에서 쓰려면 `strata-up.ps1 -Tailscale`
@@ -105,6 +105,7 @@
 
 | 날짜 | 결정 | 근거 |
 | --- | --- | --- |
+| 11-26 | **실사용 시연 결과: 워커 주 경로 유지, 위임 기준 그대로**: STRATA 할 일 5건(사용자 승인). 위임 R1 · R2(티켓 5개) done 5/5 · handoff 0 · 합계 207초, R3 는 run_x3.py 가 문맥 50% 초과라 rejected → 지휘자 직접, R4(테스트 작성) · R5(문서)는 맡기지 않음. 티켓을 아주 구체적으로 쪼갠 결과라 일반화하지 않는다. 발견: 테스트 파일만 넘기면 '테스트 작성' 경고 오탐 | `docs/route-demo-20261126.md` |
 | 11-25 | **실사용 전 본체 정리 (사용자 선택)**: BF16 원본 66.2GB · Q8_0 35.2GB(11-24 '파일은 유지' 결정을 바꿈) · `work/llama.cpp` · `work/swe` · `work/engine-e1` · `engine/build` · `engine/build-e0` 삭제, 작업 사본 `work/x3-runs`(1,308개, 6.6GB)는 `work/x3-runs-20261125.zip`(4.6GB, 폴더 수 일치 확인 뒤)으로 바꿈. 합계 약 112.5GB, C: 여유 1,381 → 1,479GB. 남긴 것 M0 · E2(`work/engine-e2`) · E0 실행 파일 · `work/q1` 로그 · imatrix · final_eval | `work/stage/deleted-20261125.txt` |
 | 11-25 | **F1 최종 평가 68/90 (75.6%, 예측 약 80%)**: 운영 설정(M0 · E2 · 64K · high · H12 · card-coding) 그대로. 강한 곳 버그 보고 · 실패 테스트(34/36), 약한 곳 테스트 작성 5/12 · 여러 파일 8/12 · pluggy 10/18. 출력 토큰이 예측의 1.7배. 실행 기록(prompt 포함)은 공개하지 않고 원장 줄만 공개(사용자, S1) | `docs/f1-results-20261125.md` |
 | 11-25 | **H12 채택 (판정 규칙 통과)**: x3h12 23/30 vs 24/30(숨은 96.9%, import_or_syntax 0 → 0), y12 24/30 vs 21/30(숨은 108%, import_or_syntax 5 → 0). 작동: H11 4회(y5 r1 · r5 의 NameError 를 고쳐 통과), H10 a 1회, H10 b 0회. 부호 검정은 유의하지 않음(6:4). F1 은 E2 + H12 로 | `docs/h12-results-20261125.md` |
@@ -188,6 +189,7 @@
 
 ## 최근 변경
 
+- 2026-11-26 · Claude Code · 실사용 시연(브랜치 demo/route-20261126 → main): route_summary.py(R1) · tools/repo.py error_type_of · is_pass 와 호출부 3곳(R2, 원장 1,554행 결과 동일) · run_x3 safe_grade → grade_error(R3, T-029 후속) · 워커 판단 규칙 CI 테스트 11개(R4) · bench README 갱신(R5). 결과 [`docs/route-demo-20261126.md`](docs/route-demo-20261126.md).
 - 2026-11-25 · Claude Code · 실사용 전 본체 정리(사용자 선택): 모델 BF16 · Q8_0, 안 쓰는 빌드 · 도구 · 점검 저장소 삭제, 작업 사본은 zip 으로. 약 112.5GB 확보(C: 여유 1,479GB). 노트북 X4 테스트 환경 · 출제 작업 폴더(178MB)도 삭제.
 - 2026-11-25 · Claude Code · F1 체인(09:01~17:15) 68/89 + 유실 1회 재실행(0/8) = 68/90. 채점기 run_pytest 디코딩 수정 2642ddc(T-029). 실행 기록 `experiments/runs/f1_*` 는 과제 prompt 를 담아 공개하지 않는다(S1, 본체에만, .gitignore) — 원장 줄만 공개(C-041). 결과 [`docs/f1-results-20261125.md`](docs/f1-results-20261125.md).
 - 2026-11-25 · Claude Code · H12 측정 끝: x3h12 23/30(11-24 밤, 사용자 요청으로 X3 뒤 체인 중단 · 사용자 모드) · y12 24/30(11-25 아침) → 규칙 통과, H12 채택. 결과 [`docs/h12-results-20261125.md`](docs/h12-results-20261125.md).
