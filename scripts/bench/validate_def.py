@@ -25,7 +25,7 @@ BENCH = re.compile(r"night-chain|matrix-[a-z0-9]+\.ps1|cache-chain|run_(x3|swe|b
 
 def measuring() -> str | None:
     ps = "Get-CimInstance Win32_Process | ForEach-Object { $_.CommandLine }"
-    out = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, errors="replace").stdout
+    out = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, encoding="utf-8", errors="replace").stdout
     return next((ln.strip()[:120] for ln in out.splitlines() if BENCH.search(ln) and "validate_def" not in ln), None)
 
 
@@ -41,7 +41,7 @@ def fresh(name: str) -> Path:
 
 def pytest(root: Path, files: list[str]) -> tuple[int, str]:
     r = subprocess.run([PYX, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-o", "addopts=", *files], cwd=root,
-                       capture_output=True, text=True, errors="replace",
+                       capture_output=True, text=True, encoding="utf-8", errors="replace",
                        env={**os.environ, "PYTHONPATH": str(root / "src"), "PYTHONDONTWRITEBYTECODE": "1"})
     tail = [ln for ln in r.stdout.splitlines() if re.search(r"\d+ (passed|failed|error)", ln)]
     return r.returncode, (tail[-1].strip("= ") if tail else r.stdout[-600:])

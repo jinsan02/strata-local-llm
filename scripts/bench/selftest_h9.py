@@ -89,7 +89,7 @@ def original(path):
 
 rescued = identical = parsed = 0
 kept_same = changed_how = 0
-for d in sorted((X.ROOT / "experiments" / "runs").iterdir()) if hasattr(X, "ROOT") else sorted(Path("C:/strata-lab/experiments/runs").iterdir()):
+for d in sorted((X.ROOT / "experiments" / "runs").iterdir()) if hasattr(X, "ROOT") else sorted((Path(__file__).resolve().parents[2] / "experiments" / "runs").iterdir()):
     if "_nav_" not in d.name:
         continue
     for f in sorted(d.glob("tools_r*.json")):

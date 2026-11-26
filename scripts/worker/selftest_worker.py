@@ -65,7 +65,7 @@ def main() -> int:
     r = w.delegate("calc.py 의 add 와 sub 가 반대로 계산한다. 고쳐라.", str(src), files=["calc.py"], test_cmd=TEST,
                    chat=chat, counter=lambda m, t: 500)
     ok1 = (r["status"] == "done" and r["tests"]["passed"] and r["attempts"] == 1 and "+    return a + b" in r["diff"]
-           and r["stats"]["bad_json"] == 1 and "먼저 볼 파일" in seen[0][1]["content"] and (src / "calc.py").read_text().count("a - b") == 1)
+           and r["stats"]["bad_json"] == 1 and "먼저 볼 파일" in seen[0][1]["content"] and (src / "calc.py").read_text(encoding="utf-8").count("a - b") == 1)
     print("1 한 번에 성공:", ok1, r["status"], r.get("diff_stat"))
     fails += [] if ok1 else ["1"]
 
@@ -112,7 +112,7 @@ def main() -> int:
             {"jsonrpc": "2.0", "id": 4, "method": "nope"},
             {"jsonrpc": "2.0", "id": 5, "method": "tools/call", "params": {"name": "discard_worktree", "arguments": {"worker_id": "..\\x"}}}]
     pr = subprocess.run([PY, str(HERE / "mcp_server.py")], input="\n".join(json.dumps(q, ensure_ascii=False) for q in reqs) + "\n",
-                        capture_output=True, text=True, encoding="utf-8", timeout=60)
+                        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
     resp = [json.loads(ln) for ln in pr.stdout.splitlines() if ln.strip()]
     by = {x["id"]: x for x in resp}
     st = json.loads(by[3]["result"]["content"][0]["text"]) if 3 in by else {}

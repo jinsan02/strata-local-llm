@@ -21,7 +21,7 @@ COMMIT = "6a69a83d8d89c6a01d554a8ad1b420cbb45fb4bc"
 
 
 def run(*a, cwd):
-    r = subprocess.run(list(a), cwd=cwd, capture_output=True, text=True, encoding="utf-8")
+    r = subprocess.run(list(a), cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if r.returncode:
         raise SystemExit(f"실패 {a}: {r.stderr[-800:]}")
     return r.stdout
@@ -556,7 +556,7 @@ def main() -> int:
             "hidden_test": "private/test_x3_hidden.py", "ref_patch": "private/ref.patch", "type": s["type"],
             "split": "confirm-only (11-19): 하네스 튜닝에 쓰지 않는다"}, ensure_ascii=False, indent=1), encoding="utf-8", newline="\n")
         # 고정 커밋 원본에 깨끗이 붙는지 (원본 작업 트리는 바꾸지 않음)
-        chk = subprocess.run(["git", "apply", "--check", str(out / "private" / "ref.patch")], cwd=SRC, capture_output=True, text=True)
+        chk = subprocess.run(["git", "apply", "--check", str(out / "private" / "ref.patch")], cwd=SRC, capture_output=True, text=True, encoding="utf-8", errors="replace")
         assert chk.returncode == 0, chk.stderr
         added = sum(1 for ln in patch.splitlines() if ln.startswith("+") and not ln.startswith("+++"))
         removed = sum(1 for ln in patch.splitlines() if ln.startswith("-") and not ln.startswith("---"))

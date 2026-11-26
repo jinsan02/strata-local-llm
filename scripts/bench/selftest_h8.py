@@ -40,7 +40,7 @@ exc = NL.join(["try:", "    pass", "except ValueError as err:", "    print(err)"
 check("except as 이름은 정의된 이름", h.lint_new("a.py", "", exc) == [], str(h.lint_new("a.py", "", exc)))
 
 # 2. 지시문 API 이름 · 원본 소스에서 '없는 것'
-ROOT = Path(r"C:\strata-lab")
+ROOT = Path(__file__).resolve().parents[2]
 TASKS = ROOT / "configs" / "eval" / "x3-packaging"
 SRC = ROOT / "work" / "packaging-src"
 expect_missing = {

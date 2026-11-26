@@ -12,11 +12,12 @@ import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]
 os.environ.setdefault("FINAL_PY", "C:/ProgramData/anaconda3/envs/x3_packaging/python.exe")
 sys.path.insert(0, str(HERE))
 import validate_final as V  # noqa: E402
 
-BUNDLE_SRC = Path("C:/strata-lab/work/x4/bundles/packaging.bundle")
+BUNDLE_SRC = ROOT / "work" / "x4" / "bundles" / "packaging.bundle"
 COMMIT = "6a69a83d8d89c6a01d554a8ad1b420cbb45fb4bc"
 F = "src/packaging/utils.py"
 L_VALUE = '    value = name.lower().replace("_", "-").replace(".", "-")'
@@ -26,7 +27,7 @@ L_VALID = '    if validate and not _validate_regex.fullmatch(name):'
 
 
 def sh(cwd, *a):
-    r = subprocess.run(["git", "-C", str(cwd), "-c", "core.autocrlf=false", *a], capture_output=True, text=True, encoding="utf-8")
+    r = subprocess.run(["git", "-C", str(cwd), "-c", "core.autocrlf=false", *a], capture_output=True, text=True, encoding="utf-8", errors="replace")
     assert r.returncode == 0, r.stderr
     return r.stdout
 

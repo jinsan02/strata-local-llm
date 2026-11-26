@@ -18,7 +18,7 @@ from pathlib import Path
 
 import probe_cache as pc
 
-ROOT = Path(r"C:\strata-lab")
+ROOT = Path(__file__).resolve().parents[2]
 MEM_PS = ("$o = Get-CimInstance Win32_OperatingSystem; $p = Get-CimInstance Win32_Process -Filter \"Name='strata.exe'\" | Select-Object -First 1; "
           "$pf = Get-CimInstance Win32_PageFileUsage | Select-Object -First 1; "
           "[pscustomobject]@{free_ram_gb = [math]::Round($o.FreePhysicalMemory / 1MB, 3); commit_free_gb = [math]::Round($o.FreeVirtualMemory / 1MB, 3); "
@@ -27,7 +27,7 @@ MEM_PS = ("$o = Get-CimInstance Win32_OperatingSystem; $p = Get-CimInstance Win3
 
 
 def mem() -> dict:
-    out = subprocess.run(["powershell", "-NoProfile", "-Command", MEM_PS], capture_output=True, text=True, timeout=60).stdout
+    out = subprocess.run(["powershell", "-NoProfile", "-Command", MEM_PS], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60).stdout
     try:
         return {"ts": time.strftime("%H:%M:%S"), **json.loads(out)}
     except json.JSONDecodeError:

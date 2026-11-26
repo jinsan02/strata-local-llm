@@ -18,7 +18,7 @@ ERROR_TYPE_RE = re.compile(r"error_type (\w+)")
 
 def repo_root() -> Path:
     out = subprocess.run(["git", "rev-parse", "--show-toplevel"],
-                         capture_output=True, text=True, timeout=20)
+                         capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20)
     if out.returncode == 0 and out.stdout.strip():
         return Path(out.stdout.strip())
     return Path(__file__).resolve().parents[1]

@@ -272,7 +272,7 @@ def visible_tests(root: Path, pyx: str, files: list[str]) -> str:
     env = {**os.environ, "PYTHONPATH": str(root / "src"), "PYTHONDONTWRITEBYTECODE": "1"}
     try:
         r = subprocess.run([pyx, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-o", "addopts=", "--tb=line", *files],
-                           cwd=root, capture_output=True, text=True, errors="replace", timeout=TEST_TIMEOUT, env=env)
+                           cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TEST_TIMEOUT, env=env)
     except subprocess.TimeoutExpired:
         return f"기존 테스트: {TEST_TIMEOUT}초 안에 끝나지 않음"
     out = (r.stdout or "") + (r.stderr or "")

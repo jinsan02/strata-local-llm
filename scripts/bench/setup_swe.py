@@ -36,7 +36,7 @@ def L(v):
 
 
 def sh(args, cwd=None, env=None, timeout=3600):
-    r = subprocess.run(args, cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout)
+    r = subprocess.run(args, cwd=cwd, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
     return r.returncode, r.stdout + r.stderr
 
 
