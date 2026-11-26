@@ -13,6 +13,7 @@ from pathlib import Path
 LEDGER = "experiments/LEDGER.tsv"
 NA = "NA"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+ERROR_TYPE_RE = re.compile(r"error_type (\w+)")
 
 
 def repo_root() -> Path:
@@ -62,3 +63,20 @@ def known_run_ids(root: Path, source: str = "worktree") -> set:
 
 def is_sha256(value: str) -> bool:
     return bool(SHA256_RE.match(value or ""))
+
+
+def error_type_of(note_or_row) -> str | None:
+    """원장 note 에서 error_type 표시의 첫 값을 읽는다."""
+    if isinstance(note_or_row, dict):
+        note = note_or_row.get("note")
+    else:
+        note = note_or_row
+    if not note:
+        return None
+    m = ERROR_TYPE_RE.search(note)
+    return m.group(1) if m else None
+
+
+def is_pass(note_or_row) -> bool:
+    """error_type 이 정확히 'pass' 일 때만 True 를 둔다."""
+    return error_type_of(note_or_row) == "pass"
