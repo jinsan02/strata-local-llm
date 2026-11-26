@@ -18,6 +18,9 @@ import sys
 import jinja2
 
 
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+
+
 def tojson(x, indent=None):
     return json.dumps(x, ensure_ascii=False, indent=indent)
 
@@ -43,8 +46,8 @@ def chunks(text: str, size: int) -> list[str]:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--v6", default=r"C:\strata-lab\data\calib\bartowski-v6")
-    ap.add_argument("--template", default=r"C:\strata-lab\data\packs\qwen36-ud-q4_k_xl\tokenizer\chat_template.jinja")
+    ap.add_argument("--v6", default=str(ROOT / "data" / "calib" / "bartowski-v6"))
+    ap.add_argument("--template", default=str(ROOT / "data" / "packs" / "qwen36-ud-q4_k_xl" / "tokenizer" / "chat_template.jinja"))
     ap.add_argument("--ours", required=True, help="build_calib.py 의 calib.txt")
     ap.add_argument("--out-v6", required=True, help="V6 만 렌더링한 파일")
     ap.add_argument("--out-mix", required=True, help="V6 + 우리 세트를 번갈아 섞은 파일")

@@ -61,8 +61,8 @@ t1 = cfg("y1_version_postdev_order")
 X.use_repo("packaging")
 r1 = X.fresh_copy("ytest-y1", Y / "y1_version_postdev_order" / t1["setup_patch"])
 vtxt = (r1 / "src/packaging/version.py").read_text(encoding="utf-8")
-st = subprocess.run(["git", "-C", str(r1), "status", "--porcelain"], capture_output=True, text=True).stdout.strip()
-log = subprocess.run(["git", "-C", str(r1), "log", "--format=%s", "-2"], capture_output=True, text=True).stdout.split()
+st = subprocess.run(["git", "-C", str(r1), "status", "--porcelain"], capture_output=True, text=True, encoding="utf-8", errors="replace").stdout.strip()
+log = subprocess.run(["git", "-C", str(r1), "log", "--format=%s", "-2"], capture_output=True, text=True, encoding="utf-8", errors="replace").stdout.split()
 check("setup: 버그가 들어감 · 작업 트리 깨끗 · setup 커밋", "if pre is None and dev is not None:" in vtxt and st == "" and log[0] == "setup", f"{st!r} {log}")
 
 # 2) Y3 쓰기 허용 + 돌연변이 채점

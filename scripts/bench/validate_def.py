@@ -14,9 +14,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-SRC = Path(r"C:\strata-lab\work\packaging-src")
-WORK = Path(r"C:\strata-lab\work\x3-validate")
-TASKS = Path(r"C:\strata-lab\configs\eval\x3-packaging")
+ROOT = Path(__file__).resolve().parents[2]
+SRC = ROOT / "work" / "packaging-src"
+WORK = ROOT / "work" / "x3-validate"
+TASKS = ROOT / "configs" / "eval" / "x3-packaging"
 PYX = r"C:\ProgramData\anaconda3\envs\x3_packaging\python.exe"
 COMMIT = "6a69a83d8d89c6a01d554a8ad1b420cbb45fb4bc"
 BENCH = re.compile(r"night-chain|matrix-[a-z0-9]+\.ps1|cache-chain|run_(x3|swe|bench|coding)\.py", re.I)

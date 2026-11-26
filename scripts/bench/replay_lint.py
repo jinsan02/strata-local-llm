@@ -13,8 +13,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from tools.repo import error_type_of  # noqa: E402
 
-RUNS = r"C:\strata-lab\work\x3-runs"
-LEDGER = r"C:\strata-lab\experiments\LEDGER.tsv"
+ROOT = Path(__file__).resolve().parents[2]
+RUNS = str(ROOT / "work" / "x3-runs")
+LEDGER = str(ROOT / "experiments" / "LEDGER.tsv")
 PY = {"packaging": r"C:\ProgramData\anaconda3\envs\x3_packaging\python.exe",
       "flask": r"C:\ProgramData\anaconda3\envs\swe_flask_5014\python.exe"}
 BUILTIN = set(dir(builtins)) | {"__file__", "__name__", "__doc__", "__spec__", "__loader__", "__package__", "__path__",
@@ -120,7 +121,7 @@ def main(prefixes):
     for r in rows:
         if r["S"] or r["I"]:
             print(f"- {r['run']} [{r['outcome']}] S={r['S'][:3]} I={r['I'][:2]}")
-    json.dump(rows, open(r"C:\strata-lab\work\stage\replay_lint.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    json.dump(rows, open(ROOT / "work" / "stage" / "replay_lint.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 
 
 if __name__ == "__main__":

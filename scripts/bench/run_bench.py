@@ -47,7 +47,7 @@ def canon(obj) -> bytes:
 
 
 def git(*args) -> str:
-    out = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True)
+    out = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace")
     return out.stdout.strip()
 
 
@@ -75,7 +75,7 @@ class Sampler(threading.Thread):
         while not self.stop_ev.is_set():
             try:
                 v = subprocess.run(["nvidia-smi", "--query-gpu=memory.used", "--format=csv,noheader,nounits"],
-                                   capture_output=True, text=True, timeout=5).stdout.split()
+                                   capture_output=True, text=True, timeout=5, encoding="utf-8", errors="replace").stdout.split()
                 if v:
                     self.peak_vram = max(self.peak_vram, int(v[0]))
             except Exception:
@@ -315,10 +315,10 @@ def main() -> int:
     cfg = {"args": {k: v for k, v in vars(a).items() if k not in ("note",)}, "sampling": SAMPLING,
            "server_config": server_cfg, "source_text": str(SOURCE_TEXT.relative_to(ROOT)),
            "source_text_sha256": sha256_bytes(SOURCE_TEXT.read_bytes())}
-    env = {"engine_commit": subprocess.run(["git", "rev-parse", "HEAD"], cwd=engine_dir, capture_output=True, text=True).stdout.strip(),
+    env = {"engine_commit": subprocess.run(["git", "rev-parse", "HEAD"], cwd=engine_dir, capture_output=True, text=True, encoding="utf-8", errors="replace").stdout.strip(),
            "engine_exe_sha256": sha256_bytes(Path(server_cfg["exe"]).read_bytes()) if server_cfg.get("exe") else None,
            "driver": subprocess.run(["nvidia-smi", "--query-gpu=driver_version,name", "--format=csv,noheader"],
-                                    capture_output=True, text=True).stdout.strip(),
+                                    capture_output=True, text=True, encoding="utf-8", errors="replace").stdout.strip(),
            "python": sys.version.split()[0]}
     config_sha, env_sha = sha256_bytes(canon(cfg)), sha256_bytes(canon(env))
     commit, dirty = git("rev-parse", "HEAD"), code_dirty()

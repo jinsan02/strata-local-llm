@@ -71,7 +71,7 @@ def grade(root: Path, case: dict, py: str) -> dict:
     subprocess.run(["git", "-C", str(root), "apply", str(CASES / case["instance_id"] / "private" / "test.patch")], check=True)
     t0 = time.perf_counter()
     r = subprocess.run([py, "-m", "pytest", "-rA", "-p", "no:cacheprovider", *case["test_files"]], cwd=root,
-                       capture_output=True, text=True, timeout=1800)
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=1800)
     ms = (time.perf_counter() - t0) * 1000
     st = {}
     for line in (r.stdout + r.stderr).splitlines():
@@ -107,7 +107,7 @@ def main() -> int:
     api_key = os.environ.get("STRATA_API_KEY", "strata-local")
     engine_dir = Path(r"C:\strata-lab\engine")
     server_cfg = json.loads((engine_dir / f"strata-qwen36-ctx{a.ctx}.json").read_text(encoding="utf-8"))
-    engine_commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=engine_dir, capture_output=True, text=True).stdout.strip()
+    engine_commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=engine_dir, capture_output=True, text=True, encoding="utf-8", errors="replace").stdout.strip()
     env = {"engine_commit": engine_commit, "engine_exe_sha256": rb.sha256_bytes(Path(server_cfg["exe"]).read_bytes()), "harness": "local conda"}
     env_sha = rb.sha256_bytes(rb.canon(env))
     commit, dirty = rb.git("rev-parse", "HEAD"), rb.code_dirty()

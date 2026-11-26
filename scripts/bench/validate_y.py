@@ -27,7 +27,7 @@ def rm(d: Path) -> None:
 
 def hidden_count(root: Path) -> int:
     c = subprocess.run([X.PYX, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider", "-o", "addopts=", "tests/test_x3_hidden.py"],
-                       cwd=root, capture_output=True, text=True, env={**__import__("os").environ, "PYTHONPATH": str(root / "src")})
+                       cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace", env={**__import__("os").environ, "PYTHONPATH": str(root / "src")})
     import re
     m = re.search(r"(\d+) tests? collected", c.stdout)
     return int(m.group(1)) if m else -1
@@ -63,7 +63,7 @@ def validate(task: str) -> dict:
     (base / "tests" / "test_x3_hidden.py").unlink()
     gb = X.grade(base, tcfg, total)
     ref = X.fresh_copy(f"yval-{task}-ref", setup)
-    ap = subprocess.run(["git", "apply", str(YSET / task / "private" / "ref.patch")], cwd=ref, capture_output=True, text=True)
+    ap = subprocess.run(["git", "apply", str(YSET / task / "private" / "ref.patch")], cwd=ref, capture_output=True, text=True, encoding="utf-8", errors="replace")
     gr = X.grade(ref, tcfg, total) if ap.returncode == 0 else None
     res.update({"hidden_total": total, "base_hidden": gb["hidden"], "base_regress": gb["regress"], "ref_apply": ap.returncode == 0 or ap.stderr[-300:],
                 "ref_hidden": gr["hidden"] if gr else None, "ref_regress": gr["regress"] if gr else None})

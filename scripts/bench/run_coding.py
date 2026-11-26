@@ -76,7 +76,7 @@ def count_tests(tests: Path) -> int | None:
         shutil.copy(tests, d)
         Path(d, "solution.py").write_text(stub, encoding="utf-8")
         r = subprocess.run([PY, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider", d],
-                           capture_output=True, text=True, timeout=120, cwd=d)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120, cwd=d)
         m = re.search(r"(\d+) tests? collected", r.stdout) or re.search(r"^(\d+) tests?", r.stdout, flags=re.M)
         if m:
             return int(m.group(1))
@@ -96,7 +96,7 @@ def run_tests(task: str, code: str | None) -> tuple[str, str]:
         Path(d, "solution.py").write_text(code, encoding="utf-8")
         try:
             r = subprocess.run([PY, "-m", "pytest", "-q", "--tb=line", "-p", "no:cacheprovider", d],
-                               capture_output=True, text=True, timeout=300, cwd=d)
+                               capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300, cwd=d)
         except subprocess.TimeoutExpired:
             return "0/NA", "테스트 시간 초과(300s)"
         out = r.stdout + r.stderr
@@ -138,10 +138,10 @@ def main() -> int:
     engine_dir = Path(r"C:\strata-lab\engine")
     cand = engine_dir / f"strata-qwen36-ctx{a.ctx}.json"
     server_cfg = json.loads((cand if cand.exists() else engine_dir / "strata-qwen36-ud-q4_k_xl.json").read_text(encoding="utf-8"))
-    env = {"engine_commit": subprocess.run(["git", "rev-parse", "HEAD"], cwd=engine_dir, capture_output=True, text=True).stdout.strip(),
+    env = {"engine_commit": subprocess.run(["git", "rev-parse", "HEAD"], cwd=engine_dir, capture_output=True, text=True, encoding="utf-8", errors="replace").stdout.strip(),
            "engine_exe_sha256": rb.sha256_bytes(Path(server_cfg["exe"]).read_bytes()),
            "driver": subprocess.run(["nvidia-smi", "--query-gpu=driver_version,name", "--format=csv,noheader"],
-                                    capture_output=True, text=True).stdout.strip()}
+                                    capture_output=True, text=True, encoding="utf-8", errors="replace").stdout.strip()}
     env_sha = rb.sha256_bytes(rb.canon(env))
     commit, dirty = rb.git("rev-parse", "HEAD"), rb.code_dirty()
     k = a.ctx // 1024

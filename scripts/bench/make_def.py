@@ -13,9 +13,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-SRC = Path(r"C:\strata-lab\work\packaging-src")
-DEV = Path(r"C:\strata-lab\work\x3-dev")
-TASKS = Path(r"C:\strata-lab\configs\eval\x3-packaging")
+ROOT = Path(__file__).resolve().parents[2]
+SRC = ROOT / "work" / "packaging-src"
+DEV = ROOT / "work" / "x3-dev"
+TASKS = ROOT / "configs" / "eval" / "x3-packaging"
 COMMIT = "6a69a83d8d89c6a01d554a8ad1b420cbb45fb4bc"
 
 

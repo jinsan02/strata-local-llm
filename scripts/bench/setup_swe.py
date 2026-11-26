@@ -11,10 +11,11 @@ import shutil
 import subprocess
 from pathlib import Path
 
-ROWS = Path(r"C:\strata-lab\work\swe_verified_rows.json")
+ROOT = Path(__file__).resolve().parents[2]
+ROWS = ROOT / "work/swe_verified_rows.json"
 REVISION = "78f471bf655a3137b2e8a75af1501690ec009ec3"
-OUT = Path(r"C:\strata-lab\configs\eval\swe-verified")
-WORK = Path(r"C:\strata-lab\work\swe")
+OUT = ROOT / "configs/eval/swe-verified"
+WORK = ROOT / "work/swe"
 CONDA = r"C:\ProgramData\anaconda3\Scripts\conda.exe"
 ENVS = Path(r"C:\ProgramData\anaconda3\envs")
 

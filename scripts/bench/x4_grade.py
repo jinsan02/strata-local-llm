@@ -46,7 +46,7 @@ def main() -> int:
     else:
         # 테스트 파일 수정은 채점 전에 버린다(과제 규칙: 테스트 파일은 고치지 않는다). 버린 경로는 tests_touched 로 남긴다
         args = ["git", "apply", "--whitespace=nowarn"] + [f"--exclude={p}" for p in bad] + [a.diff]
-        ap_ = subprocess.run(args, cwd=root, capture_output=True, text=True)
+        ap_ = subprocess.run(args, cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace")
         res["applied"] = ap_.returncode == 0
         if not res["applied"]:
             res.update({"error_type": "apply_fail", "apply_err": ap_.stderr[-400:]})
@@ -57,7 +57,7 @@ def main() -> int:
             probe = X.fresh_copy(f"x4-{a.run}-count", setup)
             (probe / "tests" / "test_x3_hidden.py").write_bytes((X.TASKS / a.task / "private" / "test_x3_hidden.py").read_bytes())
             c = subprocess.run([X.PYX, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider", "-o", "addopts=", "tests/test_x3_hidden.py"],
-                               cwd=probe, capture_output=True, text=True, env={**__import__("os").environ, "PYTHONPATH": str(probe / "src")})
+                               cwd=probe, capture_output=True, text=True, encoding="utf-8", errors="replace", env={**__import__("os").environ, "PYTHONPATH": str(probe / "src")})
             m = re.search(r"(\d+) tests? collected", c.stdout)
             total = int(m.group(1)) if m else 0
             subprocess.run(["cmd", "/c", "rmdir", "/s", "/q", str(probe)], capture_output=True)

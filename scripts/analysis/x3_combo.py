@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from tools.repo import error_type_of  # noqa: E402
-R="C:/strata-lab/"
+R=Path(__file__).resolve().parents[2].as_posix()+"/"
 rows=list(csv.DictReader(open(R+"experiments/LEDGER.tsv",encoding="utf-8"),delimiter="\t"))
 cfgcache={}
 out=[]; miss=collections.Counter()
@@ -45,7 +45,7 @@ print("et", collections.Counter(x["et"] for x in out))
 
 # ── 2. 조합별 집계 ──
 import json, re, collections, math
-R="C:/strata-lab/"
+R=Path(__file__).resolve().parents[2].as_posix()+"/"
 D=json.load(open(R+"work/stage/x3_dataset.json",encoding="utf-8"))
 TASKS=["dg_group_names","marker_extras","version_bump","tags_platform_filter","metadata_extra_dupes","specifier_bounds"]
 def samp(s):
@@ -78,7 +78,7 @@ json.dump(D,open(R+"work/stage/x3_dataset2.json","w",encoding="utf-8"),ensure_as
 
 # ── 3. 모델 · 그리드 ──
 import json, itertools, numpy as np, collections
-R="C:/strata-lab/"
+R=Path(__file__).resolve().parents[2].as_posix()+"/"
 D=json.load(open(R+"work/stage/x3_dataset2.json",encoding="utf-8"))
 TASKS=["dg_group_names","marker_extras","version_bump","tags_platform_filter","metadata_extra_dupes","specifier_bounds"]
 D=[x for x in D if x["task"] in TASKS and x["set"] not in ("x3q","x3n")]
