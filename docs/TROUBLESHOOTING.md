@@ -9,6 +9,7 @@
 
 | # | 날짜 | 제목 | 영역 | 상태 |
 | --- | --- | --- | --- | --- |
+| T-030 | 11-26 | selftest_y 3단계(Y6 flask)가 원본 폴더 없음으로 멈춤 | eval | 보류 (본체 정리 때 지운 것으로 보임) |
 | T-029 | 11-25 | 채점기 run_pytest 가 UTF-8 아닌 pytest 출력에서 죽어 실행 1회 유실 | eval | 해결 (errors=replace, 같은 seed 재실행) |
 | T-026 | 11-24 | `claude-desk.ps1 -p` 의 `-p` 가 다른 매개변수에 묶임 | infra | 해결 (param 블록 없이 직접 파싱) |
 | T-025 | 11-24 | 모델 셸이 인터넷에서 원본 저장소를 받음 (x4b dg r2) | eval · infra | 해결 (python -c 제외 · 프록시 · audit), 원시 소켓은 미차단 |
@@ -55,6 +56,19 @@
 ```
 
 ---
+
+## T-030 selftest_y 3단계(Y6 flask)가 원본 폴더 없음으로 멈춤
+
+- 날짜 · 단계 · 영역: 11-26 · 정리 실측 · eval
+- 상태: 보류 (환경 복구는 사용자 결정)
+### 발생 로그
+`python scripts/bench/selftest_y.py` 가 1 · 2단계 뒤 `run_x3.fresh_copy` 의 `git clone -q --no-checkout C:\strata-lab\work\swe\pallets__flask-5014-src ...` 에서 exit 128 (CalledProcessError).
+### 상황 분석
+본체에 `work\swe` 폴더가 없다. 11-25 실사용 전 본체 정리(작업 사본 zip)에서 지운 것으로 보인다. 인코딩 인자를 더한 이번 변경과는 무관(clone 원본이 없어서 멈춤).
+### 영향
+Y 세트 flask 과제(Y6)와 SWE flask 를 쓰는 점검 · 측정이 지금은 돌지 않는다. pytest 33개 · 다른 selftest 와는 무관.
+### 개선·조치
+기록만. 다시 쓸 때 `setup_swe.py` 로 다시 만들거나 zip 에서 푼다.
 
 ## T-029 채점기 run_pytest 가 UTF-8 아닌 pytest 출력에서 죽어 실행 1회 유실
 - 날짜 · 단계 · 영역: 11-25 · F1 · eval

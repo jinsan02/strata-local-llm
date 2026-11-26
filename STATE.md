@@ -105,6 +105,7 @@
 
 | 날짜 | 결정 | 근거 |
 | --- | --- | --- |
+| 11-26 | **기계적 몇 줄 편집은 짧은 명세로 맡겨도 클라우드 토큰이 줄지 않는다 → 위임은 직접 하면 요청이 많아질 일(여러 파일 읽기 · 테스트 반복)에 쓴다**: 정리 12티켓(위임 6 · 직접 6, 짝 고정). 위임 done 6/6 · 1회. 티켓당 시간 60 vs 21초, 클라우드 요청 2.0 vs 2.0, 캐시 읽기 28.3만 vs 28.9만, 캐시 읽기 뺀 합 4.2천 vs 2.7천, 단가 비율 환산 +6%. 로컬 티켓당 입력 1.7만 · 출력 1.8천. 같은 작업 A/B 아님 · 6쌍 | `docs/usage-measure-20261126.md` |
 | 11-26 | **실사용 시연 결과: 워커 주 경로 유지, 위임 기준 그대로**: STRATA 할 일 5건(사용자 승인). 위임 R1 · R2(티켓 5개) done 5/5 · handoff 0 · 합계 207초, R3 는 run_x3.py 가 문맥 50% 초과라 rejected → 지휘자 직접, R4(테스트 작성) · R5(문서)는 맡기지 않음. 티켓을 아주 구체적으로 쪼갠 결과라 일반화하지 않는다. 발견: 테스트 파일만 넘기면 '테스트 작성' 경고 오탐 | `docs/route-demo-20261126.md` |
 | 11-25 | **실사용 전 본체 정리 (사용자 선택)**: BF16 원본 66.2GB · Q8_0 35.2GB(11-24 '파일은 유지' 결정을 바꿈) · `work/llama.cpp` · `work/swe` · `work/engine-e1` · `engine/build` · `engine/build-e0` 삭제, 작업 사본 `work/x3-runs`(1,308개, 6.6GB)는 `work/x3-runs-20261125.zip`(4.6GB, 폴더 수 일치 확인 뒤)으로 바꿈. 합계 약 112.5GB, C: 여유 1,381 → 1,479GB. 남긴 것 M0 · E2(`work/engine-e2`) · E0 실행 파일 · `work/q1` 로그 · imatrix · final_eval | `work/stage/deleted-20261125.txt` |
 | 11-25 | **F1 최종 평가 68/90 (75.6%, 예측 약 80%)**: 운영 설정(M0 · E2 · 64K · high · H12 · card-coding) 그대로. 강한 곳 버그 보고 · 실패 테스트(34/36), 약한 곳 테스트 작성 5/12 · 여러 파일 8/12 · pluggy 10/18. 출력 토큰이 예측의 1.7배. 실행 기록(prompt 포함)은 공개하지 않고 원장 줄만 공개(사용자, S1) | `docs/f1-results-20261125.md` |
@@ -189,6 +190,7 @@
 
 ## 최근 변경
 
+- 2026-11-26 · Claude Code · 짧은 명세 위임 vs 직접 실측(브랜치 exp/usage-20261126 → main): subprocess text=True 에 encoding · errors 16곳(6개 파일), 박힌 저장소 경로를 `Path(__file__)` 루트로 17곳(6개 파일). 결과 [`docs/usage-measure-20261126.md`](docs/usage-measure-20261126.md). selftest_y Y6 는 flask 원본 폴더가 없어 멈춤(T-030).
 - 2026-11-26 · Claude Code · 실사용 시연(브랜치 demo/route-20261126 → main): route_summary.py(R1) · tools/repo.py error_type_of · is_pass 와 호출부 3곳(R2, 원장 1,554행 결과 동일) · run_x3 safe_grade → grade_error(R3, T-029 후속) · 워커 판단 규칙 CI 테스트 11개(R4) · bench README 갱신(R5). 결과 [`docs/route-demo-20261126.md`](docs/route-demo-20261126.md).
 - 2026-11-25 · Claude Code · 실사용 전 본체 정리(사용자 선택): 모델 BF16 · Q8_0, 안 쓰는 빌드 · 도구 · 점검 저장소 삭제, 작업 사본은 zip 으로. 약 112.5GB 확보(C: 여유 1,479GB). 노트북 X4 테스트 환경 · 출제 작업 폴더(178MB)도 삭제.
 - 2026-11-25 · Claude Code · F1 체인(09:01~17:15) 68/89 + 유실 1회 재실행(0/8) = 68/90. 채점기 run_pytest 디코딩 수정 2642ddc(T-029). 실행 기록 `experiments/runs/f1_*` 는 과제 prompt 를 담아 공개하지 않는다(S1, 본체에만, .gitignore) — 원장 줄만 공개(C-041). 결과 [`docs/f1-results-20261125.md`](docs/f1-results-20261125.md).
